@@ -1,6 +1,10 @@
 import { Redis } from '@upstash/redis';
 
-const redis = Redis.fromEnv();
+// Otomatis membaca KV_REST_API_URL / STORAGE_REST_API_URL dari Vercel
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export async function POST(request) {
   const startTime = Date.now();
@@ -40,6 +44,6 @@ export async function GET() {
     const logs = rawLogs.map((item) => (typeof item === 'string' ? JSON.parse(item) : item));
     return Response.json({ success: true, data: logs });
   } catch (err) {
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
