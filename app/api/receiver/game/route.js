@@ -19,7 +19,9 @@ async function analyzeWithGemini(payload) {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Ganti ke model gemini-2.5-flash yang aktif
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `
     Kamu adalah validator webhook otomatis. Analisis data JSON berikut:
@@ -35,7 +37,6 @@ async function analyzeWithGemini(payload) {
     const result = await model.generateContent(prompt);
     const textResponse = result.response.text().trim();
     
-    // Membersihkan format markdown jika AI menyertakan ```json ... ```
     const cleanJson = textResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
     return JSON.parse(cleanJson);
   } catch (err) {
@@ -52,10 +53,8 @@ export async function POST(request) {
   try {
     const payload = await request.json();
 
-    // 1. Jalankan analisis Gemini AI
     const aiAnalysis = await analyzeWithGemini(payload);
 
-    // 2. Simpan ke Redis
     const logData = {
       id: crypto.randomUUID(),
       payload,
