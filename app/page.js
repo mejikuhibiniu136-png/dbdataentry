@@ -143,7 +143,6 @@ export default function DashboardPage() {
       userCounts[user] = (userCounts[user] || 0) + 1;
     }
 
-    // Extract Floor (Abaikan markdown **)
     const cleanDesc = desc.replace(/\*\*/g, '');
     const floorMatch = cleanDesc.match(/Floor Reached:\s*(\d+)/i);
     if (floorMatch) {
@@ -151,7 +150,6 @@ export default function DashboardPage() {
       if (floorNum > maxFloor) maxFloor = floorNum;
     }
 
-    // Extract Unit & Highest Rarity
     if (title.includes('New Unit') || cleanDesc.includes('Rarity:')) {
       totalUnits += 1;
       const rarityMatch = cleanDesc.match(/Rarity:\s*([^\n]+)/i);
@@ -280,7 +278,7 @@ export default function DashboardPage() {
           </small>
         </div>
 
-        {/* Kartu Gabungan Highest Floor & Highest Unit Rarity */}
+        {/* Kartu Khusus Anime Dice */}
         {filterType === 'ANIME_DICE' && (
           <>
             <div style={cardStyle}>
