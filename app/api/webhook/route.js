@@ -5,14 +5,12 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 
 const redis = new Redis({ url, token });
 
-// Cache status lokal di memori Vercel Instance (Tahan hingga 30 detik)
 let cachedStatus = null;
 let lastCacheTime = 0;
 
 export async function POST(request) {
   const now = Date.now();
 
-  // Hanya query DB jika cache sudah expired (lebih dari 30 detik)
   if (cachedStatus === null || now - lastCacheTime > 30000) {
     try {
       const isEnabled = await redis.get('webhook:status');
@@ -23,21 +21,30 @@ export async function POST(request) {
     }
   }
 
-  // Jika status OFF, langsung REJECT instan tanpa sentuh Redis!
   if (!cachedStatus) {
     return Response.json({
       success: false,
-      message: 'Webhook receiver is OFF. Request rejected immediately (0 DB commands used).'
+      message: 'Webhook receiver is OFF.'
     }, { status: 503 });
   }
 
-  // Jika status ON, jalankan simpan log
   try {
     const startTime = Date.now();
     const payload = await request.json();
-    const eventType = request.headers.get('x-github-event') || 
+
+    // Deteksi Otomatis Event Anime Dice
+    let eventType = request.headers.get('x-github-event') || 
                       request.headers.get('x-event-type') || 
                       'Custom Webhook';
+
+    const embedTitle = payload?.embeds?.[0]?.title || '';
+    if (embedTitle.includes('Tower')) {
+      eventType = 'Anime Dice (Tower)';
+    } else if (embedTitle.includes('Unit')) {
+      eventType = 'Anime Dice (Unit)';
+    } else if (payload?.embeds?.length > 0) {
+      eventType = 'Anime Dice';
+    }
 
     const processingTime = Date.now() - startTime;
 
@@ -58,6 +65,16 @@ export async function POST(request) {
       message: 'Data tersimpan ke dbdataentry'
     }, { status: 200 });
 
+  } catch (err) {
+    return Response.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const rawLogs = await redis.lrange('webhook_logs', 0, 199);
+    const logs = rawLogs.map((item) => typeof item === 'string' ? JSON.parse(item) : item);
+    return Response.json({ success: true, data: logs });
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });
   }
