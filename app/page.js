@@ -135,10 +135,10 @@ export default function DashboardPage() {
     );
   };
 
-  // Analisis Statistik Real-time Game
   let maxFloor = 0;
   let totalUnits = 0;
   let highestRarity = '-';
+  const lootSummary = {};
   const rarityPriority = ['Secret', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
   const userCounts = {};
 
@@ -155,11 +155,24 @@ export default function DashboardPage() {
     }
 
     const cleanDesc = desc.replace(/\*\*/g, '');
+    
     const floorMatch = cleanDesc.match(/Floor Reached:\s*(\d+)/i);
     if (floorMatch) {
       const floorNum = parseInt(floorMatch[1], 10);
       if (floorNum > maxFloor) maxFloor = floorNum;
     }
+
+    const lootLines = cleanDesc.split('\n');
+    lootLines.forEach(line => {
+      const match = line.match(/^\s*([A-Za-z0-9\s]+):\s*x?(\d+)/);
+      if (match) {
+        const itemName = match[1].trim();
+        const quantity = parseInt(match[2], 10);
+        if (itemName !== 'Floor Reached' && itemName !== 'Name' && itemName !== 'Drops') {
+          lootSummary[itemName] = (lootSummary[itemName] || 0) + quantity;
+        }
+      }
+    });
 
     if (title.includes('New Unit') || cleanDesc.includes('Rarity:')) {
       totalUnits += 1;
@@ -199,7 +212,6 @@ export default function DashboardPage() {
   });
 
   const animeDiceCount = logs.filter(isAnimeDiceLog).length;
-
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box' }}>
       
@@ -392,6 +404,42 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {filterType === 'ANIME_DICE' && Object.keys(lootSummary).length > 0 && (
+            <div style={{
+              backgroundColor: '#0f172a',
+              border: '1px solid #3b82f6',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '24px',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🎁 Total Looting Accumulation
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: '12px'
+              }}>
+                {Object.entries(lootSummary).map(([item, count]) => (
+                  <div key={item} style={{
+                    backgroundColor: '#020617',
+                    border: '1px solid #1e293b',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: '500' }}>{item}</span>
+                    <span style={{ fontSize: '14px', color: '#4ade80', fontWeight: 'bold' }}>x{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
             <input 
               type="text" 
@@ -485,7 +533,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* FORMAT ROBLOX */}
                     {p.username || p.displayName ? (
                       <div style={{
                         backgroundColor: '#020617',
@@ -526,7 +573,6 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : embed ? (
-                      /* FORMAT EMBED DISCORD */
                       <div style={{
                         backgroundColor: '#020617',
                         borderLeft: `4px solid ${embed.color ? '#' + embed.color.toString(16) : '#38bdf8'}`,
