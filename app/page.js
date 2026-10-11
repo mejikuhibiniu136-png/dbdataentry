@@ -130,6 +130,8 @@ export default function DashboardPage() {
   // --- Analisis Statistik Real-time ---
   let maxFloor = 0;
   let totalUnits = 0;
+  let highestRarity = '-';
+  const rarityPriority = ['Secret', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
   const userCounts = {};
 
   logs.forEach(log => {
@@ -141,14 +143,30 @@ export default function DashboardPage() {
       userCounts[user] = (userCounts[user] || 0) + 1;
     }
 
-    const floorMatch = desc.match(/Floor Reached:\s*(\d+)/i);
+    // Extract Floor (Abaikan markdown **)
+    const cleanDesc = desc.replace(/\*\*/g, '');
+    const floorMatch = cleanDesc.match(/Floor Reached:\s*(\d+)/i);
     if (floorMatch) {
       const floorNum = parseInt(floorMatch[1], 10);
       if (floorNum > maxFloor) maxFloor = floorNum;
     }
 
-    if (title.includes('New Unit')) {
+    // Extract Unit & Highest Rarity
+    if (title.includes('New Unit') || cleanDesc.includes('Rarity:')) {
       totalUnits += 1;
+      const rarityMatch = cleanDesc.match(/Rarity:\s*([^\n]+)/i);
+      if (rarityMatch) {
+        const foundRarity = rarityMatch[1].trim();
+        if (highestRarity === '-') {
+          highestRarity = foundRarity;
+        } else {
+          const currentIdx = rarityPriority.indexOf(highestRarity);
+          const foundIdx = rarityPriority.indexOf(foundRarity);
+          if (foundIdx !== -1 && (currentIdx === -1 || foundIdx < currentIdx)) {
+            highestRarity = foundRarity;
+          }
+        }
+      }
     }
   });
 
@@ -251,7 +269,7 @@ export default function DashboardPage() {
         gap: '16px',
         marginBottom: '24px'
       }}>
-        {/* Gabungan Latency DB & API Webhook */}
+        {/* Latency DB & API */}
         <div style={cardStyle}>
           <span style={cardTitle}>System Latency</span>
           <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80', marginTop: '6px' }}>
@@ -262,21 +280,28 @@ export default function DashboardPage() {
           </small>
         </div>
 
-        <div style={cardStyle}>
-          <span style={cardTitle}>Highest Floor</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#c084fc', marginTop: '8px' }}>
-            {maxFloor ? `Floor ${maxFloor}` : '-'}
-          </div>
-          <small style={{ color: '#64748b' }}>Tower Record</small>
-        </div>
+        {/* Kartu Gabungan Highest Floor & Highest Unit Rarity */}
+        {filterType === 'ANIME_DICE' && (
+          <>
+            <div style={cardStyle}>
+              <span style={cardTitle}>Tower & Rare Unit</span>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c084fc', marginTop: '6px' }}>
+                {maxFloor ? `Floor ${maxFloor}` : 'Floor: -'}
+              </div>
+              <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '12px', fontWeight: 'bold' }}>
+                Rare Unit: {highestRarity}
+              </small>
+            </div>
 
-        <div style={cardStyle}>
-          <span style={cardTitle}>New Units Gained</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#34d399', marginTop: '8px' }}>
-            {totalUnits}
-          </div>
-          <small style={{ color: '#64748b' }}>Units Dropped</small>
-        </div>
+            <div style={cardStyle}>
+              <span style={cardTitle}>New Units Gained</span>
+              <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#34d399', marginTop: '8px' }}>
+                {totalUnits}
+              </div>
+              <small style={{ color: '#64748b' }}>Units Dropped</small>
+            </div>
+          </>
+        )}
 
         <div style={cardStyle}>
           <span style={cardTitle}>Top Active User</span>
@@ -294,7 +319,7 @@ export default function DashboardPage() {
           <small style={{ color: '#64748b' }}>Game Events</small>
         </div>
 
-        {/* Gabungan DB Commands, DB Storage, dan DB Bandwidth */}
+        {/* DB Stats & Health */}
         <div style={cardStyle}>
           <span style={cardTitle}>DB Stats & Health</span>
           <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308', marginTop: '6px' }}>
