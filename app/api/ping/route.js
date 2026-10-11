@@ -9,22 +9,31 @@ export async function GET() {
   const startDb = Date.now();
   
   try {
-    // 1. Ukur Ping Latency DB
     await redis.ping();
     const dbPing = Date.now() - startDb;
 
-    // 2. Ambil Total Log
     const totalLogs = await redis.llen('webhook_logs');
 
-    // 3. Estimasi Penggunaan Memori (Asumsi rata-rata 1 log JSON ~ 500 byte)
+    // Estimasi ukuran per log ~ 500 byte
     const estimatedBytes = totalLogs * 500;
     const usedFormatted = (estimatedBytes / (1024 * 1024)).toFixed(3) + ' MB';
     const percentage = ((estimatedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
+
+    // Estimasi DB Commands: 2 perintah per webhook (LPUSH + LTRIM) + 2 perintah per polling dashboard (PING + LLEN)
+    const commandsCount = totalLogs * 2;
+
+    // Estimasi Bandwidth: Total payload byte + overhead header (asumsi ~800 byte per request)
+    const totalBandwidthBytes = totalLogs * 800;
+    const bandwidthFormatted = totalBandwidthBytes > 1024 * 1024 
+      ? (totalBandwidthBytes / (1024 * 1024)).toFixed(2) + ' MB'
+      : (totalBandwidthBytes / 1024).toFixed(1) + ' KB';
 
     return Response.json({
       status: 'online',
       dbPing: `${dbPing}ms`,
       totalLogs,
+      commandsCount,
+      bandwidthFormatted,
       usage: {
         usedFormatted,
         limitFormatted: '256 MB',
