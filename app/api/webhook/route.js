@@ -22,10 +22,7 @@ export async function POST(request) {
   }
 
   if (!cachedStatus) {
-    return Response.json({
-      success: false,
-      message: 'Webhook receiver is OFF.'
-    }, { status: 503 });
+    return Response.json({ success: false, message: 'Receiver is OFF.' }, { status: 503 });
   }
 
   try {
@@ -34,15 +31,14 @@ export async function POST(request) {
 
     let eventType = request.headers.get('x-github-event') || 
                       request.headers.get('x-event-type') || 
-                      'Custom Webhook';
+                      payload?.event || 
+                      payload?.eventType;
 
-    const embedTitle = payload?.embeds?.[0]?.title || '';
-    if (embedTitle.includes('Tower')) {
-      eventType = 'Anime Dice (Tower)';
-    } else if (embedTitle.includes('Unit')) {
-      eventType = 'Anime Dice (Unit)';
-    } else if (payload?.embeds?.length > 0) {
-      eventType = 'Anime Dice';
+    const embedTitle = payload?.embeds?.[0]?.title;
+    if (embedTitle) {
+      eventType = embedTitle;
+    } else if (!eventType) {
+      eventType = 'Custom Webhook';
     }
 
     const processingTime = Date.now() - startTime;
@@ -58,23 +54,24 @@ export async function POST(request) {
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
 
-    // Kirim Auto Alert ke Discord/Telegram jika ENV terpasang
-    const alertWebhook = process.env.DISCORD_ALERT_WEBHOOK;
-    if (alertWebhook) {
-      fetch(alertWebhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `🚀 **New Webhook Event:** ${eventType}\nUser: ${payload?.content || 'Unknown'}`
-        })
-      }).catch(e => console.error('Alert error:', e));
+    // OTOMATIS SYNC STATUS AKUN JIKA MERUPAKAN PAYLOAD ROBLOX/GAME
+    const accUsername = payload?.username;
+    if (accUsername) {
+      const accountData = {
+        username: accUsername,
+        displayName: payload.displayName || accUsername,
+        status: payload.event || 'ONLINE',
+        scriptName: payload.gameName || 'Anime Dice',
+        avatarUrl: payload.avatarUrl || '',
+        jobId: payload.jobId || '',
+        lastUpdate: new Date().toISOString()
+      };
+      await redis.hset('account_status', {
+        [accUsername]: JSON.stringify(accountData)
+      });
     }
 
-    return Response.json({
-      success: true,
-      latency: `${processingTime}ms`,
-      message: 'Data tersimpan ke dbdataentry'
-    }, { status: 200 });
+    return Response.json({ success: true, message: 'Data webhook tersimpan' }, { status: 200 });
 
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });
