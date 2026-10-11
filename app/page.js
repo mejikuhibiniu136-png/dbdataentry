@@ -78,21 +78,29 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchUser();
-    fetchWebhookStatus();
-    fetchMetrics();
-    fetchLogs();
+  fetchUser();
+  fetchWebhookStatus();
+  fetchMetrics();
+  fetchLogs();
 
-    const now = new Date();
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    setCurrentDate(now.toLocaleDateString('id-ID', options));
+  const now = new Date();
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  setCurrentDate(now.toLocaleDateString('id-ID', options));
 
-    const interval = setInterval(() => {
+  // Hanya jalankan auto-refresh/ping ke DB jika Webhook dalam posisi ON
+  let interval = null;
+  if (webhookEnabled) {
+    interval = setInterval(() => {
       fetchMetrics();
       fetchLogs();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    }, 10000); // Diubah dari 5 detik ke 10 detik agar hemat DB command
+  }
+
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}, [webhookEnabled]);
+
 
   const filteredLogs = logs.filter((log) => 
     log.eventType.toLowerCase().includes(search.toLowerCase()) ||
