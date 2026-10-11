@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [currentDate, setCurrentDate] = useState('');
+  const [webhookEnabled, setWebhookEnabled] = useState(true);
 
   const fetchUser = async () => {
     try {
@@ -18,6 +19,31 @@ export default function DashboardPage() {
       if (data.username) setUsername(data.username);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchWebhookStatus = async () => {
+    try {
+      const res = await fetch('/api/webhook/toggle');
+      const data = await res.json();
+      setWebhookEnabled(data.enabled);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleWebhook = async () => {
+    const newStatus = !webhookEnabled;
+    setWebhookEnabled(newStatus);
+    try {
+      await fetch('/api/webhook/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newStatus })
+      });
+    } catch (e) {
+      console.error(e);
+      setWebhookEnabled(!newStatus);
     }
   };
 
@@ -53,6 +79,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchUser();
+    fetchWebhookStatus();
     fetchMetrics();
     fetchLogs();
 
@@ -99,7 +126,38 @@ export default function DashboardPage() {
             {currentDate ? `${currentDate} • ` : ''}User: <strong style={{ color: '#38bdf8' }}>{username || 'Loading...'}</strong>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+            <span style={{ fontSize: '12px', color: webhookEnabled ? '#4ade80' : '#f43f5e', fontWeight: 'bold' }}>
+              WEBHOOK: {webhookEnabled ? 'ON' : 'OFF'}
+            </span>
+            <button 
+              onClick={handleToggleWebhook} 
+              style={{
+                width: '40px',
+                height: '20px',
+                backgroundColor: webhookEnabled ? '#22c55e' : '#64748b',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'background-color 0.2s'
+              }}
+            >
+              <div style={{
+                width: '16px',
+                height: '16px',
+                backgroundColor: '#fff',
+                borderRadius: '50%',
+                position: 'absolute',
+                top: '2px',
+                left: webhookEnabled ? '22px' : '2px',
+                transition: 'left 0.2s'
+              }} />
+            </button>
+          </div>
+
           <button onClick={() => { fetchMetrics(); fetchLogs(); }} style={btnStyle}>
             Refresh Data
           </button>
@@ -109,7 +167,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Grid Metrik Utama - 6 Kartu */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -167,7 +224,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#06b6d4', marginTop: '8px' }}>
             {metrics?.bandwidthFormatted || '0 KB'}
           </div>
-          <small style={{ color: '#64748b' }}>Est. Network Transfer</small>
+          <small style={{ color: '#64748b' }}>Network Transfer</small>
         </div>
 
       </div>
