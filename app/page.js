@@ -17,6 +17,12 @@ export default function DashboardPage() {
   const [webhookEnabled, setWebhookEnabled] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
   const [isPulling, setIsPulling] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const fetchUser = async () => {
     try {
@@ -47,6 +53,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: newStatus })
       });
+      showToast(newStatus ? 'Receiver Webhook Dinyalakan' : 'Receiver Webhook Dimatikan');
     } catch (e) {
       console.error(e);
       setWebhookEnabled(!newStatus);
@@ -82,7 +89,13 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/accounts/status');
       const json = await res.json();
-      if (json.success) setAccounts(json.data);
+      if (json.success) {
+        setAccounts(json.data);
+        const offlineAcc = json.data.find(a => a.status?.toUpperCase() === 'OFFLINE');
+        if (offlineAcc) {
+          showToast(`⚠️ Akun @${offlineAcc.username} terdeteksi OFFLINE!`);
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -91,6 +104,7 @@ export default function DashboardPage() {
   const handlePullRequest = async () => {
     setIsPulling(true);
     await Promise.all([fetchMetrics(), fetchLogs(), fetchAccounts()]);
+    showToast('Data berhasil diperbarui!');
     setTimeout(() => setIsPulling(false), 500);
   };
 
@@ -100,6 +114,7 @@ export default function DashboardPage() {
         await fetch('/api/webhook/clear', { method: 'POST' });
         setLogs([]);
         fetchMetrics();
+        showToast('Seluruh log berhasil dihapus');
       } catch (e) {
         alert('Gagal menghapus log');
       }
@@ -109,6 +124,7 @@ export default function DashboardPage() {
   const handleCopyJson = (id, payload) => {
     navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
     setCopiedId(id);
+    showToast('JSON disalin ke clipboard');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -136,16 +152,12 @@ export default function DashboardPage() {
     );
   };
 
-  // --- Analisis Statistik & Extraction Looting ---
   let maxFloor = 0;
   let totalUnits = 0;
   let highestRarity = '-';
   const lootSummary = {};
   const rarityPriority = ['Secret', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
   const userCounts = {};
-  const hourlyActivity = Array(6).fill(0); // 6 jam terakhir
-
-  const nowMs = Date.now();
 
   logs.forEach(log => {
     const p = log.payload || {};
@@ -157,13 +169,6 @@ export default function DashboardPage() {
 
     if (user && user !== 'Unknown' && !isStatusUpdate) {
       userCounts[user] = (userCounts[user] || 0) + 1;
-    }
-
-    // Chart per jam
-    const logTimeMs = new Date(log.receivedAt).getTime();
-    const diffHours = Math.floor((nowMs - logTimeMs) / (1000 * 60 * 60));
-    if (diffHours >= 0 && diffHours < 6) {
-      hourlyActivity[5 - diffHours] += 1;
     }
 
     const cleanDesc = desc.replace(/\*\*/g, '');
@@ -240,8 +245,28 @@ export default function DashboardPage() {
     return `${h > 0 ? h + 'j ' : ''}${m}m`;
   };
     return (
-    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', position: 'relative' }}>
       
+      {/* Toast Notification Box */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          backgroundColor: '#0284c7',
+          color: '#fff',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+          fontSize: '13px',
+          fontWeight: 'bold',
+          zIndex: 9999,
+          border: '1px solid #38bdf8'
+        }}>
+          {toastMessage}
+        </div>
+      )}
+
       <header style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -427,37 +452,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Activity Chart (6 Jam Terakhir) */}
-          <div style={{
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e293b',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            marginBottom: '24px',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}>
-            <span style={cardTitle}>📊 Activity Chart (6 Jam Terakhir)</span>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '80px', marginTop: '12px' }}>
-              {hourlyActivity.map((count, idx) => {
-                const maxVal = Math.max(...hourlyActivity, 1);
-                const heightPct = Math.max((count / maxVal) * 100, 10);
-                return (
-                  <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{
-                      width: '100%',
-                      height: `${heightPct}%`,
-                      backgroundColor: count > 0 ? '#38bdf8' : '#334155',
-                      borderRadius: '4px',
-                      transition: 'height 0.3s'
-                    }} />
-                    <span style={{ fontSize: '10px', color: '#64748b' }}>-{5 - idx}j</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Filter Bar & Per-User Select */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
             <input 
@@ -479,7 +473,6 @@ export default function DashboardPage() {
               }}
             />
 
-            {/* Filter Per-Akun */}
             <select
               value={selectedUserFilter}
               onChange={(e) => setSelectedUserFilter(e.target.value)}
