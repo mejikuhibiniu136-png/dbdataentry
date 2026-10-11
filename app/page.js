@@ -19,7 +19,6 @@ export default function DashboardPage() {
   const [isPulling, setIsPulling] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [nowTime, setNowTime] = useState(Date.now());
-  const [tenantId, setTenantId] = useState('default-tenant');
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -145,7 +144,7 @@ export default function DashboardPage() {
     }, 1000);
 
     // REALTIME SSE STREAM LISTENER
-    const eventSource = new EventSource(`/api/stream?tenant=${tenantId}`);
+    const eventSource = new EventSource('/api/stream');
     eventSource.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data);
@@ -161,7 +160,7 @@ export default function DashboardPage() {
       clearInterval(tickInterval);
       eventSource.close();
     };
-  }, [tenantId]);
+  }, []);
 
   const isAnimeDiceLog = (log) => {
     return (
@@ -282,7 +281,6 @@ export default function DashboardPage() {
     return `${s}s`;
   };
 
-  // ANOMALY DETECTION ENGINE (Mendeteksi status Stalled / Unresponsive)
   const getAccountPreciseStatus = (acc) => {
     if (acc.status?.toUpperCase() === 'OFFLINE') return { state: 'OFFLINE', color: '#fca5a5', bg: '#7f1d1d' };
     
@@ -343,26 +341,6 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Tenant Multi-Isolation Switcher */}
-          <select
-            value={tenantId}
-            onChange={(e) => setTenantId(e.target.value)}
-            style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #0284c7',
-              color: '#38bdf8',
-              padding: '6px 10px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              outline: 'none'
-            }}
-          >
-            <option value="default-tenant">🔑 Main Tenant</option>
-            <option value="tenant-farm-1">🔑 Farm Account Group 1</option>
-            <option value="tenant-farm-2">🔑 Farm Account Group 2</option>
-          </select>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #1e293b' }}>
             <span style={{ fontSize: '12px', color: webhookEnabled ? '#4ade80' : '#f43f5e', fontWeight: 'bold' }}>
               WEBHOOK: {webhookEnabled ? 'ON' : 'OFF'}
@@ -434,7 +412,7 @@ export default function DashboardPage() {
             fontSize: '14px'
           }}
         >
-          📡 Webhook Radar (Realtime)
+          📡 Webhook Radar (Realtime Stream)
         </button>
         <button 
           onClick={() => setActiveTab('ACCOUNTS')}
@@ -521,7 +499,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Filter Bar & Per-User Select */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
             <input 
               type="text" 
@@ -569,7 +546,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Table Looting */}
           {filterType === 'ANIME_DICE' && Object.keys(lootSummary).length > 0 && (
             <div style={{
               backgroundColor: '#0f172a',
@@ -606,7 +582,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Log Feed Stream */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
             {loading ? (
               <p style={{ textAlign: 'center', color: '#64748b' }}>Memuat data dbdataentry SSE...</p>
