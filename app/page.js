@@ -87,7 +87,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Fungsi Pull Request Data Manual
   const handlePullRequest = async () => {
     setIsPulling(true);
     await Promise.all([fetchMetrics(), fetchLogs(), fetchAccounts()]);
@@ -144,11 +143,15 @@ export default function DashboardPage() {
   const userCounts = {};
 
   logs.forEach(log => {
-    const desc = log.payload?.embeds?.[0]?.description || '';
-    const title = log.payload?.embeds?.[0]?.title || '';
-    const user = log.payload?.content?.replace(/\|\|/g, '').replace('Username: ', '').trim() || log.payload?.username || 'Unknown';
+    const p = log.payload || {};
+    const desc = p.embeds?.[0]?.description || '';
+    const title = p.embeds?.[0]?.title || '';
+    const user = p.content?.replace(/\|\|/g, '').replace('Username: ', '').trim() || p.username || 'Unknown';
 
-    if (user && user !== 'Unknown') {
+    // Abaikan event Heartbeat & Aktif rutin agar tidak dihitung sebagai Top Active User
+    const isStatusUpdate = p.event === 'Heartbeat' || p.event === 'Aktif';
+
+    if (user && user !== 'Unknown' && !isStatusUpdate) {
       userCounts[user] = (userCounts[user] || 0) + 1;
     }
 
