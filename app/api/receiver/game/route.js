@@ -5,26 +5,7 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 
 const redis = new Redis({ url, token });
 
-let cachedStatus = null;
-let lastCacheTime = 0;
-
 export async function POST(request) {
-  const now = Date.now();
-
-  if (cachedStatus === null || now - lastCacheTime > 30000) {
-    try {
-      const isEnabled = await redis.get('webhook:status');
-      cachedStatus = isEnabled === null ? true : Boolean(isEnabled);
-      lastCacheTime = now;
-    } catch (e) {
-      cachedStatus = true;
-    }
-  }
-
-  if (!cachedStatus) {
-    return Response.json({ success: false, message: 'Receiver is OFF.' }, { status: 503 });
-  }
-
   try {
     const startTime = Date.now();
     const payload = await request.json();
@@ -40,9 +21,14 @@ export async function POST(request) {
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
 
-    // Sync status akun otomatis dari Heartbeat
     const accUsername = payload?.username;
     if (accUsername) {
+      const existingRaw = await redis.hget('account_status', accUsername);
+      const existingAcc = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : null;
+
+      const nowIso = new Date().toISOString();
+      const isOfflineEvent = payload.event === 'Offline' || payload.event === 'OFFLINE';
+
       const accountData = {
         username: accUsername,
         displayName: payload.displayName || accUsername,
@@ -51,18 +37,19 @@ export async function POST(request) {
         jobId: payload.jobId || 'Local/Private',
         gameName: payload.gameName || 'Unknown Game',
         event: payload.event || 'Heartbeat',
-        status: 'ONLINE',
+        status: isOfflineEvent ? 'OFFLINE' : 'ONLINE',
         avatarUrl: payload.avatarUrl || '',
-        timestamp: payload.timestamp || new Date().toISOString(),
-        lastUpdate: new Date().toISOString()
+        // Kunci sessionStart dari webhook Lua agar tidak kereset saat Heartbeat
+        timestamp: payload.sessionStart || existingAcc?.timestamp || payload.timestamp || nowIso,
+        lastUpdate: nowIso
       };
+
       await redis.hset('account_status', {
         [accUsername]: JSON.stringify(accountData)
       });
     }
 
-    return Response.json({ success: true, message: 'Data game berhasil diterima' }, { status: 200 });
-
+    return Response.json({ success: true, message: 'Data game diterima' }, { status: 200 });
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });
   }
