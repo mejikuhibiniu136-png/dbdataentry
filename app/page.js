@@ -137,18 +137,16 @@ export default function DashboardPage() {
     const title = log.payload?.embeds?.[0]?.title || '';
     const user = log.payload?.content?.replace(/\|\|/g, '').replace('Username: ', '').trim() || 'Unknown';
 
-    if (user) {
+    if (user && user !== 'Unknown') {
       userCounts[user] = (userCounts[user] || 0) + 1;
     }
 
-    // Extract Floor
     const floorMatch = desc.match(/Floor Reached:\s*(\d+)/i);
     if (floorMatch) {
       const floorNum = parseInt(floorMatch[1], 10);
       if (floorNum > maxFloor) maxFloor = floorNum;
     }
 
-    // Extract Unit
     if (title.includes('New Unit')) {
       totalUnits += 1;
     }
@@ -246,19 +244,22 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Grid Metrik & Analisis Analytics */}
+      {/* Grid Metrik Utama */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
         gap: '16px',
         marginBottom: '24px'
       }}>
+        {/* Gabungan Latency DB & API Webhook */}
         <div style={cardStyle}>
-          <span style={cardTitle}>Database Ping</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#4ade80', marginTop: '8px' }}>
-            {metrics?.dbPing || 'Measuring...'}
+          <span style={cardTitle}>System Latency</span>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80', marginTop: '6px' }}>
+            DB: {metrics?.dbPing || '...'}
           </div>
-          <small style={{ color: '#64748b' }}>Upstash Redis</small>
+          <small style={{ color: '#38bdf8', display: 'block', marginTop: '2px', fontSize: '12px' }}>
+            Webhook API: {apiPing !== null ? `${apiPing}ms` : '...'}
+          </small>
         </div>
 
         <div style={cardStyle}>
@@ -282,7 +283,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fbbf24', marginTop: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {topUser}
           </div>
-          <small style={{ color: '#64748b' }}>{maxCount} Events</small>
+          <small style={{ color: '#64748b' }}>{maxCount ? `${maxCount} Events` : '-'}</small>
         </div>
 
         <div style={cardStyle}>
@@ -293,12 +294,18 @@ export default function DashboardPage() {
           <small style={{ color: '#64748b' }}>Game Events</small>
         </div>
 
+        {/* Gabungan DB Commands, DB Storage, dan DB Bandwidth */}
         <div style={cardStyle}>
-          <span style={cardTitle}>DB Commands</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#eab308', marginTop: '8px' }}>
-            {metrics?.commandsCount || 0}
+          <span style={cardTitle}>DB Stats & Health</span>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308', marginTop: '6px' }}>
+            {metrics?.commandsCount || 0} Ops
           </div>
-          <small style={{ color: '#64748b' }}>Executed Ops</small>
+          <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '11px' }}>
+            Storage: {metrics?.usage?.usedFormatted || '0 MB'} ({metrics?.usage?.percentage || 0}%)
+          </small>
+          <small style={{ color: '#06b6d4', display: 'block', marginTop: '1px', fontSize: '11px' }}>
+            Bandwidth: {metrics?.bandwidthFormatted || '0 KB'}
+          </small>
         </div>
       </div>
 
