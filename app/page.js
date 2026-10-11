@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
   const [webhookEnabled, setWebhookEnabled] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
+  const [isPulling, setIsPulling] = useState(false);
 
   const fetchUser = async () => {
     try {
@@ -86,6 +87,13 @@ export default function DashboardPage() {
     }
   };
 
+  // Fungsi Pull Request Data Manual
+  const handlePullRequest = async () => {
+    setIsPulling(true);
+    await Promise.all([fetchMetrics(), fetchLogs(), fetchAccounts()]);
+    setTimeout(() => setIsPulling(false), 500);
+  };
+
   const handleClearLogs = async () => {
     if (confirm('Yakin ingin menghapus seluruh log tersimpan?')) {
       try {
@@ -119,20 +127,7 @@ export default function DashboardPage() {
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setCurrentDate(now.toLocaleDateString('id-ID', options));
-
-    let interval = null;
-    if (webhookEnabled) {
-      interval = setInterval(() => {
-        fetchMetrics();
-        fetchLogs();
-        fetchAccounts();
-      }, 10000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [webhookEnabled]);
+  }, []);
 
   const isAnimeDiceLog = (log) => {
     return (
@@ -231,7 +226,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #1e293b' }}>
             <span style={{ fontSize: '12px', color: webhookEnabled ? '#4ade80' : '#f43f5e', fontWeight: 'bold' }}>
               WEBHOOK: {webhookEnabled ? 'ON' : 'OFF'}
@@ -262,10 +257,24 @@ export default function DashboardPage() {
             </button>
           </div>
 
+          <button 
+            onClick={handlePullRequest} 
+            disabled={isPulling}
+            style={{ 
+              ...btnStyle, 
+              backgroundColor: '#0369a1', 
+              color: '#38bdf8', 
+              borderColor: '#0284c7',
+              opacity: isPulling ? 0.6 : 1
+            }}
+          >
+            {isPulling ? 'Pulling...' : '📥 Pull Request'}
+          </button>
+
           <button onClick={handleClearLogs} style={{ ...btnStyle, backgroundColor: '#451a03', color: '#fde047', borderColor: '#78350f' }}>
             Clear Logs
           </button>
-          <button onClick={() => { fetchMetrics(); fetchLogs(); fetchAccounts(); }} style={btnStyle}>
+          <button onClick={handlePullRequest} style={btnStyle}>
             Refresh
           </button>
           <button onClick={handleLogout} style={{ ...btnStyle, backgroundColor: '#7f1d1d', color: '#fca5a5', borderColor: '#991b1b' }}>
@@ -428,8 +437,8 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{
-                          backgroundColor: p.event === 'Aktif' ? '#065f46' : isAnimeDice ? '#1e1b4b' : '#0f172a',
-                          color: p.event === 'Aktif' ? '#34d399' : isAnimeDice ? '#818cf8' : '#64748b',
+                          backgroundColor: p.event === 'Aktif' || p.event === 'Heartbeat' ? '#065f46' : isAnimeDice ? '#1e1b4b' : '#0f172a',
+                          color: p.event === 'Aktif' || p.event === 'Heartbeat' ? '#34d399' : isAnimeDice ? '#818cf8' : '#64748b',
                           border: '1px solid rgba(255,255,255,0.1)',
                           padding: '4px 10px',
                           borderRadius: '6px',
@@ -576,17 +585,19 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>Active Script Accounts</h2>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>Auto refresh per 10 detik</span>
+            <button onClick={handlePullRequest} style={{ ...btnStyle, fontSize: '12px', padding: '6px 12px' }}>
+              📥 Pull Latest Data
+            </button>
           </div>
 
           {accounts.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: 'center', padding: '40px' }}>
-              <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar. Kirim webhook baru untuk mendaftarkan akun secara otomatis.</p>
+              <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar. Klik "Pull Request" setelah skrip dijalankan.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
               {accounts.map((acc, index) => {
-                const isOnline = acc.status?.toLowerCase() === 'online' || acc.status?.toLowerCase() === 'aktif';
+                const isOnline = acc.event === 'Aktif' || acc.event === 'Heartbeat' || acc.status?.toLowerCase() === 'online';
                 return (
                   <div key={acc.username || index} style={{
                     backgroundColor: '#0f172a',
@@ -598,10 +609,10 @@ export default function DashboardPage() {
                     gap: '12px'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                          width: '36px',
-                          height: '36px',
+                          width: '42px',
+                          height: '42px',
                           borderRadius: '50%',
                           backgroundColor: '#1e293b',
                           border: '2px solid #38bdf8',
@@ -610,21 +621,23 @@ export default function DashboardPage() {
                           justifyContent: 'center',
                           color: '#38bdf8',
                           fontWeight: 'bold',
-                          fontSize: '14px'
+                          fontSize: '16px'
                         }}>
                           {(acc.displayName || acc.username || 'U').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#f8fafc' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>
                             {acc.displayName || acc.username}
                           </div>
-                          <small style={{ color: '#64748b' }}>@{acc.username}</small>
+                          <div style={{ fontSize: '12px', color: '#fbbf24' }}>
+                            @{acc.username}
+                          </div>
                         </div>
                       </div>
                       <span style={{
                         backgroundColor: isOnline ? '#065f46' : '#7f1d1d',
                         color: isOnline ? '#34d399' : '#fca5a5',
-                        padding: '4px 10px',
+                        padding: '4px 12px',
                         borderRadius: '12px',
                         fontSize: '12px',
                         fontWeight: 'bold'
@@ -633,18 +646,30 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '13px', color: '#cbd5e1' }}>
-                      <strong>Game/Script:</strong> {acc.scriptName || 'Anime Dice'}
+                    <div style={{
+                      backgroundColor: '#020617',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      fontSize: '12px'
+                    }}>
+                      <div style={{ color: '#cbd5e1' }}>
+                        <strong style={{ color: '#38bdf8' }}>Game:</strong> {acc.gameName || '-'}
+                      </div>
+                      <div style={{ color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: '#38bdf8' }}>Job ID:</strong> {acc.jobId || 'Local/Private'}
+                      </div>
+                      <div style={{ color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                        <span><strong>User ID:</strong> {acc.userId || '-'}</span>
+                        <span><strong>Place ID:</strong> {acc.placeId || '-'}</span>
+                      </div>
                     </div>
 
-                    {acc.jobId && (
-                      <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                        Job ID: {acc.jobId}
-                      </div>
-                    )}
-
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>
-                      <strong>Last Update:</strong> {acc.lastUpdate ? new Date(acc.lastUpdate).toLocaleString('id-ID') : '-'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                      <span>Timestamp: {acc.timestamp ? new Date(acc.timestamp).toLocaleTimeString('id-ID') : '-'}</span>
+                      <span>Sync: {acc.lastUpdate ? new Date(acc.lastUpdate).toLocaleTimeString('id-ID') : '-'}</span>
                     </div>
                   </div>
                 );
