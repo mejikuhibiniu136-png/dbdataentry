@@ -6,10 +6,19 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
 async function analyzeWithGemini(payload) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return {
+      isValid: true,
+      missingFields: [],
+      anomalyDetected: false,
+      summary: 'API Key Gemini belum diatur di Vercel.'
+    };
+  }
+
   try {
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       generationConfig: { responseMimeType: 'application/json' },
@@ -44,7 +53,7 @@ export async function POST(request) {
   try {
     const payload = await request.json();
 
-    // 1. Analisis otomatis pakai Gemini
+    // 1. Analisis otomatis menggunakan Gemini
     const aiAnalysis = await analyzeWithGemini(payload);
 
     // 2. Simpan log beserta hasil analisis ke Redis
