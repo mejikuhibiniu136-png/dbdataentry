@@ -11,7 +11,6 @@ let lastCacheTime = 0;
 export async function POST(request) {
   const now = Date.now();
 
-  // Cek status toggle ON/OFF
   if (cachedStatus === null || now - lastCacheTime > 30000) {
     try {
       const isEnabled = await redis.get('webhook:status');
@@ -40,6 +39,27 @@ export async function POST(request) {
 
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
+
+    // Sync status akun otomatis dari Heartbeat
+    const accUsername = payload?.username;
+    if (accUsername) {
+      const accountData = {
+        username: accUsername,
+        displayName: payload.displayName || accUsername,
+        userId: payload.userId || '-',
+        placeId: payload.placeId || '-',
+        jobId: payload.jobId || 'Local/Private',
+        gameName: payload.gameName || 'Unknown Game',
+        event: payload.event || 'Heartbeat',
+        status: 'ONLINE',
+        avatarUrl: payload.avatarUrl || '',
+        timestamp: payload.timestamp || new Date().toISOString(),
+        lastUpdate: new Date().toISOString()
+      };
+      await redis.hset('account_status', {
+        [accUsername]: JSON.stringify(accountData)
+      });
+    }
 
     return Response.json({ success: true, message: 'Data game berhasil diterima' }, { status: 200 });
 
