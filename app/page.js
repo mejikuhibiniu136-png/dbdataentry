@@ -314,8 +314,7 @@ export default function DashboardPage() {
             ) : (
               filteredLogs.map((log) => {
                 const p = log.payload || {};
-                const avatar = p.avatarUrl;
-                const isEmbed = p.embeds;
+                const embed = p.embeds?.[0];
 
                 return (
                   <div key={log.id} style={{
@@ -364,8 +363,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Tampilan Khusus Roblox Payload */}
-                    {avatar ? (
+                    {/* FORMAT 1: Payload Roblox Baru */}
+                    {p.username || p.displayName ? (
                       <div style={{
                         backgroundColor: '#020617',
                         padding: '16px',
@@ -375,20 +374,66 @@ export default function DashboardPage() {
                         alignItems: 'center',
                         flexWrap: 'wrap'
                       }}>
-                        <img src={avatar} alt="avatar" style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2px solid #38bdf8' }} />
+                        <img 
+                          src={p.avatarUrl || 'https://via.placeholder.com/64?text=RBLX'} 
+                          alt="avatar" 
+                          onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/64?text=RBLX'; }}
+                          style={{ width: '56px', height: '56px', borderRadius: '50%', border: '2px solid #38bdf8', objectFit: 'cover' }} 
+                        />
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>
-                            {p.displayName} <span style={{ color: '#fbbf24', fontSize: '13px' }}>({p.username})</span>
+                            {p.displayName || p.username} <span style={{ color: '#fbbf24', fontSize: '13px' }}>({p.username})</span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                            Job ID: {p.jobId || '-'}
-                          </div>
+                          {p.jobId && (
+                            <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
+                              Job ID: {p.jobId}
+                            </div>
+                          )}
                           <div style={{ fontSize: '12px', color: '#64748b' }}>
-                            User ID: {p.userId} • Place ID: {p.placeId}
+                            User ID: {p.userId || '-'} • Place ID: {p.placeId || '-'}
                           </div>
                         </div>
                       </div>
+                    ) : embed ? (
+                      /* FORMAT 2: Embed Discord Lama */
+                      <div style={{
+                        backgroundColor: '#020617',
+                        borderLeft: `4px solid ${embed.color ? '#' + embed.color.toString(16) : '#38bdf8'}`,
+                        padding: '16px',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px' }}>{embed.title}</h3>
+                            {embed.author?.name && (
+                              <small style={{ color: '#64748b' }}>{embed.author.name}</small>
+                            )}
+                          </div>
+                          {embed.thumbnail?.url && (
+                            <img src={embed.thumbnail.url} alt="thumb" style={{ width: '48px', height: '48px', borderRadius: '6px' }} />
+                          )}
+                        </div>
+
+                        {embed.description && (
+                          <div style={{
+                            whiteSpace: 'pre-wrap',
+                            color: '#cbd5e1',
+                            fontSize: '13px',
+                            lineHeight: '1.6',
+                            fontFamily: 'monospace',
+                            backgroundColor: '#0f172a',
+                            padding: '12px',
+                            borderRadius: '6px'
+                          }}>
+                            {embed.description.replace(/\*\*/g, '')}
+                          </div>
+                        )}
+                      </div>
                     ) : (
+                      /* FORMAT 3: JSON Mentah */
                       <pre style={{
                         backgroundColor: '#020617',
                         border: '1px solid #0f172a',
@@ -464,4 +509,3 @@ const btnStyle = {
   cursor: 'pointer',
   fontWeight: '600'
 };
-              
