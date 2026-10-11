@@ -13,38 +13,37 @@ async function analyzeWithGemini(payload) {
       isValid: true,
       missingFields: [],
       anomalyDetected: false,
-      summary: 'API Key Gemini belum dipasang di Vercel.'
+      summary: 'API Key Gemini tidak ditemukan.'
     };
   }
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: { responseMimeType: 'application/json' },
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `
-    Kamu adalah validator webhook. Periksa data JSON berikut:
+    Kamu adalah validator webhook otomatis. Analisis data JSON berikut:
     ${JSON.stringify(payload)}
 
-    Kembalikan format JSON persis seperti ini:
-    {
-      "isValid": boolean,
-      "missingFields": ["field_yang_hilang_jika_ada"],
-      "anomalyDetected": boolean,
-      "summary": "penjelasan singkat"
-    }
+    Tugasmu:
+    1. Pastikan field penting ada (username, userId, event, timestamp).
+    2. Periksa apakah ada anomali data.
+    3. Berikan respons HANYA dalam format JSON valid tanpa tanda backtick markdown seperti contoh berikut:
+    {"isValid": true, "missingFields": [], "anomalyDetected": false, "summary": "Data valid dan lengkap."}
     `;
 
     const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
+    const textResponse = result.response.text().trim();
+    
+    // Membersihkan format markdown jika AI menyertakan ```json ... ```
+    const cleanJson = textResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    return JSON.parse(cleanJson);
   } catch (err) {
     return {
       isValid: true,
       missingFields: [],
       anomalyDetected: false,
-      summary: 'Gagal analisis AI, data diproses manual.'
+      summary: `Error AI: ${err.message}`
     };
   }
 }
@@ -53,10 +52,10 @@ export async function POST(request) {
   try {
     const payload = await request.json();
 
-    // 1. Analisis otomatis pakai Gemini AI
+    // 1. Jalankan analisis Gemini AI
     const aiAnalysis = await analyzeWithGemini(payload);
 
-    // 2. Simpan log beserta hasil analisis ke Redis
+    // 2. Simpan ke Redis
     const logData = {
       id: crypto.randomUUID(),
       payload,
@@ -67,7 +66,6 @@ export async function POST(request) {
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
 
-    // 3. Update status akun di Redis jika ada username
     if (payload.username) {
       await redis.hset('account_status', { 
         [payload.username]: JSON.stringify(payload) 
