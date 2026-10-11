@@ -32,7 +32,6 @@ export async function POST(request) {
     const startTime = Date.now();
     const payload = await request.json();
 
-    // Deteksi Otomatis Event Anime Dice
     let eventType = request.headers.get('x-github-event') || 
                       request.headers.get('x-event-type') || 
                       'Custom Webhook';
@@ -58,6 +57,18 @@ export async function POST(request) {
 
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
+
+    // Kirim Auto Alert ke Discord/Telegram jika ENV terpasang
+    const alertWebhook = process.env.DISCORD_ALERT_WEBHOOK;
+    if (alertWebhook) {
+      fetch(alertWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `🚀 **New Webhook Event:** ${eventType}\nUser: ${payload?.content || 'Unknown'}`
+        })
+      }).catch(e => console.error('Alert error:', e));
+    }
 
     return Response.json({
       success: true,
