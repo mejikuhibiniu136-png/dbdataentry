@@ -6,24 +6,26 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 const redis = new Redis({ url, token });
 
 export async function POST(request) {
+  const startTime = Date.now();
   try {
-    const startTime = Date.now();
     const payload = await request.json();
+    const clientToken = request.headers.get('x-account-token') || 'default-tenant';
 
     const logData = {
       id: crypto.randomUUID(),
+      tenantId: clientToken,
       eventType: payload.gameName || payload.event || 'Game Event',
       payload,
       processingTimeMs: Date.now() - startTime,
       receivedAt: new Date().toISOString()
     };
 
-    await redis.lpush('webhook_logs', JSON.stringify(logData));
-    await redis.ltrim('webhook_logs', 0, 199);
+    await redis.lpush(`webhook_logs:${clientToken}`, JSON.stringify(logData));
+    await redis.ltrim(`webhook_logs:${clientToken}`, 0, 199);
 
     const accUsername = payload?.username;
     if (accUsername) {
-      const existingRaw = await redis.hget('account_status', accUsername);
+      const existingRaw = await redis.hget(`account_status:${clientToken}`, accUsername);
       const existingAcc = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : null;
 
       const nowIso = new Date().toISOString();
@@ -39,17 +41,17 @@ export async function POST(request) {
         event: payload.event || 'Heartbeat',
         status: isOfflineEvent ? 'OFFLINE' : 'ONLINE',
         avatarUrl: payload.avatarUrl || '',
-        // Kunci sessionStart dari webhook Lua agar tidak kereset saat Heartbeat
         timestamp: payload.sessionStart || existingAcc?.timestamp || payload.timestamp || nowIso,
-        lastUpdate: nowIso
+        lastUpdate: nowIso,
+        latencyMs: logData.processingTimeMs
       };
 
-      await redis.hset('account_status', {
+      await redis.hset(`account_status:${clientToken}`, {
         [accUsername]: JSON.stringify(accountData)
       });
     }
 
-    return Response.json({ success: true, message: 'Data game diterima' }, { status: 200 });
+    return Response.json({ success: true, message: 'Data game diterima', rttMs: Date.now() - startTime }, { status: 200 });
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });
   }
