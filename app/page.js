@@ -101,19 +101,25 @@ export default function DashboardPage() {
     };
   }, [webhookEnabled]);
 
+  // Deteksi log Anime Dice (berdasarkan eventType atau struktur embeds)
+  const isAnimeDiceLog = (log) => {
+    return (
+      log.eventType?.includes('Anime Dice') ||
+      (log.payload?.embeds && log.payload.embeds.length > 0)
+    );
+  };
+
   const filteredLogs = logs.filter((log) => {
     const matchesSearch = 
       log.eventType.toLowerCase().includes(search.toLowerCase()) ||
       JSON.stringify(log.payload).toLowerCase().includes(search.toLowerCase());
 
     if (filterType === 'ALL') return matchesSearch;
-    if (filterType === 'ANIME_DICE') return matchesSearch && log.eventType.includes('Anime Dice');
-    if (filterType === 'TOWER') return matchesSearch && log.eventType.includes('Tower');
-    if (filterType === 'UNIT') return matchesSearch && log.eventType.includes('Unit');
+    if (filterType === 'ANIME_DICE') return matchesSearch && isAnimeDiceLog(log);
     return matchesSearch;
   });
 
-  const animeDiceCount = logs.filter(l => l.eventType.includes('Anime Dice')).length;
+  const animeDiceCount = logs.filter(isAnimeDiceLog).length;
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
@@ -239,7 +245,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
+      {/* Filter & Search Bar - Sederhana: Semua & Anime Dice */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <input 
           type="text" 
@@ -262,8 +268,6 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', gap: '6px' }}>
           <button onClick={() => setFilterType('ALL')} style={filterBtnStyle(filterType === 'ALL')}>Semua</button>
           <button onClick={() => setFilterType('ANIME_DICE')} style={filterBtnStyle(filterType === 'ANIME_DICE')}>🎲 Anime Dice</button>
-          <button onClick={() => setFilterType('TOWER')} style={filterBtnStyle(filterType === 'TOWER')}>🏰 Tower</button>
-          <button onClick={() => setFilterType('UNIT')} style={filterBtnStyle(filterType === 'UNIT')}>⚡ Unit</button>
         </div>
       </div>
 
@@ -278,7 +282,10 @@ export default function DashboardPage() {
         ) : (
           filteredLogs.map((log) => {
             const embed = log.payload?.embeds?.[0];
-            const isAnimeDice = log.eventType.includes('Anime Dice') || embed;
+            const isAnimeDice = isAnimeDiceLog(log);
+
+            // Bersihkan tanda ** dari teks deskripsi
+            const cleanDescription = embed?.description ? embed.description.replace(/\*\*/g, '') : '';
 
             return (
               <div key={log.id} style={{
@@ -291,15 +298,15 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{
-                      backgroundColor: log.eventType.includes('Tower') ? '#4c1d95' : log.eventType.includes('Unit') ? '#065f46' : '#1e1b4b',
-                      color: log.eventType.includes('Tower') ? '#c084fc' : log.eventType.includes('Unit') ? '#34d399' : '#818cf8',
+                      backgroundColor: isAnimeDice ? '#1e1b4b' : '#0f172a',
+                      color: isAnimeDice ? '#818cf8' : '#64748b',
                       border: '1px solid rgba(255,255,255,0.1)',
                       padding: '4px 10px',
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: 'bold'
                     }}>
-                      {log.eventType}
+                      {isAnimeDice ? 'Anime Dice' : log.eventType}
                     </span>
                     {log.payload?.content && (
                       <span style={{ color: '#fbbf24', fontSize: '13px', fontWeight: 'bold' }}>
@@ -312,7 +319,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                {/* Formatter Khusus Embed Anime Dice */}
+                {/* Tampilan Embed tanpa tanda ** */}
                 {embed ? (
                   <div style={{
                     backgroundColor: '#020617',
@@ -335,7 +342,7 @@ export default function DashboardPage() {
                       )}
                     </div>
 
-                    {embed.description && (
+                    {cleanDescription && (
                       <div style={{
                         whiteSpace: 'pre-wrap',
                         color: '#cbd5e1',
@@ -346,7 +353,7 @@ export default function DashboardPage() {
                         padding: '12px',
                         borderRadius: '6px'
                       }}>
-                        {embed.description}
+                        {cleanDescription}
                       </div>
                     )}
                   </div>
