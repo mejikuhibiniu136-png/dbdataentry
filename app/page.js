@@ -244,10 +244,9 @@ export default function DashboardPage() {
     const m = Math.floor((diffSec % 3600) / 60);
     return `${h > 0 ? h + 'j ' : ''}${m}m`;
   };
-    return (
+  return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', position: 'relative' }}>
       
-      {/* Toast Notification Box */}
       {toastMessage && (
         <div style={{
           position: 'fixed',
@@ -578,6 +577,11 @@ export default function DashboardPage() {
                             {p.gameName}
                           </span>
                         )}
+                        {log.payload?.content && (
+                          <span style={{ color: '#fbbf24', fontSize: '13px', fontWeight: 'bold' }}>
+                            {log.payload.content.replace(/\|\|/g, '')}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <button 
@@ -600,6 +604,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
+                    {/* RENDER PAYLOAD ROBLOX / PAYLOAD EMBED DISCORD */}
                     {p.username || p.displayName ? (
                       <div style={{
                         backgroundColor: '#020617',
@@ -642,7 +647,7 @@ export default function DashboardPage() {
                     ) : embed ? (
                       <div style={{
                         backgroundColor: '#020617',
-                        borderLeft: `4px solid ${embed.color ? '#' + embed.color.toString(16) : '#38bdf8'}`,
+                        borderLeft: `4px solid ${embed.color ? '#' + embed.color.toString(16) : '#eab308'}`,
                         padding: '16px',
                         borderRadius: '8px',
                         display: 'flex',
@@ -652,8 +657,15 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
                             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px' }}>{embed.title}</h3>
+                            {embed.author?.name && (
+                              <small style={{ color: '#64748b', display: 'block', marginTop: '2px' }}>{embed.author.name}</small>
+                            )}
                           </div>
+                          {embed.thumbnail?.url && (
+                            <img src={embed.thumbnail.url} alt="thumb" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />
+                          )}
                         </div>
+
                         {embed.description && (
                           <div style={{
                             whiteSpace: 'pre-wrap',
