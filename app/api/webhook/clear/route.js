@@ -7,9 +7,20 @@ const redis = new Redis({ url, token });
 
 export async function POST() {
   try {
+    // 1. Hapus riwayat log webhook
     await redis.del('webhook_logs');
-    return Response.json({ success: true, message: 'Semua log berhasil dihapus!' });
+
+    // 2. Hapus seluruh data status akun game
+    await redis.del('account_status');
+
+    return Response.json({ 
+      success: true, 
+      message: 'Riwayat log dan data status akun berhasil dibersihkan total.' 
+    }, { status: 200 });
   } catch (err) {
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ 
+      success: false, 
+      error: err.message 
+    }, { status: 500 });
   }
 }
