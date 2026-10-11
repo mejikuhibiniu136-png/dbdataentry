@@ -143,7 +143,6 @@ export default function DashboardPage() {
       setNowTime(Date.now());
     }, 1000);
 
-    // REALTIME SSE STREAM LISTENER
     const eventSource = new EventSource('/api/stream');
     eventSource.onmessage = (event) => {
       try {
@@ -292,6 +291,7 @@ export default function DashboardPage() {
     }
     return { state: 'ONLINE', color: '#34d399', bg: '#065f46' };
   };
+
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', position: 'relative' }}>
       
@@ -397,7 +397,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Tabs Menu */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '12px', width: '100%' }}>
         <button 
           onClick={() => setActiveTab('RADAR')}
@@ -751,7 +750,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* TAB 2: ACCOUNTS STATUS WITH ANOMALY DETECTION */}
       {activeTab === 'ACCOUNTS' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
