@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [copiedId, setCopiedId] = useState(null);
   const [isPulling, setIsPulling] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [nowTime, setNowTime] = useState(Date.now());
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -91,10 +92,6 @@ export default function DashboardPage() {
       const json = await res.json();
       if (json.success) {
         setAccounts(json.data);
-        const offlineAcc = json.data.find(a => a.status?.toUpperCase() === 'OFFLINE');
-        if (offlineAcc) {
-          showToast(`⚠️ Akun @${offlineAcc.username} terdeteksi OFFLINE!`);
-        }
       }
     } catch (e) {
       console.error(e);
@@ -143,6 +140,12 @@ export default function DashboardPage() {
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setCurrentDate(now.toLocaleDateString('id-ID', options));
+
+    const tickInterval = setInterval(() => {
+      setNowTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(tickInterval);
   }, []);
 
   const isAnimeDiceLog = (log) => {
@@ -152,11 +155,32 @@ export default function DashboardPage() {
     );
   };
 
+  // PARSER KELANGKAAN CHANCE (1/45qi!, 1/400k!, dll)
+  const parseRarityChance = (chanceStr) => {
+    if (!chanceStr) return 0;
+    const match = chanceStr.match(/1\/([\d.]+)([a-zA-Z]*)/i);
+    if (!match) return 0;
+
+    const num = parseFloat(match[1]);
+    const suffix = match[2].toLowerCase().replace('!', '');
+
+    const multiplierMap = {
+      '': 1, 'k': 1e3, 'm': 1e6, 'b': 1e9, 't': 1e12,
+      'qd': 1e15, 'qi': 1e18, 'sx': 1e21, 'sp': 1e24, 'oc': 1e27,
+      'no': 1e30, 'dc': 1e33, 'udc': 1e36, 'ddc': 1e39, 'tdc': 1e42,
+      'qdc': 1e45, 'qidc': 1e48, 'sxdc': 1e51, 'spdc': 1e54, 'ocdc': 1e57,
+      'nodc': 1e60, 'vg': 1e63, 'googol': 1e100
+    };
+
+    const multiplier = multiplierMap[suffix] !== undefined ? multiplierMap[suffix] : 1;
+    return num * multiplier;
+  };
+
   let maxFloor = 0;
   let totalUnits = 0;
-  let highestRarity = '-';
+  let highestRarityText = '-';
+  let maxRarityScore = 0;
   const lootSummary = {};
-  const rarityPriority = ['Secret', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
   const userCounts = {};
 
   logs.forEach(log => {
@@ -190,19 +214,15 @@ export default function DashboardPage() {
       }
     });
 
-    if (title.includes('New Unit') || cleanDesc.includes('Rarity:')) {
+    if (title.includes('New Unit!')) {
       totalUnits += 1;
-      const rarityMatch = cleanDesc.match(/Rarity:\s*([^\n]+)/i);
-      if (rarityMatch) {
-        const foundRarity = rarityMatch[1].trim();
-        if (highestRarity === '-') {
-          highestRarity = foundRarity;
-        } else {
-          const currentIdx = rarityPriority.indexOf(highestRarity);
-          const foundIdx = rarityPriority.indexOf(foundRarity);
-          if (foundIdx !== -1 && (currentIdx === -1 || foundIdx < currentIdx)) {
-            highestRarity = foundRarity;
-          }
+      const chanceMatch = title.match(/New Unit!\s*(1\/[^\s!]+)/i);
+      if (chanceMatch) {
+        const rawChance = chanceMatch[1];
+        const score = parseRarityChance(rawChance);
+        if (score > maxRarityScore) {
+          maxRarityScore = score;
+          highestRarityText = rawChance;
         }
       }
     }
@@ -234,21 +254,16 @@ export default function DashboardPage() {
 
   const animeDiceCount = logs.filter(isAnimeDiceLog).length;
 
-  // PERBAIKAN LOGIKA UPTIME REAL-TIME
   const calculateUptime = (timestamp, lastUpdate, isOnline) => {
     if (!timestamp) return '-';
-    
     const start = new Date(timestamp).getTime();
-    const end = isOnline ? Date.now() : new Date(lastUpdate || Date.now()).getTime();
-    
+    const end = isOnline ? nowTime : new Date(lastUpdate || nowTime).getTime();
     const diffSec = Math.floor((end - start) / 1000);
-    if (diffSec <= 0) return '< 1m';
-    
+    if (diffSec <= 0) return '0s';
     const h = Math.floor(diffSec / 3600);
     const m = Math.floor((diffSec % 3600) / 60);
     const s = diffSec % 60;
-    
-    if (h > 0) return `${h}j ${m}m`;
+    if (h > 0) return `${h}j ${m}m ${s}s`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
   };
@@ -418,7 +433,7 @@ export default function DashboardPage() {
                     {maxFloor ? `Floor ${maxFloor}` : 'Floor: -'}
                   </div>
                   <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '12px', fontWeight: 'bold' }}>
-                    Rare Unit: {highestRarity}
+                    Rare Unit: {highestRarityText}
                   </small>
                 </div>
 
