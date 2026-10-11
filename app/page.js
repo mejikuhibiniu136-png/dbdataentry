@@ -715,7 +715,6 @@ export default function DashboardPage() {
       {activeTab === 'ACCOUNTS' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>Active Script Accounts</h2>
             <button onClick={handlePullRequest} style={{ ...btnStyle, fontSize: '12px', padding: '6px 12px' }}>
               📥 Pull Latest Data
