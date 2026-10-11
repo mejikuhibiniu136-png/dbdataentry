@@ -8,6 +8,18 @@ export default function DashboardPage() {
   const [apiPing, setApiPing] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch('/api/user');
+      const data = await res.json();
+      if (data.username) setUsername(data.username);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchMetrics = async () => {
     const start = Date.now();
@@ -40,8 +52,15 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    fetchUser();
     fetchMetrics();
     fetchLogs();
+
+    // Format tanggal Indonesia
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    setCurrentDate(now.toLocaleDateString('id-ID', options));
+
     const interval = setInterval(() => {
       fetchMetrics();
       fetchLogs();
@@ -56,7 +75,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
-
+      
       <header style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -78,7 +97,7 @@ export default function DashboardPage() {
             dbdataentry Radar
           </h1>
           <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' }}>
-            Real-time Webhook Ping & Database Metrics
+            {currentDate ? `${currentDate} • ` : ''}User: <strong style={{ color: '#38bdf8' }}>{username || 'Loading...'}</strong>
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -97,7 +116,7 @@ export default function DashboardPage() {
         gap: '16px',
         marginBottom: '32px'
       }}>
-
+        
         <div style={cardStyle}>
           <span style={cardTitle}>Database Ping</span>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4ade80', marginTop: '8px' }}>
