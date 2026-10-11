@@ -9,23 +9,21 @@ export async function POST(request) {
   const startTime = Date.now();
   try {
     const payload = await request.json();
-    const clientToken = request.headers.get('x-account-token') || 'default-tenant';
 
     const logData = {
       id: crypto.randomUUID(),
-      tenantId: clientToken,
       eventType: payload.gameName || payload.event || 'Game Event',
       payload,
       processingTimeMs: Date.now() - startTime,
       receivedAt: new Date().toISOString()
     };
 
-    await redis.lpush(`webhook_logs:${clientToken}`, JSON.stringify(logData));
-    await redis.ltrim(`webhook_logs:${clientToken}`, 0, 199);
+    await redis.lpush('webhook_logs', JSON.stringify(logData));
+    await redis.ltrim('webhook_logs', 0, 199);
 
     const accUsername = payload?.username;
     if (accUsername) {
-      const existingRaw = await redis.hget(`account_status:${clientToken}`, accUsername);
+      const existingRaw = await redis.hget('account_status', accUsername);
       const existingAcc = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : null;
 
       const nowIso = new Date().toISOString();
@@ -46,7 +44,7 @@ export async function POST(request) {
         latencyMs: logData.processingTimeMs
       };
 
-      await redis.hset(`account_status:${clientToken}`, {
+      await redis.hset('account_status', {
         [accUsername]: JSON.stringify(accountData)
       });
     }
