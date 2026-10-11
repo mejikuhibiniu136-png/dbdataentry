@@ -7,7 +7,7 @@ export async function POST(request) {
 
     const envUser = process.env.DASHBOARD_USER || 'admin';
     // DASHBOARD_PASS_HASH berisi nilai hash bcrypt dari Vercel
-    const envPassHash = process.env.DASHBOARD_PASS_HASH || '$2a$10$vI8aWBnW3fID.ZQ4/2N3S.6kO328fO/8N.zO8Xk1iGg.M1xI3l2m';
+    const envPassHash = process.env.DASHBOARD_PASS_HASH || '$2y$19$QW4Ps7XD.qiLEa4G9DghlOhv76BEd9AqlWW91yJauiQVwIIXnPGli';
 
     // 1. Cek Username
     const isUserValid = username === envUser;
