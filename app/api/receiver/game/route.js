@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
@@ -6,39 +6,36 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 async function analyzeWithGemini(payload) {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Analisis data webhook berikut: ${JSON.stringify(payload)}`,
-      config: {
-        systemInstruction: `Kamu adalah validator webhook. Periksa apakah payload memiliki field wajib: username, userId, event, dan timestamp. Pastikan nilai event adalah ONLINE, OFFLINE, atau Heartbeat.`,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isValid: { type: Type.BOOLEAN },
-            missingFields: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING } 
-            },
-            anomalyDetected: { type: Type.BOOLEAN },
-            summary: { type: Type.STRING }
-          },
-          required: ['isValid', 'missingFields', 'anomalyDetected', 'summary']
-        }
-      }
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
     });
 
-    return JSON.parse(response.text);
+    const prompt = `
+    Kamu adalah validator webhook. Periksa data JSON berikut:
+    ${JSON.stringify(payload)}
+
+    Kembalikan JSON saja dengan format:
+    {
+      "isValid": boolean,
+      "missingFields": ["field_hilang_jika_ada"],
+      "anomalyDetected": boolean,
+      "summary": "penjelasan singkat"
+    }
+    `;
+
+    const result = await model.generateContent(prompt);
+    return JSON.parse(result.response.text());
   } catch (err) {
     return {
       isValid: true,
       missingFields: [],
       anomalyDetected: false,
-      summary: 'Gagal analisis AI, data diproses secara manual.'
+      summary: 'Gagal analisis AI, data diproses manual.'
     };
   }
 }
@@ -47,10 +44,10 @@ export async function POST(request) {
   try {
     const payload = await request.json();
 
-    // 1. Analisis payload menggunakan Gemini AI
+    // 1. Analisis otomatis pakai Gemini
     const aiAnalysis = await analyzeWithGemini(payload);
 
-    // 2. Simpan log beserta hasil analisis Gemini ke Redis
+    // 2. Simpan log beserta hasil analisis ke Redis
     const logData = {
       id: crypto.randomUUID(),
       payload,
