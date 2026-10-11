@@ -9,44 +9,55 @@ export async function GET() {
   const startDb = Date.now();
   
   try {
-    // 1. Ukur Ping Real-Time
+    // 1. Ping latency
     await redis.ping();
     const dbPing = Date.now() - startDb;
 
-    // 2. Ambil Total Log Webhook Real-Time dari List
+    // 2. Ambil total log webhook
     const totalLogs = await redis.llen('webhook_logs');
 
-    // 3. Ambil Stat Statistik Real-Time Langsung dari Upstash REST API
+    // 3. Panggil Upstash REST API /info resmi untuk statistik real-time DB
     let commandsCount = 0;
     let bandwidthFormatted = '0 KB';
     let usedFormatted = '0 MB';
     let percentage = '0.00';
 
     try {
-      // Panggil endpoint statistik resmi Upstash
-      const statsRes = await fetch(`${url}/stats`, {
+      const infoRes = await fetch(`${url}/info`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store'
       });
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        // Membaca data real-time dari Upstash
-        commandsCount = statsData.data?.total_commands || statsData.total_commands || 0;
-        
-        const bandwidthBytes = statsData.data?.total_bandwidth || statsData.total_bandwidth || 0;
-        bandwidthFormatted = bandwidthBytes > 1024 * 1024 
-          ? (bandwidthBytes / (1024 * 1024)).toFixed(2) + ' MB'
-          : (bandwidthBytes / 1024).toFixed(1) + ' KB';
+      if (infoRes.ok) {
+        const infoData = await infoRes.json();
+        const infoText = typeof infoData.result === 'string' ? infoData.result : JSON.stringify(infoData);
+
+        // Extract total commands dari response INFO Upstash
+        const totalCmdsMatch = infoText.match(/total_commands_processed:(\d+)/);
+        if (totalCmdsMatch) {
+          commandsCount = parseInt(totalCmdsMatch[1], 10);
+        }
+
+        // Extract total net output bytes (Bandwidth)
+        const netBytesMatch = infoText.match(/total_net_output_bytes:(\d+)/);
+        if (netBytesMatch) {
+          const bytes = parseInt(netBytesMatch[1], 10);
+          bandwidthFormatted = bytes > 1024 * 1024 
+            ? (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+            : (bytes / 1024).toFixed(1) + ' KB';
+        }
+
+        // Extract memory usage asli dari DB
+        const memMatch = infoText.match(/used_memory:(\d+)/);
+        if (memMatch) {
+          const usedBytes = parseInt(memMatch[1], 10);
+          usedFormatted = (usedBytes / (1024 * 1024)).toFixed(3) + ' MB';
+          percentage = ((usedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
+        }
       }
     } catch (e) {
-      console.log('Stats API fallback', e);
+      console.error('Gagal mengambil INFO real-time:', e);
     }
-
-    // Fallback hitung memory storage jika /stats tidak mengembalikan memory
-    const estimatedBytes = totalLogs * 600;
-    usedFormatted = (estimatedBytes / (1024 * 1024)).toFixed(3) + ' MB';
-    percentage = ((estimatedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
 
     return Response.json({
       status: 'online',
