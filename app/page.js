@@ -148,7 +148,6 @@ export default function DashboardPage() {
     const title = p.embeds?.[0]?.title || '';
     const user = p.content?.replace(/\|\|/g, '').replace('Username: ', '').trim() || p.username || 'Unknown';
 
-    // Abaikan event Heartbeat & Aktif rutin agar tidak dihitung sebagai Top Active User
     const isStatusUpdate = p.event === 'Heartbeat' || p.event === 'Aktif';
 
     if (user && user !== 'Unknown' && !isStatusUpdate) {
@@ -202,7 +201,7 @@ export default function DashboardPage() {
   const animeDiceCount = logs.filter(isAnimeDiceLog).length;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box' }}>
       
       <header style={{
         display: 'flex',
@@ -212,7 +211,8 @@ export default function DashboardPage() {
         borderBottom: '1px solid #1e293b',
         paddingBottom: '16px',
         flexWrap: 'wrap',
-        gap: '12px'
+        gap: '12px',
+        width: '100%'
       }}>
         <div>
           <h1 style={{ 
@@ -287,7 +287,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '12px', width: '100%' }}>
         <button 
           onClick={() => setActiveTab('RADAR')}
           style={{
@@ -322,12 +322,13 @@ export default function DashboardPage() {
 
       {/* TAB 1: RADAR */}
       {activeTab === 'RADAR' && (
-        <>
+        <div style={{ width: '100%' }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '16px',
-            marginBottom: '24px'
+            marginBottom: '24px',
+            width: '100%'
           }}>
             <div style={cardStyle}>
               <span style={cardTitle}>System Latency</span>
@@ -391,7 +392,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
             <input 
               type="text" 
               placeholder="Cari unit, floor, atau username (misal: sideofio)..." 
@@ -406,7 +407,8 @@ export default function DashboardPage() {
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '14px',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
 
@@ -416,7 +418,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
             {loading ? (
               <p style={{ textAlign: 'center', color: '#64748b' }}>Memuat data dbdataentry...</p>
             ) : filteredLogs.length === 0 ? (
@@ -435,7 +437,8 @@ export default function DashboardPage() {
                     border: isAnimeDice ? '1px solid #3b82f6' : '1px solid #1e293b',
                     borderRadius: '12px',
                     padding: '20px',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)'
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)',
+                    boxSizing: 'border-box'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -580,13 +583,13 @@ export default function DashboardPage() {
               })
             )}
           </div>
-        </>
+        </div>
       )}
 
       {/* TAB 2: ACCOUNTS STATUS */}
       {activeTab === 'ACCOUNTS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>Active Script Accounts</h2>
             <button onClick={handlePullRequest} style={{ ...btnStyle, fontSize: '12px', padding: '6px 12px' }}>
               📥 Pull Latest Data
@@ -594,11 +597,16 @@ export default function DashboardPage() {
           </div>
 
           {accounts.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: 'center', padding: '40px' }}>
+            <div style={{ ...cardStyle, textAlign: 'center', padding: '40px', width: '100%' }}>
               <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar. Klik "Pull Request" setelah skrip dijalankan.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', 
+              gap: '20px', 
+              width: '100%' 
+            }}>
               {accounts.map((acc, index) => {
                 const isOnline = acc.event === 'Aktif' || acc.event === 'Heartbeat' || acc.status?.toLowerCase() === 'online';
                 return (
@@ -609,7 +617,9 @@ export default function DashboardPage() {
                     padding: '20px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px'
+                    gap: '12px',
+                    boxSizing: 'border-box',
+                    width: '100%'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -690,7 +700,8 @@ const cardStyle = {
   backgroundColor: '#0f172a',
   border: '1px solid #1e293b',
   borderRadius: '12px',
-  padding: '16px'
+  padding: '16px',
+  boxSizing: 'border-box'
 };
 
 const cardTitle = {
