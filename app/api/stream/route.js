@@ -6,17 +6,14 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 const redis = new Redis({ url, token });
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const tenantId = searchParams.get('tenant') || 'default-tenant';
-
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       const sendData = async () => {
         try {
-          const rawLogs = await redis.lrange(`webhook_logs:${tenantId}`, 0, 49);
-          const rawAccounts = await redis.hgetall(`account_status:${tenantId}`);
+          const rawLogs = await redis.lrange('webhook_logs', 0, 49);
+          const rawAccounts = await redis.hgetall('account_status');
 
           const logs = (rawLogs || []).map(item => typeof item === 'string' ? JSON.parse(item) : item);
           const accounts = rawAccounts ? Object.values(rawAccounts).map(item => typeof item === 'string' ? JSON.parse(item) : item) : [];
