@@ -34,6 +34,11 @@ export default function DashboardPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+  };
+
   useEffect(() => {
     fetchMetrics();
     fetchLogs();
@@ -51,7 +56,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
-      
+
       <header style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -76,20 +81,14 @@ export default function DashboardPage() {
             Real-time Webhook Ping & Database Metrics
           </p>
         </div>
-        <button 
-          onClick={() => { fetchMetrics(); fetchLogs(); }}
-          style={{
-            backgroundColor: '#1e293b',
-            color: '#38bdf8',
-            border: '1px solid #334155',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }}
-        >
-          Refresh Data
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => { fetchMetrics(); fetchLogs(); }} style={btnStyle}>
+            Refresh Data
+          </button>
+          <button onClick={handleLogout} style={{ ...btnStyle, backgroundColor: '#7f1d1d', color: '#fca5a5', borderColor: '#991b1b' }}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <div style={{
@@ -98,7 +97,7 @@ export default function DashboardPage() {
         gap: '16px',
         marginBottom: '32px'
       }}>
-        
+
         <div style={cardStyle}>
           <span style={cardTitle}>Database Ping</span>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4ade80', marginTop: '8px' }}>
@@ -231,4 +230,14 @@ const cardTitle = {
   color: '#64748b',
   fontWeight: '600',
   letterSpacing: '0.5px'
+};
+
+const btnStyle = {
+  backgroundColor: '#1e293b',
+  color: '#38bdf8',
+  border: '1px solid #334155',
+  padding: '8px 16px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: '600'
 };
