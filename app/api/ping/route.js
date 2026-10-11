@@ -9,24 +9,44 @@ export async function GET() {
   const startDb = Date.now();
   
   try {
+    // 1. Ukur Ping Real-Time
     await redis.ping();
     const dbPing = Date.now() - startDb;
 
+    // 2. Ambil Total Log Webhook Real-Time dari List
     const totalLogs = await redis.llen('webhook_logs');
 
-    // Estimasi ukuran per log ~ 500 byte
-    const estimatedBytes = totalLogs * 500;
-    const usedFormatted = (estimatedBytes / (1024 * 1024)).toFixed(3) + ' MB';
-    const percentage = ((estimatedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
+    // 3. Ambil Stat Statistik Real-Time Langsung dari Upstash REST API
+    let commandsCount = 0;
+    let bandwidthFormatted = '0 KB';
+    let usedFormatted = '0 MB';
+    let percentage = '0.00';
 
-    // Estimasi DB Commands: 2 perintah per webhook (LPUSH + LTRIM) + 2 perintah per polling dashboard (PING + LLEN)
-    const commandsCount = totalLogs * 2;
+    try {
+      // Panggil endpoint statistik resmi Upstash
+      const statsRes = await fetch(`${url}/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      });
 
-    // Estimasi Bandwidth: Total payload byte + overhead header (asumsi ~800 byte per request)
-    const totalBandwidthBytes = totalLogs * 800;
-    const bandwidthFormatted = totalBandwidthBytes > 1024 * 1024 
-      ? (totalBandwidthBytes / (1024 * 1024)).toFixed(2) + ' MB'
-      : (totalBandwidthBytes / 1024).toFixed(1) + ' KB';
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        // Membaca data real-time dari Upstash
+        commandsCount = statsData.data?.total_commands || statsData.total_commands || 0;
+        
+        const bandwidthBytes = statsData.data?.total_bandwidth || statsData.total_bandwidth || 0;
+        bandwidthFormatted = bandwidthBytes > 1024 * 1024 
+          ? (bandwidthBytes / (1024 * 1024)).toFixed(2) + ' MB'
+          : (bandwidthBytes / 1024).toFixed(1) + ' KB';
+      }
+    } catch (e) {
+      console.log('Stats API fallback', e);
+    }
+
+    // Fallback hitung memory storage jika /stats tidak mengembalikan memory
+    const estimatedBytes = totalLogs * 600;
+    usedFormatted = (estimatedBytes / (1024 * 1024)).toFixed(3) + ' MB';
+    percentage = ((estimatedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
 
     return Response.json({
       status: 'online',
