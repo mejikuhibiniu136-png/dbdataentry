@@ -5,20 +5,38 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 
 const redis = new Redis({ url, token });
 
-// Ambil daftar status semua akun dari Redis Hash
+const TIMEOUT_SECONDS = 45; // Jika lebih dari 45 detik tanpa Heartbeat, anggap OFFLINE
+
 export async function GET() {
   try {
     const rawData = await redis.hgetall('account_status');
-    const accounts = rawData 
-      ? Object.values(rawData).map(item => typeof item === 'string' ? JSON.parse(item) : item)
-      : [];
-    return Response.json({ success: true, data: accounts });
+    if (!rawData) {
+      return Response.json({ success: true, data: [] });
+    }
+
+    const now = Date.now();
+    const updatedAccounts = [];
+
+    for (const [username, item] of Object.entries(rawData)) {
+      const acc = typeof item === 'string' ? JSON.parse(item) : item;
+      const lastUpdateMs = new Date(acc.lastUpdate).getTime();
+      const diffSeconds = (now - lastUpdateMs) / 1000;
+
+      // Cek apakah waktu sejak Heartbeat terakhir sudah melebihi limit
+      if (diffSeconds > TIMEOUT_SECONDS) {
+        acc.status = 'OFFLINE';
+        acc.event = 'Keluar / Timed Out';
+      }
+
+      updatedAccounts.push(acc);
+    }
+
+    return Response.json({ success: true, data: updatedAccounts });
   } catch (err) {
     return Response.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
-// Endpoint untuk update status akun dari script
 export async function POST(request) {
   try {
     const body = await request.json();
