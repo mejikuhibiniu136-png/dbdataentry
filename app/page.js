@@ -234,15 +234,23 @@ export default function DashboardPage() {
 
   const animeDiceCount = logs.filter(isAnimeDiceLog).length;
 
-  const calculateUptime = (timestamp, lastUpdate) => {
-    if (!timestamp || !lastUpdate) return '-';
+  // PERBAIKAN LOGIKA UPTIME REAL-TIME
+  const calculateUptime = (timestamp, lastUpdate, isOnline) => {
+    if (!timestamp) return '-';
+    
     const start = new Date(timestamp).getTime();
-    const end = new Date(lastUpdate).getTime();
+    const end = isOnline ? Date.now() : new Date(lastUpdate || Date.now()).getTime();
+    
     const diffSec = Math.floor((end - start) / 1000);
     if (diffSec <= 0) return '< 1m';
+    
     const h = Math.floor(diffSec / 3600);
     const m = Math.floor((diffSec % 3600) / 60);
-    return `${h > 0 ? h + 'j ' : ''}${m}m`;
+    const s = diffSec % 60;
+    
+    if (h > 0) return `${h}j ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
   };
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', position: 'relative' }}>
@@ -604,7 +612,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* RENDER PAYLOAD ROBLOX / PAYLOAD EMBED DISCORD */}
                     {p.username || p.displayName ? (
                       <div style={{
                         backgroundColor: '#020617',
@@ -708,6 +715,7 @@ export default function DashboardPage() {
       {activeTab === 'ACCOUNTS' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>Active Script Accounts</h2>
             <button onClick={handlePullRequest} style={{ ...btnStyle, fontSize: '12px', padding: '6px 12px' }}>
               📥 Pull Latest Data
@@ -788,8 +796,8 @@ export default function DashboardPage() {
                     }}>
                       <div style={{ color: '#cbd5e1', display: 'flex', justifyContent: 'space-between' }}>
                         <span><strong style={{ color: '#38bdf8' }}>Game:</strong> {acc.gameName || '-'}</span>
-                        <span style={{ color: '#34d399', fontWeight: 'bold' }}>
-                          Active: {calculateUptime(acc.timestamp, acc.lastUpdate)}
+                        <span style={{ color: isOnline ? '#34d399' : '#f43f5e', fontWeight: 'bold' }}>
+                          Active: {calculateUptime(acc.timestamp, acc.lastUpdate, isOnline)}
                         </span>
                       </div>
                       <div style={{ color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
