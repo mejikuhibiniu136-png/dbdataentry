@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [username, setUsername] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [webhookEnabled, setWebhookEnabled] = useState(true);
+  const [copiedId, setCopiedId] = useState(null);
 
   const fetchUser = async () => {
     try {
@@ -73,6 +74,24 @@ export default function DashboardPage() {
     }
   };
 
+  const handleClearLogs = async () => {
+    if (confirm('Yakin ingin menghapus seluruh log tersimpan?')) {
+      try {
+        await fetch('/api/webhook/clear', { method: 'POST' });
+        setLogs([]);
+        fetchMetrics();
+      } catch (e) {
+        alert('Gagal menghapus log');
+      }
+    }
+  };
+
+  const handleCopyJson = (id, payload) => {
+    navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
@@ -101,13 +120,48 @@ export default function DashboardPage() {
     };
   }, [webhookEnabled]);
 
-  // Deteksi log Anime Dice (berdasarkan eventType atau struktur embeds)
   const isAnimeDiceLog = (log) => {
     return (
       log.eventType?.includes('Anime Dice') ||
       (log.payload?.embeds && log.payload.embeds.length > 0)
     );
   };
+
+  // --- Analisis Statistik Real-time ---
+  let maxFloor = 0;
+  let totalUnits = 0;
+  const userCounts = {};
+
+  logs.forEach(log => {
+    const desc = log.payload?.embeds?.[0]?.description || '';
+    const title = log.payload?.embeds?.[0]?.title || '';
+    const user = log.payload?.content?.replace(/\|\|/g, '').replace('Username: ', '').trim() || 'Unknown';
+
+    if (user) {
+      userCounts[user] = (userCounts[user] || 0) + 1;
+    }
+
+    // Extract Floor
+    const floorMatch = desc.match(/Floor Reached:\s*(\d+)/i);
+    if (floorMatch) {
+      const floorNum = parseInt(floorMatch[1], 10);
+      if (floorNum > maxFloor) maxFloor = floorNum;
+    }
+
+    // Extract Unit
+    if (title.includes('New Unit')) {
+      totalUnits += 1;
+    }
+  });
+
+  let topUser = '-';
+  let maxCount = 0;
+  Object.entries(userCounts).forEach(([u, count]) => {
+    if (count > maxCount) {
+      maxCount = count;
+      topUser = u;
+    }
+  });
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch = 
@@ -180,8 +234,11 @@ export default function DashboardPage() {
             </button>
           </div>
 
+          <button onClick={handleClearLogs} style={{ ...btnStyle, backgroundColor: '#451a03', color: '#fde047', borderColor: '#78350f' }}>
+            Clear Logs
+          </button>
           <button onClick={() => { fetchMetrics(); fetchLogs(); }} style={btnStyle}>
-            Refresh Data
+            Refresh
           </button>
           <button onClick={handleLogout} style={{ ...btnStyle, backgroundColor: '#7f1d1d', color: '#fca5a5', borderColor: '#991b1b' }}>
             Logout
@@ -189,7 +246,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Grid Metrik Utama */}
+      {/* Grid Metrik & Analisis Analytics */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
@@ -205,19 +262,27 @@ export default function DashboardPage() {
         </div>
 
         <div style={cardStyle}>
-          <span style={cardTitle}>API Latency</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#38bdf8', marginTop: '8px' }}>
-            {apiPing !== null ? `${apiPing}ms` : 'Measuring...'}
+          <span style={cardTitle}>Highest Floor</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#c084fc', marginTop: '8px' }}>
+            {maxFloor ? `Floor ${maxFloor}` : '-'}
           </div>
-          <small style={{ color: '#64748b' }}>Vercel Route</small>
+          <small style={{ color: '#64748b' }}>Tower Record</small>
         </div>
 
         <div style={cardStyle}>
-          <span style={cardTitle}>DB Storage</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#f43f5e', marginTop: '8px' }}>
-            {metrics?.usage?.usedFormatted || '0 MB'}
+          <span style={cardTitle}>New Units Gained</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#34d399', marginTop: '8px' }}>
+            {totalUnits}
           </div>
-          <small style={{ color: '#64748b' }}>{metrics?.usage?.percentage}% of 256 MB</small>
+          <small style={{ color: '#64748b' }}>Units Dropped</small>
+        </div>
+
+        <div style={cardStyle}>
+          <span style={cardTitle}>Top Active User</span>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fbbf24', marginTop: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {topUser}
+          </div>
+          <small style={{ color: '#64748b' }}>{maxCount} Events</small>
         </div>
 
         <div style={cardStyle}>
@@ -225,15 +290,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#f59e0b', marginTop: '8px' }}>
             {animeDiceCount}
           </div>
-          <small style={{ color: '#64748b' }}>Tower & Unit Events</small>
-        </div>
-
-        <div style={cardStyle}>
-          <span style={cardTitle}>Total Webhooks</span>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#a855f7', marginTop: '8px' }}>
-            {metrics?.totalLogs || 0}
-          </div>
-          <small style={{ color: '#64748b' }}>Logs in Storage</small>
+          <small style={{ color: '#64748b' }}>Game Events</small>
         </div>
 
         <div style={cardStyle}>
@@ -245,7 +302,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Filter & Search Bar - Sederhana: Semua & Anime Dice */}
+      {/* Filter & Search Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <input 
           type="text" 
@@ -283,8 +340,6 @@ export default function DashboardPage() {
           filteredLogs.map((log) => {
             const embed = log.payload?.embeds?.[0];
             const isAnimeDice = isAnimeDiceLog(log);
-
-            // Bersihkan tanda ** dari teks deskripsi
             const cleanDescription = embed?.description ? embed.description.replace(/\*\*/g, '') : '';
 
             return (
@@ -314,12 +369,27 @@ export default function DashboardPage() {
                       </span>
                     )}
                   </div>
-                  <span style={{ color: '#64748b', fontSize: '12px' }}>
-                    {new Date(log.receivedAt).toLocaleString('id-ID')}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button 
+                      onClick={() => handleCopyJson(log.id, log.payload)}
+                      style={{
+                        backgroundColor: '#1e293b',
+                        color: copiedId === log.id ? '#4ade80' : '#94a3b8',
+                        border: '1px solid #334155',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {copiedId === log.id ? 'Copied!' : 'Copy JSON'}
+                    </button>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>
+                      {new Date(log.receivedAt).toLocaleString('id-ID')}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Tampilan Embed tanpa tanda ** */}
                 {embed ? (
                   <div style={{
                     backgroundColor: '#020617',
