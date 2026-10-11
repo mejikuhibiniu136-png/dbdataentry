@@ -56,7 +56,6 @@ export default function DashboardPage() {
     fetchMetrics();
     fetchLogs();
 
-    // Format tanggal Indonesia
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setCurrentDate(now.toLocaleDateString('id-ID', options));
@@ -110,48 +109,65 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Grid Metrik Utama - 6 Kartu */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         gap: '16px',
         marginBottom: '32px'
       }}>
         
         <div style={cardStyle}>
           <span style={cardTitle}>Database Ping</span>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4ade80', marginTop: '8px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#4ade80', marginTop: '8px' }}>
             {metrics?.dbPing || 'Measuring...'}
           </div>
-          <small style={{ color: '#64748b' }}>Upstash Redis Latency</small>
+          <small style={{ color: '#64748b' }}>Upstash Redis</small>
         </div>
 
         <div style={cardStyle}>
-          <span style={cardTitle}>API Webhook Ping</span>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#38bdf8', marginTop: '8px' }}>
+          <span style={cardTitle}>API Latency</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#38bdf8', marginTop: '8px' }}>
             {apiPing !== null ? `${apiPing}ms` : 'Measuring...'}
           </div>
-          <small style={{ color: '#64748b' }}>Vercel Route Latency</small>
+          <small style={{ color: '#64748b' }}>Vercel Route</small>
         </div>
 
         <div style={cardStyle}>
-          <span style={cardTitle}>DB Memory Usage</span>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f43f5e', marginTop: '8px' }}>
+          <span style={cardTitle}>DB Storage Usage</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#f43f5e', marginTop: '8px' }}>
             {metrics?.usage?.usedFormatted || '0 MB'}
           </div>
-          <div style={{ backgroundColor: '#334155', height: '6px', borderRadius: '3px', marginTop: '10px', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: '#334155', height: '6px', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
             <div style={{ backgroundColor: '#f43f5e', height: '100%', width: `${metrics?.usage?.percentage || 0}%` }} />
           </div>
           <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>
-            {metrics?.usage?.percentage}% of {metrics?.usage?.limitFormatted}
+            {metrics?.usage?.percentage}% of 256 MB
           </small>
         </div>
 
         <div style={cardStyle}>
           <span style={cardTitle}>Total Webhooks</span>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#a855f7', marginTop: '8px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#a855f7', marginTop: '8px' }}>
             {metrics?.totalLogs || 0}
           </div>
           <small style={{ color: '#64748b' }}>Logs in Storage</small>
+        </div>
+
+        <div style={cardStyle}>
+          <span style={cardTitle}>DB Commands</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#eab308', marginTop: '8px' }}>
+            {metrics?.commandsCount || 0}
+          </div>
+          <small style={{ color: '#64748b' }}>Executed Ops</small>
+        </div>
+
+        <div style={cardStyle}>
+          <span style={cardTitle}>DB Bandwidth</span>
+          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#06b6d4', marginTop: '8px' }}>
+            {metrics?.bandwidthFormatted || '0 KB'}
+          </div>
+          <small style={{ color: '#64748b' }}>Est. Network Transfer</small>
         </div>
 
       </div>
@@ -240,11 +256,11 @@ const cardStyle = {
   backgroundColor: '#0f172a',
   border: '1px solid #1e293b',
   borderRadius: '12px',
-  padding: '20px'
+  padding: '16px'
 };
 
 const cardTitle = {
-  fontSize: '12px',
+  fontSize: '11px',
   textTransform: 'uppercase',
   color: '#64748b',
   fontWeight: '600',
