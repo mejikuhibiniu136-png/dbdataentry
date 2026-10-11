@@ -5,18 +5,34 @@ const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKE
 
 const redis = new Redis({ url, token });
 
-export async function POST(request) {
-  try {
-    // 1. Cek status toggle penerima webhook
-    const isEnabled = await redis.get('webhook:status');
-    if (isEnabled === false || isEnabled === 'false') {
-      // Memutuskan koneksi & menolak request tanpa eksekusi perintah DB tambahan
-      return Response.json({
-        success: false,
-        message: 'Webhook receiver is currently DISABLED by administrator.'
-      }, { status: 503 });
-    }
+// Cache status lokal di memori Vercel Instance (Tahan hingga 30 detik)
+let cachedStatus = null;
+let lastCacheTime = 0;
 
+export async function POST(request) {
+  const now = Date.now();
+
+  // Hanya query DB jika cache sudah expired (lebih dari 30 detik)
+  if (cachedStatus === null || now - lastCacheTime > 30000) {
+    try {
+      const isEnabled = await redis.get('webhook:status');
+      cachedStatus = isEnabled === null ? true : Boolean(isEnabled);
+      lastCacheTime = now;
+    } catch (e) {
+      cachedStatus = true;
+    }
+  }
+
+  // Jika status OFF, langsung REJECT instan tanpa sentuh Redis!
+  if (!cachedStatus) {
+    return Response.json({
+      success: false,
+      message: 'Webhook receiver is OFF. Request rejected immediately (0 DB commands used).'
+    }, { status: 503 });
+  }
+
+  // Jika status ON, jalankan simpan log
+  try {
     const startTime = Date.now();
     const payload = await request.json();
     const eventType = request.headers.get('x-github-event') || 
@@ -33,7 +49,6 @@ export async function POST(request) {
       receivedAt: new Date().toISOString()
     };
 
-    // 2. Simpan log hanya jika status ON
     await redis.lpush('webhook_logs', JSON.stringify(logData));
     await redis.ltrim('webhook_logs', 0, 199);
 
