@@ -1,37 +1,34 @@
 import { Redis } from '@upstash/redis';
 
-// Otomatis membaca KV_REST_API_URL / STORAGE_REST_API_URL dari Vercel
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+const url = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
+const token = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_READ_ONLY_TOKEN;
+
+const redis = new Redis({ url, token });
 
 export async function GET() {
   const startDb = Date.now();
   
   try {
+    // 1. Ukur Ping Latency DB
     await redis.ping();
     const dbPing = Date.now() - startDb;
+
+    // 2. Ambil Total Log
     const totalLogs = await redis.llen('webhook_logs');
-    
-    const infoStr = await redis.info('memory');
-    let usedMemory = 0;
-    
-    if (typeof infoStr === 'string') {
-      const match = infoStr.match(/used_memory:(\d+)/);
-      if (match) usedMemory = parseInt(match[1], 10);
-    }
+
+    // 3. Estimasi Penggunaan Memori (Asumsi rata-rata 1 log JSON ~ 500 byte)
+    const estimatedBytes = totalLogs * 500;
+    const usedFormatted = (estimatedBytes / (1024 * 1024)).toFixed(3) + ' MB';
+    const percentage = ((estimatedBytes / (256 * 1024 * 1024)) * 100).toFixed(4);
 
     return Response.json({
       status: 'online',
       dbPing: `${dbPing}ms`,
-      dbPingVal: dbPing,
       totalLogs,
       usage: {
-        usedBytes: usedMemory,
-        usedFormatted: (usedMemory / (1024 * 1024)).toFixed(2) + ' MB',
+        usedFormatted,
         limitFormatted: '256 MB',
-        percentage: Math.min(((usedMemory / (256 * 1024 * 1024)) * 100), 100).toFixed(2)
+        percentage
       },
       timestamp: new Date().toISOString()
     });
