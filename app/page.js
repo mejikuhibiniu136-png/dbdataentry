@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const [apiPing, setApiPing] = useState(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+  const [selectedUserFilter, setSelectedUserFilter] = useState('ALL_USERS');
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [currentDate, setCurrentDate] = useState('');
@@ -135,12 +136,16 @@ export default function DashboardPage() {
     );
   };
 
+  // --- Analisis Statistik & Extraction Looting ---
   let maxFloor = 0;
   let totalUnits = 0;
   let highestRarity = '-';
   const lootSummary = {};
   const rarityPriority = ['Secret', 'Mythic', 'Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
   const userCounts = {};
+  const hourlyActivity = Array(6).fill(0); // 6 jam terakhir
+
+  const nowMs = Date.now();
 
   logs.forEach(log => {
     const p = log.payload || {};
@@ -154,8 +159,14 @@ export default function DashboardPage() {
       userCounts[user] = (userCounts[user] || 0) + 1;
     }
 
+    // Chart per jam
+    const logTimeMs = new Date(log.receivedAt).getTime();
+    const diffHours = Math.floor((nowMs - logTimeMs) / (1000 * 60 * 60));
+    if (diffHours >= 0 && diffHours < 6) {
+      hourlyActivity[5 - diffHours] += 1;
+    }
+
     const cleanDesc = desc.replace(/\*\*/g, '');
-    
     const floorMatch = cleanDesc.match(/Floor Reached:\s*(\d+)/i);
     if (floorMatch) {
       const floorNum = parseInt(floorMatch[1], 10);
@@ -201,18 +212,34 @@ export default function DashboardPage() {
     }
   });
 
+  const uniqueUsers = Array.from(new Set(logs.map(l => l.payload?.username).filter(Boolean)));
+
   const filteredLogs = logs.filter((log) => {
+    const p = log.payload || {};
     const matchesSearch = 
       log.eventType.toLowerCase().includes(search.toLowerCase()) ||
-      JSON.stringify(log.payload).toLowerCase().includes(search.toLowerCase());
+      JSON.stringify(p).toLowerCase().includes(search.toLowerCase());
 
-    if (filterType === 'ALL') return matchesSearch;
-    if (filterType === 'ANIME_DICE') return matchesSearch && isAnimeDiceLog(log);
-    return matchesSearch;
+    const matchesUser = selectedUserFilter === 'ALL_USERS' || p.username === selectedUserFilter;
+
+    if (filterType === 'ALL') return matchesSearch && matchesUser;
+    if (filterType === 'ANIME_DICE') return matchesSearch && matchesUser && isAnimeDiceLog(log);
+    return matchesSearch && matchesUser;
   });
 
   const animeDiceCount = logs.filter(isAnimeDiceLog).length;
-  return (
+
+  const calculateUptime = (timestamp, lastUpdate) => {
+    if (!timestamp || !lastUpdate) return '-';
+    const start = new Date(timestamp).getTime();
+    const end = new Date(lastUpdate).getTime();
+    const diffSec = Math.floor((end - start) / 1000);
+    if (diffSec <= 0) return '< 1m';
+    const h = Math.floor(diffSec / 3600);
+    const m = Math.floor((diffSec % 3600) / 60);
+    return `${h > 0 ? h + 'j ' : ''}${m}m`;
+  };
+    return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box' }}>
       
       <header style={{
@@ -298,7 +325,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
+      {/* Tabs Menu */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '12px', width: '100%' }}>
         <button 
           onClick={() => setActiveTab('RADAR')}
@@ -332,7 +359,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* TAB 1: RADAR */}
       {activeTab === 'RADAR' && (
         <div style={{ width: '100%' }}>
           <div style={{
@@ -398,12 +424,90 @@ export default function DashboardPage() {
               <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '11px' }}>
                 Storage: {metrics?.usage?.usedFormatted || '0 MB'} ({metrics?.usage?.percentage || 0}%)
               </small>
-              <small style={{ color: '#06b6d4', display: 'block', marginTop: '1px', fontSize: '11px' }}>
-                Bandwidth: {metrics?.bandwidthFormatted || '0 KB'}
-              </small>
             </div>
           </div>
 
+          {/* Activity Chart (6 Jam Terakhir) */}
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}>
+            <span style={cardTitle}>📊 Activity Chart (6 Jam Terakhir)</span>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '80px', marginTop: '12px' }}>
+              {hourlyActivity.map((count, idx) => {
+                const maxVal = Math.max(...hourlyActivity, 1);
+                const heightPct = Math.max((count / maxVal) * 100, 10);
+                return (
+                  <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                      width: '100%',
+                      height: `${heightPct}%`,
+                      backgroundColor: count > 0 ? '#38bdf8' : '#334155',
+                      borderRadius: '4px',
+                      transition: 'height 0.3s'
+                    }} />
+                    <span style={{ fontSize: '10px', color: '#64748b' }}>-{5 - idx}j</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Filter Bar & Per-User Select */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
+            <input 
+              type="text" 
+              placeholder="Cari unit, floor, atau username..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: '200px',
+                padding: '12px 16px',
+                backgroundColor: '#0f172a',
+                border: '1px solid #1e293b',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+
+            {/* Filter Per-Akun */}
+            <select
+              value={selectedUserFilter}
+              onChange={(e) => setSelectedUserFilter(e.target.value)}
+              style={{
+                backgroundColor: '#0f172a',
+                border: '1px solid #1e293b',
+                color: '#38bdf8',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="ALL_USERS">👤 Semua Akun</option>
+              {uniqueUsers.map(u => (
+                <option key={u} value={u}>@{u}</option>
+              ))}
+            </select>
+
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={() => setFilterType('ALL')} style={filterBtnStyle(filterType === 'ALL')}>Semua</button>
+              <button onClick={() => setFilterType('ANIME_DICE')} style={filterBtnStyle(filterType === 'ANIME_DICE')}>🎲 Anime Dice</button>
+            </div>
+          </div>
+
+          {/* Table Looting */}
           {filterType === 'ANIME_DICE' && Object.keys(lootSummary).length > 0 && (
             <div style={{
               backgroundColor: '#0f172a',
@@ -440,32 +544,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
-            <input 
-              type="text" 
-              placeholder="Cari unit, floor, atau username (misal: sideofio)..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: '240px',
-                padding: '12px 16px',
-                backgroundColor: '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '14px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => setFilterType('ALL')} style={filterBtnStyle(filterType === 'ALL')}>Semua</button>
-              <button onClick={() => setFilterType('ANIME_DICE')} style={filterBtnStyle(filterType === 'ANIME_DICE')}>🎲 Anime Dice</button>
-            </div>
-          </div>
-
+          {/* Log Feed */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
             {loading ? (
               <p style={{ textAlign: 'center', color: '#64748b' }}>Memuat data dbdataentry...</p>
@@ -504,11 +583,6 @@ export default function DashboardPage() {
                         {p.gameName && (
                           <span style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold' }}>
                             {p.gameName}
-                          </span>
-                        )}
-                        {log.payload?.content && (
-                          <span style={{ color: '#fbbf24', fontSize: '13px', fontWeight: 'bold' }}>
-                            {log.payload.content.replace(/\|\|/g, '')}
                           </span>
                         )}
                       </div>
@@ -585,15 +659,8 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
                             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px' }}>{embed.title}</h3>
-                            {embed.author?.name && (
-                              <small style={{ color: '#64748b' }}>{embed.author.name}</small>
-                            )}
                           </div>
-                          {embed.thumbnail?.url && (
-                            <img src={embed.thumbnail.url} alt="thumb" style={{ width: '48px', height: '48px', borderRadius: '6px' }} />
-                          )}
                         </div>
-
                         {embed.description && (
                           <div style={{
                             whiteSpace: 'pre-wrap',
@@ -644,7 +711,7 @@ export default function DashboardPage() {
 
           {accounts.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: 'center', padding: '40px', width: '100%' }}>
-              <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar. Klik "Pull Request" setelah skrip dijalankan.</p>
+              <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar.</p>
             </div>
           ) : (
             <div style={{ 
@@ -654,7 +721,7 @@ export default function DashboardPage() {
               width: '100%' 
             }}>
               {accounts.map((acc, index) => {
-                const isOnline = acc.event === 'Aktif' || acc.event === 'Heartbeat' || acc.status?.toLowerCase() === 'online';
+                const isOnline = acc.status?.toUpperCase() === 'ONLINE' || acc.event === 'Aktif' || acc.event === 'Heartbeat';
                 return (
                   <div key={acc.username || index} style={{
                     backgroundColor: '#0f172a',
@@ -714,8 +781,11 @@ export default function DashboardPage() {
                       gap: '6px',
                       fontSize: '12px'
                     }}>
-                      <div style={{ color: '#cbd5e1' }}>
-                        <strong style={{ color: '#38bdf8' }}>Game:</strong> {acc.gameName || '-'}
+                      <div style={{ color: '#cbd5e1', display: 'flex', justifyContent: 'space-between' }}>
+                        <span><strong style={{ color: '#38bdf8' }}>Game:</strong> {acc.gameName || '-'}</span>
+                        <span style={{ color: '#34d399', fontWeight: 'bold' }}>
+                          Active: {calculateUptime(acc.timestamp, acc.lastUpdate)}
+                        </span>
                       </div>
                       <div style={{ color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <strong style={{ color: '#38bdf8' }}>Job ID:</strong> {acc.jobId || 'Local/Private'}
@@ -727,7 +797,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
-                      <span>Timestamp: {acc.timestamp ? new Date(acc.timestamp).toLocaleTimeString('id-ID') : '-'}</span>
+                      <span>Start: {acc.timestamp ? new Date(acc.timestamp).toLocaleTimeString('id-ID') : '-'}</span>
                       <span>Sync: {acc.lastUpdate ? new Date(acc.lastUpdate).toLocaleTimeString('id-ID') : '-'}</span>
                     </div>
                   </div>
