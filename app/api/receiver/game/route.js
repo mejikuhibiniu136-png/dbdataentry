@@ -13,7 +13,7 @@ async function analyzeWithGemini(payload) {
       isValid: true,
       missingFields: [],
       anomalyDetected: false,
-      summary: 'API Key Gemini belum diatur di Vercel.'
+      summary: 'API Key Gemini belum dipasang di Vercel.'
     };
   }
 
@@ -28,10 +28,10 @@ async function analyzeWithGemini(payload) {
     Kamu adalah validator webhook. Periksa data JSON berikut:
     ${JSON.stringify(payload)}
 
-    Kembalikan JSON saja dengan format:
+    Kembalikan format JSON persis seperti ini:
     {
       "isValid": boolean,
-      "missingFields": ["field_hilang_jika_ada"],
+      "missingFields": ["field_yang_hilang_jika_ada"],
       "anomalyDetected": boolean,
       "summary": "penjelasan singkat"
     }
@@ -53,7 +53,7 @@ export async function POST(request) {
   try {
     const payload = await request.json();
 
-    // 1. Analisis otomatis menggunakan Gemini
+    // 1. Analisis otomatis pakai Gemini AI
     const aiAnalysis = await analyzeWithGemini(payload);
 
     // 2. Simpan log beserta hasil analisis ke Redis
