@@ -1,0 +1,22 @@
+{
+  "name": "dbdataentry",
+  "version": "2.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "hash": "node scripts/hash-password.mjs"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.28.0",
+    "bcryptjs": "^2.4.3",
+    "next": "14.2.35",
+    "react": "^18",
+    "react-dom": "^18"
+  }
+}
