@@ -114,6 +114,7 @@ export function CommandPalette({ open, commands, onClose }) {
       <div className="palette" role="dialog" aria-modal="true" aria-label="Palet perintah">
         <input
           ref={inputRef}
+          autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}

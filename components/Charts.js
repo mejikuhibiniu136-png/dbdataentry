@@ -42,8 +42,16 @@ export function Sparkline({ values, color = 'var(--accent)', label = 'Grafik lat
   );
 }
 
-const fmtTime = (ms) =>
-  new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+// Rentang 12 jam atau lebih: sertakan tanggal agar label awal dan akhir tidak terlihat sama.
+const fmtTime = (ms, withDay = false) =>
+  withDay
+    ? new Date(ms).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+const fmtSpan = (ms) => {
+  const hours = Math.round(ms / 3600000);
+  return hours >= 1 ? `${hours} jam` : `${Math.max(1, Math.round(ms / 60000))} menit`;
+};
 
 // Batang bertumpuk: heartbeat (redup) dan event lain (terang).
 export function ActivityChart({ data }) {
@@ -51,6 +59,15 @@ export function ActivityChart({ data }) {
   if (buckets.length === 0) {
     return <div className="empty" style={{ padding: 28 }}>Belum ada aktivitas untuk digrafikkan.</div>;
   }
+  if (data.max === 0) {
+    return (
+      <div className="empty" style={{ padding: 28 }}>
+        Tidak ada aktivitas dalam {fmtSpan(data.spanMs)} terakhir.
+        <div className="hint" style={{ marginTop: 4 }}>Log yang dimuat lebih lama dari rentang ini.</div>
+      </div>
+    );
+  }
+  const withDay = data.spanMs >= 12 * 3600000;
   const W = 960;
   const H = 210;
   const padL = 28;
@@ -89,8 +106,8 @@ export function ActivityChart({ data }) {
             </g>
           );
         })}
-        <text className="chart-axis" x={padL} y={H - 6}>{fmtTime(buckets[0].start)}</text>
-        <text className="chart-axis" x={W - 6} y={H - 6} textAnchor="end">{fmtTime(buckets[buckets.length - 1].start + data.bucketMs)}</text>
+        <text className="chart-axis" x={padL} y={H - 6}>{fmtTime(buckets[0].start, withDay)}</text>
+        <text className="chart-axis" x={W - 6} y={H - 6} textAnchor="end">{fmtTime(buckets[buckets.length - 1].start + data.bucketMs, withDay)}</text>
       </svg>
       <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
         <span><span className="dot" style={{ color: 'var(--accent-2)', display: 'inline-block', marginRight: 6 }} />Event</span>
