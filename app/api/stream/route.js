@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth';
-import { DASHBOARD_LOG_LIMIT } from '@/lib/constants';
+import { DASHBOARD_LOG_LIMIT, MAX_STORED_LOGS } from '@/lib/constants';
 import { clampInt, json, unauthorized } from '@/lib/http';
 import { getRedis } from '@/lib/redis';
 import { readAccounts, readLogs } from '@/lib/store';
@@ -25,6 +25,14 @@ export async function GET(request) {
   } catch (err) {
     console.error('[stream]', err);
     return json({ success: false, message: 'Terjadi kesalahan pada server' }, 500);
+  }
+
+  // Jumlah log per kiriman dapat diatur dashboard lewat ?limit= (10..200, default 50).
+  let logLimit = DASHBOARD_LOG_LIMIT;
+  try {
+    logLimit = clampInt(new URL(request.url).searchParams.get('limit'), 10, MAX_STORED_LOGS, DASHBOARD_LOG_LIMIT);
+  } catch {
+    logLimit = DASHBOARD_LOG_LIMIT;
   }
 
   const encoder = new TextEncoder();
@@ -67,7 +75,7 @@ export async function GET(request) {
         running = true;
         try {
           const [logs, accounts] = await Promise.all([
-            readLogs(redis, DASHBOARD_LOG_LIMIT),
+            readLogs(redis, logLimit),
             readAccounts(redis),
           ]);
           const payload = { logs, accounts };

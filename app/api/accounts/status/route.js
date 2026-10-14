@@ -2,7 +2,7 @@ import { getSession, requireReceiverKey } from '@/lib/auth';
 import { HttpError, errorResponse, json, readJsonObject, unauthorized } from '@/lib/http';
 import { normalizeUsername } from '@/lib/accounts';
 import { getRedis } from '@/lib/redis';
-import { readAccounts, upsertAccount } from '@/lib/store';
+import { deleteAccount, readAccounts, upsertAccount } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,5 +34,24 @@ export async function POST(request) {
     return json({ success: true, data: account });
   } catch (err) {
     return errorResponse(err, 'accounts/status POST');
+  }
+}
+
+// Dashboard: menghapus satu akun dari daftar (butuh sesi login).
+export async function DELETE(request) {
+  try {
+    const session = await getSession();
+    if (!session) return unauthorized();
+
+    const { username } = await readJsonObject(request, 1024);
+    if (!normalizeUsername(username)) {
+      throw new HttpError(400, 'Username tidak valid');
+    }
+
+    const removed = await deleteAccount(getRedis(), username);
+    if (!removed) throw new HttpError(404, 'Akun tidak ditemukan');
+    return json({ success: true });
+  } catch (err) {
+    return errorResponse(err, 'accounts/status DELETE');
   }
 }

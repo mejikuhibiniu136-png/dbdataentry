@@ -1,235 +1,134 @@
 'use client';
 
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
-import { DASHBOARD_LOG_LIMIT } from '@/lib/constants';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityChart, BarList } from '@/components/Charts';
+import { AccountCard } from '@/components/AccountCard';
+import { LogBoundary, LogCard } from '@/components/LogCard';
+import { CommandPalette, ConfirmDialog, LogDrawer, Toasts } from '@/components/Overlays';
 import { getAccountState } from '@/lib/accountStatus';
+import { DASHBOARD_LOG_LIMIT } from '@/lib/constants';
+import {
+  apiFetch,
+  copyText,
+  downloadText,
+  jsonPost,
+  useLiveStream,
+  useTheme,
+  useToasts,
+} from '@/lib/client';
+import {
+  RANGE_OPTIONS,
+  accountsToCsv,
+  buildActivity,
+  computeLogStats,
+  filterLogs,
+  formatDuration,
+  formatNumber,
+  isHeartbeat,
+  latencySeries,
+  logsToCsv,
+  timeAgo,
+} from '@/lib/logStats';
 
-// ---------- Helper murni ----------
+const TABS = [
+  { id: 'OVERVIEW', label: 'Ringkasan', icon: '🧭' },
+  { id: 'RADAR', label: 'Webhook Radar', icon: '📡' },
+  { id: 'ACCOUNTS', label: 'Akun', icon: '👤' },
+  { id: 'ANALYTICS', label: 'Analitik', icon: '📊' },
+];
 
-const str = (value) => (typeof value === 'string' ? value : '');
+const STATE_ORDER = { ONLINE: 0, STALLED: 1, OFFLINE: 2 };
+const LIMIT_OPTIONS = [50, 100, 200];
+const PAGE_SIZE = 60;
 
-// Semua request dashboard lewat sini: jika sesi berakhir (401) langsung diarahkan ke login.
-async function apiFetch(url, options) {
-  const res = await fetch(url, options);
-  if (res.status === 401) {
-    window.location.href = '/login';
-    throw new Error('Sesi berakhir');
-  }
-  return res;
-}
+const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
-// Warna embed (integer RGB) menjadi hex 6 digit. Nilai kosong / tidak valid -> kuning default.
-function embedColor(color) {
-  return Number.isInteger(color) && color > 0 && color <= 0xffffff
-    ? `#${color.toString(16).padStart(6, '0')}`
-    : '#eab308';
-}
-
-// Gambar dari payload hanya dimuat jika https.
-function safeImageUrl(url) {
-  if (typeof url !== 'string') return null;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' ? parsed.href : null;
-  } catch {
-    return null;
-  }
-}
-
-const isAnimeDiceLog = (log) =>
-  str(log.eventType).includes('Anime Dice') ||
-  (Array.isArray(log.payload?.embeds) && log.payload.embeds.length > 0);
-
-const RARITY_MULTIPLIERS = {
-  '': 1, 'k': 1e3, 'm': 1e6, 'b': 1e9, 't': 1e12,
-  'qd': 1e15, 'qi': 1e18, 'sx': 1e21, 'sp': 1e24, 'oc': 1e27,
-  'no': 1e30, 'dc': 1e33, 'udc': 1e36, 'ddc': 1e39, 'tdc': 1e42,
-  'qdc': 1e45, 'qidc': 1e48, 'sxdc': 1e51, 'spdc': 1e54, 'ocdc': 1e57,
-  'nodc': 1e60, 'vg': 1e63, 'googol': 1e100
+const CONNECTION_UI = {
+  live: { cls: 'pill pill-ok', text: 'LIVE', pulse: true },
+  connecting: { cls: 'pill', text: 'Menyambung…', pulse: false },
+  reconnecting: { cls: 'pill pill-warn', text: 'Menyambung ulang…', pulse: false },
+  paused: { cls: 'pill pill-warn', text: 'Dijeda', pulse: false },
 };
-
-const parseRarityChance = (chanceStr) => {
-  if (!chanceStr) return 0;
-  const match = chanceStr.match(/1\/([\d.]+)([a-zA-Z]*)/i);
-  if (!match) return 0;
-
-  const num = parseFloat(match[1]);
-  const suffix = match[2].toLowerCase().replace('!', '');
-  const multiplier = RARITY_MULTIPLIERS[suffix] !== undefined ? RARITY_MULTIPLIERS[suffix] : 1;
-  return num * multiplier;
-};
-
-// Statistik dari daftar log. Satu log yang formatnya aneh dilewati, tidak merusak yang lain.
-function computeLogStats(logs) {
-  let maxFloor = 0;
-  let totalUnits = 0;
-  let highestRarityText = '-';
-  let maxRarityScore = 0;
-  const lootSummary = Object.create(null);
-  const userCounts = Object.create(null);
-
-  logs.forEach((log) => {
-    try {
-      const p = log.payload || {};
-      const desc = str(p.embeds?.[0]?.description);
-      const title = str(p.embeds?.[0]?.title);
-      const user =
-        str(p.content).replace(/\|\|/g, '').replace('Username: ', '').trim() ||
-        str(p.username) ||
-        'Unknown';
-
-      const isStatusUpdate = p.event === 'Heartbeat' || p.event === 'Aktif';
-
-      if (user && user !== 'Unknown' && !isStatusUpdate) {
-        userCounts[user] = (userCounts[user] || 0) + 1;
-      }
-
-      const cleanDesc = desc.replace(/\*\*/g, '');
-      const floorMatch = cleanDesc.match(/Floor Reached:\s*(\d+)/i);
-      if (floorMatch) {
-        const floorNum = parseInt(floorMatch[1], 10);
-        if (floorNum > maxFloor) maxFloor = floorNum;
-      }
-
-      cleanDesc.split('\n').forEach((line) => {
-        const match = line.match(/^\s*([A-Za-z0-9\s]+):\s*x?(\d+)/);
-        if (match) {
-          const itemName = match[1].trim();
-          const quantity = parseInt(match[2], 10);
-          if (itemName !== 'Floor Reached' && itemName !== 'Name' && itemName !== 'Drops') {
-            lootSummary[itemName] = (lootSummary[itemName] || 0) + quantity;
-          }
-        }
-      });
-
-      if (title.includes('New Unit!')) {
-        totalUnits += 1;
-        const chanceMatch = title.match(/New Unit!\s*(1\/[^\s!]+)/i);
-        if (chanceMatch) {
-          const rawChance = chanceMatch[1];
-          const score = parseRarityChance(rawChance);
-          if (score > maxRarityScore) {
-            maxRarityScore = score;
-            highestRarityText = rawChance;
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Log dilewati saat menghitung statistik:', err);
-    }
-  });
-
-  let topUser = '-';
-  let maxCount = 0;
-  Object.entries(userCounts).forEach(([u, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      topUser = u;
-    }
-  });
-
-  const uniqueUsers = Array.from(
-    new Set(logs.map((l) => l.payload?.username).filter((u) => typeof u === 'string' && u))
-  );
-
-  return {
-    maxFloor,
-    totalUnits,
-    highestRarityText,
-    lootSummary,
-    topUser,
-    maxCount,
-    uniqueUsers,
-    animeDiceCount: logs.filter(isAnimeDiceLog).length
-  };
-}
-
-function filterLogs(logs, search, userFilter, filterType) {
-  const q = search.toLowerCase();
-  return logs.filter((log) => {
-    const p = log.payload || {};
-    const matchesSearch =
-      !q ||
-      str(log.eventType).toLowerCase().includes(q) ||
-      JSON.stringify(p).toLowerCase().includes(q);
-    const matchesUser = userFilter === 'ALL_USERS' || p.username === userFilter;
-    if (!matchesSearch || !matchesUser) return false;
-    if (filterType === 'ANIME_DICE') return isAnimeDiceLog(log);
-    return true;
-  });
-}
-
-const ACCOUNT_STATE_STYLES = {
-  OFFLINE: { color: '#fca5a5', bg: '#7f1d1d' },
-  STALLED: { color: '#fde047', bg: '#713f12' },
-  ONLINE: { color: '#34d399', bg: '#065f46' }
-};
-
-// Kartu log yang gagal dirender (format payload tidak terduga) tidak merusak seluruh halaman.
-class LogBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { failed: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch(error) {
-    console.error('Gagal merender log:', error);
-  }
-
-  render() {
-    if (this.state.failed) {
-      return (
-        <div style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #7f1d1d',
-          borderRadius: '12px',
-          padding: '16px',
-          color: '#fca5a5',
-          fontSize: '13px'
-        }}>
-          ⚠️ Log ini tidak dapat ditampilkan (format payload tidak valid).
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-// ---------- Halaman ----------
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState('RADAR');
+  const [activeTab, setActiveTab] = useState('OVERVIEW');
   const [logs, setLogs] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [apiPing, setApiPing] = useState(null);
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('ALL');
-  const [selectedUserFilter, setSelectedUserFilter] = useState('ALL_USERS');
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [webhookEnabled, setWebhookEnabled] = useState(true);
-  const [copiedId, setCopiedId] = useState(null);
+  const [paused, setPaused] = useState(false);
+  const [logLimit, setLogLimit] = useState(DASHBOARD_LOG_LIMIT);
   const [isPulling, setIsPulling] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
-  const [nowTime, setNowTime] = useState(Date.now());
+  const [nowTime, setNowTime] = useState(() => Date.now());
 
-  const toastTimer = useRef(null);
+  // Filter log
+  const [search, setSearch] = useState('');
+  const [userFilter, setUserFilter] = useState('ALL_USERS');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [hideHeartbeat, setHideHeartbeat] = useState(false);
+  const [rangeId, setRangeId] = useState('ALL');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Filter akun
+  const [accSearch, setAccSearch] = useState('');
+  const [accStatus, setAccStatus] = useState('ALL');
+  const [accSort, setAccSort] = useState('STATUS');
+
+  // Overlay
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [newIds, setNewIds] = useState(() => new Set());
+
+  const { toasts, push: toast } = useToasts();
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  const searchRef = useRef(null);
+  const menuRef = useRef(null);
+  const copiedTimer = useRef(null);
+  const newTimer = useRef(null);
+  const seenIds = useRef(null); // null = data pertama belum diterima
+  const prevStates = useRef(null);
   // Selisih jam server - jam browser (ms), agar status akun tidak salah akibat jam perangkat yang meleset.
   const clockOffset = useRef(0);
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMessage(null), 4000);
-  };
+  // ---------- Pengambilan data ----------
 
-  const fetchUser = async () => {
+  const applyLogs = useCallback((incoming) => {
+    if (!Array.isArray(incoming)) return;
+    setLogs(incoming);
+    if (seenIds.current === null) {
+      seenIds.current = new Set(incoming.map((l) => l.id));
+      return;
+    }
+    const fresh = incoming.filter((l) => !seenIds.current.has(l.id)).map((l) => l.id);
+    seenIds.current = new Set(incoming.map((l) => l.id));
+    if (fresh.length > 0) {
+      setNewIds(new Set(fresh));
+      clearTimeout(newTimer.current);
+      newTimer.current = setTimeout(() => setNewIds(new Set()), 2000);
+    }
+  }, []);
+
+  const handleStreamData = useCallback(
+    (parsed) => {
+      if (typeof parsed.timestamp === 'number') clockOffset.current = parsed.timestamp - Date.now();
+      if (Array.isArray(parsed.logs)) applyLogs(parsed.logs);
+      if (Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
+      setLoading(false);
+    },
+    [applyLogs]
+  );
+
+  const connection = useLiveStream({ paused, limit: logLimit, onData: handleStreamData });
+
+  const fetchUser = useCallback(async () => {
     try {
       const res = await apiFetch('/api/user');
       const data = await res.json();
@@ -237,9 +136,9 @@ export default function DashboardPage() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
-  const fetchWebhookStatus = async () => {
+  const fetchWebhookStatus = useCallback(async () => {
     try {
       const res = await apiFetch('/api/webhook/toggle');
       const data = await res.json();
@@ -247,52 +146,32 @@ export default function DashboardPage() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
-  const handleToggleWebhook = async () => {
-    const newStatus = !webhookEnabled;
-    setWebhookEnabled(newStatus);
-    try {
-      const res = await apiFetch('/api/webhook/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: newStatus })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast(newStatus ? 'Receiver Webhook Dinyalakan' : 'Receiver Webhook Dimatikan');
-    } catch (e) {
-      console.error(e);
-      setWebhookEnabled(!newStatus);
-      showToast('Gagal mengubah status receiver');
-    }
-  };
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     const start = Date.now();
     try {
       const res = await apiFetch('/api/ping');
-      const pingMs = Date.now() - start;
-      setApiPing(pingMs);
-      const data = await res.json();
-      setMetrics(data);
+      setApiPing(Date.now() - start);
+      setMetrics(await res.json());
     } catch (e) {
       setApiPing('Fail');
     }
-  };
+  }, []);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
-      const res = await apiFetch(`/api/webhook?limit=${DASHBOARD_LOG_LIMIT}`);
+      const res = await apiFetch(`/api/webhook?limit=${logLimit}`);
       const json = await res.json();
-      if (json.success) setLogs(json.data);
+      if (json.success) applyLogs(json.data);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyLogs, logLimit]);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/status');
       const json = await res.json();
@@ -300,51 +179,14 @@ export default function DashboardPage() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
-  const handlePullRequest = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsPulling(true);
-    await Promise.all([fetchMetrics(), fetchLogs(), fetchAccounts()]);
-    showToast('Data berhasil diperbarui!');
-    setTimeout(() => setIsPulling(false), 500);
-  };
-
-  const handleClearLogs = async () => {
-    if (!confirm('Yakin ingin menghapus seluruh log tersimpan?')) return;
-    try {
-      const res = await apiFetch('/api/webhook/clear', { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setLogs([]);
-      setAccounts([]);
-      fetchMetrics();
-      showToast('Seluruh log berhasil dihapus');
-    } catch (e) {
-      console.error(e);
-      if (e.message !== 'Sesi berakhir') alert('Gagal menghapus log');
-    }
-  };
-
-  const handleCopyJson = async (id, payload) => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    } catch (e) {
-      console.error(e);
-      showToast('Gagal menyalin ke clipboard');
-      return;
-    }
-    setCopiedId(id);
-    showToast('JSON disalin ke clipboard');
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/logout', { method: 'POST' });
-    } catch (e) {
-      console.error(e);
-    }
-    window.location.href = '/login';
-  };
+    await Promise.all([fetchMetrics(), fetchLogs(), fetchAccounts(), fetchWebhookStatus()]);
+    toast('Data berhasil diperbarui', 'success');
+    setTimeout(() => setIsPulling(false), 400);
+  }, [fetchAccounts, fetchLogs, fetchMetrics, fetchWebhookStatus, toast]);
 
   // Data awal dan tanggal
   useEffect(() => {
@@ -353,740 +195,722 @@ export default function DashboardPage() {
     fetchMetrics();
     fetchLogs();
     fetchAccounts();
-
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    setCurrentDate(new Date().toLocaleDateString('id-ID', options));
-
-    return () => clearTimeout(toastTimer.current);
+    setCurrentDate(
+      new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    );
+    return () => {
+      clearTimeout(copiedTimer.current);
+      clearTimeout(newTimer.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Jam detik-an hanya dibutuhkan tab Account Status (uptime & status), jadi hanya berjalan di sana.
+  // Jam: tiap detik di tab Akun (uptime), tiap 5 detik di tab lain (hitungan status).
   useEffect(() => {
-    if (activeTab !== 'ACCOUNTS') return undefined;
     setNowTime(Date.now());
-    const tickInterval = setInterval(() => setNowTime(Date.now()), 1000);
-    return () => clearInterval(tickInterval);
+    const interval = setInterval(() => setNowTime(Date.now()), activeTab === 'ACCOUNTS' ? 1000 : 5000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
-  // Stream realtime (SSE). Ditutup saat tab browser tersembunyi supaya tidak menghabiskan
-  // command Redis, dan disambung lagi ketika tab terlihat.
+  // Menu "Lainnya" menutup saat klik di luar.
   useEffect(() => {
-    let source = null;
-    let retryTimer = null;
-    let disposed = false;
+    if (!menuOpen) return undefined;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
 
-    const disconnect = () => {
-      clearTimeout(retryTimer);
-      retryTimer = null;
-      if (source) {
-        source.close();
-        source = null;
+  // ---------- Aksi ----------
+
+  const handleToggleWebhook = async () => {
+    const next = !webhookEnabled;
+    setWebhookEnabled(next);
+    try {
+      const res = await jsonPost('/api/webhook/toggle', { enabled: next });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast(next ? 'Receiver webhook dinyalakan' : 'Receiver webhook dimatikan', 'success');
+    } catch (e) {
+      console.error(e);
+      setWebhookEnabled(!next);
+      if (e.message !== 'Sesi berakhir') toast('Gagal mengubah status receiver', 'error');
+    }
+  };
+
+  const doClear = async (scope) => {
+    try {
+      const res = await jsonPost('/api/webhook/clear', { scope });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (scope === 'all' || scope === 'logs') {
+        setLogs([]);
+        seenIds.current = new Set();
       }
-    };
+      if (scope === 'all' || scope === 'accounts') setAccounts([]);
+      fetchMetrics();
+      toast('Data berhasil dihapus', 'success');
+    } catch (e) {
+      console.error(e);
+      if (e.message !== 'Sesi berakhir') toast('Gagal menghapus data', 'error');
+    }
+  };
 
-    const scheduleRetry = () => {
-      if (!disposed && !document.hidden) retryTimer = setTimeout(connect, 5000);
-    };
-
-    const connect = () => {
-      if (disposed || source) return;
-      const es = new EventSource('/api/stream');
-      source = es;
-
-      es.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (typeof parsed.timestamp === 'number') {
-            clockOffset.current = parsed.timestamp - Date.now();
-          }
-          if (Array.isArray(parsed.logs)) setLogs(parsed.logs);
-          if (Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
-          setLoading(false);
-        } catch (err) {
-          console.error('SSE Error', err);
-        }
-      };
-
-      es.onerror = () => {
-        // Selama masih CONNECTING, browser menyambung ulang sendiri.
-        // CLOSED berarti server menolak koneksi (mis. sesi habis).
-        if (es.readyState !== EventSource.CLOSED) return;
-        es.close();
-        if (source === es) source = null;
-        fetch('/api/user')
-          .then((res) => {
-            if (res.status === 401) {
-              window.location.href = '/login';
-              return;
-            }
-            scheduleRetry();
-          })
-          .catch(scheduleRetry);
-      };
-    };
-
-    const onVisibilityChange = () => {
-      if (document.hidden) disconnect();
-      else connect();
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    if (!document.hidden) connect();
-
-    return () => {
-      disposed = true;
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      disconnect();
-    };
+  const askClear = useCallback((scope) => {
+    const text = {
+      logs: ['Hapus semua log?', 'Seluruh riwayat webhook tersimpan akan dihapus. Data status akun tidak berubah.'],
+      accounts: ['Hapus semua akun?', 'Seluruh data status akun akan dihapus dan terisi lagi saat script mengirim heartbeat berikutnya.'],
+      all: ['Hapus semua data?', 'Seluruh log dan data status akun akan dihapus permanen.'],
+    }[scope];
+    setConfirmDialog({
+      title: text[0],
+      message: text[1],
+      danger: true,
+      confirmLabel: 'Ya, hapus',
+      onConfirm: () => doClear(scope),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hitungan berat hanya diulang saat datanya berubah, bukan tiap render.
-  const stats = useMemo(() => computeLogStats(logs), [logs]);
-  const {
-    maxFloor,
-    totalUnits,
-    highestRarityText,
-    lootSummary,
-    topUser,
-    maxCount,
-    uniqueUsers,
-    animeDiceCount
-  } = stats;
+  const doDeleteAccount = async (acc) => {
+    try {
+      const res = await apiFetch('/api/accounts/status', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: acc.username }),
+      });
+      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+      setAccounts((list) => list.filter((a) => a.username !== acc.username));
+      toast(`Akun @${acc.username} dihapus`, 'success');
+    } catch (e) {
+      console.error(e);
+      if (e.message !== 'Sesi berakhir') toast('Gagal menghapus akun', 'error');
+    }
+  };
 
-  const filteredLogs = useMemo(
-    () => filterLogs(logs, search, selectedUserFilter, filterType),
-    [logs, search, selectedUserFilter, filterType]
+  const askDeleteAccount = (acc) =>
+    setConfirmDialog({
+      title: `Hapus akun @${acc.username}?`,
+      message: 'Akun akan muncul lagi otomatis jika script-nya masih mengirim heartbeat.',
+      danger: true,
+      confirmLabel: 'Ya, hapus',
+      onConfirm: () => doDeleteAccount(acc),
+    });
+
+  const flashCopied = (id) => {
+    setCopiedId(id);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleCopyLog = async (log) => {
+    const ok = await copyText(JSON.stringify(log.payload, null, 2));
+    if (ok) {
+      flashCopied(log.id);
+      toast('JSON disalin ke clipboard', 'success');
+    } else {
+      toast('Gagal menyalin ke clipboard', 'error');
+    }
+  };
+
+  const handleCopyJob = async (acc) => {
+    const ok = await copyText(String(acc.jobId || ''));
+    toast(ok ? 'Job ID disalin' : 'Gagal menyalin ke clipboard', ok ? 'success' : 'error');
+  };
+
+  const handleDownloadLog = (log) => {
+    downloadText(`log-${String(log.id).slice(0, 24)}.json`, JSON.stringify(log, null, 2));
+  };
+
+  const handleExportLogs = useCallback(
+    async (format) => {
+      try {
+        const res = await apiFetch('/api/webhook?limit=200');
+        const json = await res.json();
+        if (!json.success || !Array.isArray(json.data)) throw new Error('Respons tidak valid');
+        if (json.data.length === 0) {
+          toast('Belum ada log untuk diekspor', 'info');
+          return;
+        }
+        if (format === 'csv') downloadText(`dbdataentry-logs-${stamp()}.csv`, logsToCsv(json.data), 'text/csv');
+        else downloadText(`dbdataentry-logs-${stamp()}.json`, JSON.stringify(json.data, null, 2));
+        toast(`${json.data.length} log diekspor`, 'success');
+      } catch (e) {
+        console.error(e);
+        if (e.message !== 'Sesi berakhir') toast('Gagal mengekspor log', 'error');
+      }
+    },
+    [toast]
   );
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+    } catch (e) {
+      console.error(e);
+    }
+    window.location.href = '/login';
+  }, []);
+
+  // ---------- Turunan data ----------
 
   const serverNow = nowTime + clockOffset.current;
 
-  const calculateUptime = (timestamp, lastUpdate, isOnline) => {
-    if (!timestamp) return '-';
-    const start = new Date(timestamp).getTime();
-    const end = isOnline ? serverNow : new Date(lastUpdate || serverNow).getTime();
-    const diffSec = Math.floor((end - start) / 1000);
-    if (!Number.isFinite(diffSec) || diffSec <= 0) return '0s';
-    const h = Math.floor(diffSec / 3600);
-    const m = Math.floor((diffSec % 3600) / 60);
-    const s = diffSec % 60;
-    if (h > 0) return `${h}j ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
-  };
+  const stats = useMemo(() => computeLogStats(logs), [logs]);
 
-  const getAccountPreciseStatus = (acc) => {
-    const state = getAccountState(acc, serverNow);
-    return { state, ...ACCOUNT_STATE_STYLES[state] };
+  const accountRows = useMemo(
+    () =>
+      accounts.map((acc) => {
+        const state = getAccountState(acc, serverNow);
+        const active = state !== 'OFFLINE';
+        const start = new Date(acc.timestamp).getTime();
+        const end = active ? serverNow : new Date(acc.lastUpdate || serverNow).getTime();
+        const uptimeSec = acc.timestamp && Number.isFinite(start) ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
+        return { acc, state, uptimeSec };
+      }),
+    [accounts, serverNow]
+  );
+
+  const stateCounts = useMemo(() => {
+    const counts = { ONLINE: 0, STALLED: 0, OFFLINE: 0 };
+    accountRows.forEach((r) => {
+      counts[r.state] += 1;
+    });
+    return counts;
+  }, [accountRows]);
+
+  const deferredSearch = useDeferredValue(search);
+  const filteredLogs = useMemo(
+    () =>
+      filterLogs(logs, {
+        search: deferredSearch,
+        user: userFilter,
+        type: typeFilter,
+        hideHeartbeat,
+        rangeId,
+        nowMs: serverNow,
+      }),
+    // serverNow hanya relevan jika filter rentang waktu aktif
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [logs, deferredSearch, userFilter, typeFilter, hideHeartbeat, rangeId, rangeId === 'ALL' ? 0 : nowTime]
+  );
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [deferredSearch, userFilter, typeFilter, hideHeartbeat, rangeId]);
+
+  const visibleLogs = useMemo(() => filteredLogs.slice(0, visibleCount), [filteredLogs, visibleCount]);
+
+  const activity = useMemo(() => buildActivity(logs, serverNow), [logs, Math.floor(serverNow / 15000)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visibleAccounts = useMemo(() => {
+    const q = accSearch.trim().toLowerCase();
+    const rows = accountRows.filter((r) => {
+      if (accStatus !== 'ALL' && r.state !== accStatus) return false;
+      if (!q) return true;
+      const a = r.acc;
+      return [a.username, a.displayName, a.gameName, a.jobId, a.userId]
+        .map((v) => String(v ?? '').toLowerCase())
+        .some((v) => v.includes(q));
+    });
+    const byName = (x, y) => String(x.acc.username).localeCompare(String(y.acc.username));
+    const sorters = {
+      STATUS: (x, y) => STATE_ORDER[x.state] - STATE_ORDER[y.state] || byName(x, y),
+      NAME: byName,
+      UPTIME: (x, y) => y.uptimeSec - x.uptimeSec || byName(x, y),
+      LATENCY: (x, y) => (Number(x.acc.latencyMs) || Infinity) - (Number(y.acc.latencyMs) || Infinity) || byName(x, y),
+    };
+    return [...rows].sort(sorters[accSort] || sorters.STATUS);
+  }, [accountRows, accSearch, accStatus, accSort]);
+
+  // Toast saat akun berpindah status (setelah data pertama diterima).
+  useEffect(() => {
+    if (loading) return;
+    const current = new Map(accountRows.map((r) => [r.acc.username, r.state]));
+    const previous = prevStates.current;
+    if (previous) {
+      current.forEach((state, name) => {
+        const before = previous.get(name);
+        if (before && before !== 'OFFLINE' && state === 'OFFLINE') toast(`@${name} offline`, 'error');
+        else if (before === 'OFFLINE' && state === 'ONLINE') toast(`@${name} kembali online`, 'success');
+      });
+    }
+    prevStates.current = current;
+  }, [accountRows, loading, toast]);
+
+  // Judul tab menampilkan jumlah akun online.
+  useEffect(() => {
+    document.title = stateCounts.ONLINE > 0 ? `(${stateCounts.ONLINE} online) dbdataentry` : 'dbdataentry';
+  }, [stateCounts.ONLINE]);
+
+  // ---------- Perintah & pintasan ----------
+
+  const focusSearch = useCallback(() => {
+    setActiveTab('RADAR');
+    setTimeout(() => searchRef.current?.focus(), 50);
+  }, []);
+
+  const commands = useMemo(
+    () => [
+      ...TABS.map((t, i) => ({ id: `tab-${t.id}`, label: `Buka ${t.label}`, hint: String(i + 1), run: () => setActiveTab(t.id) })),
+      { id: 'search', label: 'Cari log', hint: '/', run: focusSearch },
+      { id: 'refresh', label: 'Muat ulang data', run: handleRefresh },
+      { id: 'pause', label: paused ? 'Lanjutkan stream realtime' : 'Jeda stream realtime', run: () => setPaused((v) => !v) },
+      { id: 'theme', label: theme === 'dark' ? 'Ganti ke tema terang' : 'Ganti ke tema gelap', run: toggleTheme },
+      { id: 'webhook', label: webhookEnabled ? 'Matikan receiver webhook' : 'Nyalakan receiver webhook', run: handleToggleWebhook },
+      { id: 'export-json', label: 'Ekspor log (JSON)', run: () => handleExportLogs('json') },
+      { id: 'export-csv', label: 'Ekspor log (CSV)', run: () => handleExportLogs('csv') },
+      {
+        id: 'export-acc',
+        label: 'Ekspor akun (CSV)',
+        run: () => downloadText(`dbdataentry-akun-${stamp()}.csv`, accountsToCsv(accounts, (a) => getAccountState(a, Date.now() + clockOffset.current)), 'text/csv'),
+      },
+      { id: 'clear-logs', label: 'Hapus semua log…', run: () => askClear('logs') },
+      { id: 'clear-acc', label: 'Hapus semua akun…', run: () => askClear('accounts') },
+      { id: 'logout', label: 'Keluar (logout)', run: handleLogout },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paused, theme, webhookEnabled, accounts, focusSearch, handleRefresh, handleExportLogs, handleLogout, askClear, toggleTheme]
+  );
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      const target = e.target;
+      const typing =
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || paletteOpen || confirmDialog || selectedLog) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        focusSearch();
+      } else if (e.key >= '1' && e.key <= String(TABS.length)) {
+        setActiveTab(TABS[Number(e.key) - 1].id);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [paletteOpen, confirmDialog, selectedLog, focusSearch]);
+
+  // ---------- Tampilan ----------
+
+  const conn = CONNECTION_UI[connection] || CONNECTION_UI.connecting;
+  const storagePct = Math.min(100, Math.max(0, Number(metrics?.usage?.percentage) || 0));
+  const recentEvents = useMemo(() => logs.filter((l) => !isHeartbeat(l)).slice(0, 5), [logs]);
+  const problemAccounts = accountRows.filter((r) => r.state !== 'ONLINE').slice(0, 5);
+
+  const resetAccountFilters = () => {
+    setAccSearch('');
+    setAccStatus('ALL');
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', position: 'relative' }}>
-      
-      {toastMessage && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          backgroundColor: '#0284c7',
-          color: '#fff',
-          padding: '12px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
-          fontSize: '13px',
-          fontWeight: 'bold',
-          zIndex: 9999,
-          border: '1px solid #38bdf8'
-        }}>
-          {toastMessage}
-        </div>
-      )}
-
-      <header style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
-        borderBottom: '1px solid #1e293b',
-        paddingBottom: '16px',
-        flexWrap: 'wrap',
-        gap: '12px',
-        width: '100%'
-      }}>
-        <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '26px', 
-            background: 'linear-gradient(90deg, #38bdf8, #818cf8)', 
-            WebkitBackgroundClip: 'text', 
-            WebkitTextFillColor: 'transparent' 
-          }}>
-            dbdataentry Radar
-          </h1>
-          <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' }}>
-            {currentDate ? `${currentDate} • ` : ''}User: <strong style={{ color: '#38bdf8' }}>{username || 'Loading...'}</strong>
-          </p>
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-logo" aria-hidden="true">📡</div>
+          <div style={{ minWidth: 0 }}>
+            <h1>dbdataentry Radar</h1>
+            <p>
+              {currentDate ? `${currentDate} • ` : ''}User: <strong>{username || '...'}</strong>
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #1e293b' }}>
-            <span style={{ fontSize: '12px', color: webhookEnabled ? '#4ade80' : '#f43f5e', fontWeight: 'bold' }}>
-              WEBHOOK: {webhookEnabled ? 'ON' : 'OFF'}
+        <div className="top-actions">
+          <span className={conn.cls} title="Status koneksi realtime">
+            <span className={`dot${conn.pulse ? ' dot-live' : ''}`} />
+            {conn.text}
+          </span>
+
+          <div className="switch-wrap">
+            <span className="switch-label" style={{ color: webhookEnabled ? 'var(--ok)' : 'var(--bad)' }}>
+              WEBHOOK {webhookEnabled ? 'ON' : 'OFF'}
             </span>
-            <button 
-              onClick={handleToggleWebhook} 
-              style={{
-                width: '40px',
-                height: '20px',
-                backgroundColor: webhookEnabled ? '#22c55e' : '#64748b',
-                borderRadius: '10px',
-                border: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              <div style={{
-                width: '16px',
-                height: '16px',
-                backgroundColor: '#fff',
-                borderRadius: '50%',
-                position: 'absolute',
-                top: '2px',
-                left: webhookEnabled ? '22px' : '2px',
-                transition: 'left 0.2s'
-              }} />
-            </button>
+            <button
+              className="switch"
+              role="switch"
+              aria-checked={webhookEnabled}
+              aria-label="Receiver webhook"
+              onClick={handleToggleWebhook}
+            />
           </div>
 
-          <button 
-            onClick={handlePullRequest} 
-            disabled={isPulling}
-            style={{ 
-              ...btnStyle, 
-              backgroundColor: '#0369a1', 
-              color: '#38bdf8', 
-              borderColor: '#0284c7',
-              opacity: isPulling ? 0.6 : 1
-            }}
-          >
-            {isPulling ? 'Pulling...' : '📥 Pull Request'}
+          <button className="btn" onClick={() => setPaused((v) => !v)} aria-pressed={paused}>
+            {paused ? '▶ Lanjut' : '⏸ Jeda'}
+          </button>
+          <button className="btn btn-primary" onClick={handleRefresh} disabled={isPulling}>
+            {isPulling ? 'Memuat…' : '↻ Muat ulang'}
+          </button>
+          <button className="btn btn-icon" onClick={() => setPaletteOpen(true)} aria-label="Buka palet perintah (Ctrl+K)" title="Palet perintah (Ctrl+K)">
+            ⌘K
+          </button>
+          <button className="btn btn-icon" onClick={toggleTheme} aria-label="Ganti tema" title="Ganti tema">
+            {theme === 'dark' ? '☀️' : '🌙'}
           </button>
 
-          <button onClick={handleClearLogs} style={{ ...btnStyle, backgroundColor: '#451a03', color: '#fde047', borderColor: '#78350f' }}>
-            Clear Logs
-          </button>
-          <button onClick={handlePullRequest} style={btnStyle}>
-            Refresh
-          </button>
-          <button onClick={handleLogout} style={{ ...btnStyle, backgroundColor: '#7f1d1d', color: '#fca5a5', borderColor: '#991b1b' }}>
-            Logout
-          </button>
+          <div className="menu" ref={menuRef}>
+            <button className="btn" onClick={() => setMenuOpen((v) => !v)} aria-haspopup="menu" aria-expanded={menuOpen}>
+              Lainnya ▾
+            </button>
+            {menuOpen && (
+              <div className="menu-list" role="menu" onClick={() => setMenuOpen(false)}>
+                <button role="menuitem" onClick={() => handleExportLogs('json')}>⬇ Ekspor log (JSON)</button>
+                <button role="menuitem" onClick={() => handleExportLogs('csv')}>⬇ Ekspor log (CSV)</button>
+                <button
+                  role="menuitem"
+                  onClick={() => downloadText(`dbdataentry-akun-${stamp()}.csv`, accountsToCsv(accounts, (a) => getAccountState(a, serverNow)), 'text/csv')}
+                >
+                  ⬇ Ekspor akun (CSV)
+                </button>
+                <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                <button role="menuitem" style={{ color: 'var(--bad)' }} onClick={() => askClear('logs')}>🗑 Hapus semua log</button>
+                <button role="menuitem" style={{ color: 'var(--bad)' }} onClick={() => askClear('accounts')}>🗑 Hapus semua akun</button>
+                <button role="menuitem" style={{ color: 'var(--bad)' }} onClick={() => askClear('all')}>🗑 Hapus semuanya</button>
+              </div>
+            )}
+          </div>
+
+          <button className="btn btn-danger" onClick={handleLogout}>Keluar</button>
         </div>
       </header>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '12px', width: '100%' }}>
-        <button 
-          onClick={() => setActiveTab('RADAR')}
-          style={{
-            backgroundColor: activeTab === 'RADAR' ? '#0284c7' : '#0f172a',
-            color: activeTab === 'RADAR' ? '#fff' : '#94a3b8',
-            border: '1px solid #1e293b',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '14px'
-          }}
-        >
-          📡 Webhook Radar (Realtime Stream)
-        </button>
-        <button 
-          onClick={() => setActiveTab('ACCOUNTS')}
-          style={{
-            backgroundColor: activeTab === 'ACCOUNTS' ? '#0284c7' : '#0f172a',
-            color: activeTab === 'ACCOUNTS' ? '#fff' : '#94a3b8',
-            border: '1px solid #1e293b',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '14px'
-          }}
-        >
-          👤 Account Status ({accounts.length})
-        </button>
-      </div>
+      {connection === 'reconnecting' && (
+        <div className="banner banner-warn" role="status">⚠️ Koneksi realtime terputus. Mencoba menyambung ulang…</div>
+      )}
+      {paused && (
+        <div className="banner banner-warn" role="status">⏸ Stream dijeda — data tidak diperbarui otomatis. Tekan “Lanjut” untuk melanjutkan.</div>
+      )}
+      {!webhookEnabled && (
+        <div className="banner banner-bad" role="status">⛔ Receiver webhook nonaktif — data baru dari script tidak akan diterima.</div>
+      )}
 
-      {activeTab === 'RADAR' && (
-        <div style={{ width: '100%' }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-            width: '100%'
-          }}>
-            <div style={cardStyle}>
-              <span style={cardTitle}>System Latency Diagnostic</span>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80', marginTop: '6px' }}>
-                DB RTT: {metrics?.dbPing || '...'}
-              </div>
-              <small style={{ color: '#38bdf8', display: 'block', marginTop: '2px', fontSize: '12px' }}>
-                API Latency: {apiPing !== null ? `${apiPing}ms` : '...'}
-              </small>
+      <nav className="tabs" role="tablist" aria-label="Bagian dashboard">
+        {TABS.map((t, i) => (
+          <button
+            key={t.id}
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={activeTab === t.id}
+            aria-controls={`panel-${t.id}`}
+            className="tab"
+            onClick={() => setActiveTab(t.id)}
+            title={`Pintasan: ${i + 1}`}
+          >
+            <span aria-hidden="true">{t.icon}</span>
+            {t.label}
+            {t.id === 'ACCOUNTS' && <span className="badge-count">{accounts.length}</span>}
+            {t.id === 'RADAR' && <span className="badge-count">{logs.length}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {/* ===================== RINGKASAN ===================== */}
+      {activeTab === 'OVERVIEW' && (
+        <section role="tabpanel" id="panel-OVERVIEW" aria-labelledby="tab-OVERVIEW">
+          <div className="stat-grid">
+            <div className="card stat">
+              <span className="stat-icon" aria-hidden="true">🟢</span>
+              <span className="card-title">Akun online</span>
+              <div className="stat-value">{stateCounts.ONLINE}<span className="muted" style={{ fontSize: 15 }}> / {accounts.length}</span></div>
+              <span className="stat-sub">{stateCounts.STALLED} stalled • {stateCounts.OFFLINE} offline</span>
             </div>
 
-            {filterType === 'ANIME_DICE' && (
-              <>
-                <div style={cardStyle}>
-                  <span style={cardTitle}>Tower & Rare Unit</span>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#c084fc', marginTop: '6px' }}>
-                    {maxFloor ? `Floor ${maxFloor}` : 'Floor: -'}
-                  </div>
-                  <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '12px', fontWeight: 'bold' }}>
-                    Rare Unit: {highestRarityText}
-                  </small>
-                </div>
-
-                <div style={cardStyle}>
-                  <span style={cardTitle}>New Units Gained</span>
-                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#34d399', marginTop: '8px' }}>
-                    {totalUnits}
-                  </div>
-                  <small style={{ color: '#64748b' }}>Units Dropped</small>
-                </div>
-              </>
-            )}
-
-            <div style={cardStyle}>
-              <span style={cardTitle}>Top Active User</span>
-              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fbbf24', marginTop: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {topUser}
-              </div>
-              <small style={{ color: '#64748b' }}>{maxCount ? `${maxCount} Events` : '-'}</small>
+            <div className="card stat">
+              <span className="stat-icon" aria-hidden="true">⚡</span>
+              <span className="card-title">Latensi sistem</span>
+              <div className="stat-value" style={{ color: 'var(--ok)' }}>{metrics?.dbPing || '...'}</div>
+              <span className="stat-sub">DB RTT • API {apiPing !== null ? (apiPing === 'Fail' ? 'gagal' : `${apiPing}ms`) : '...'} • rata-rata proses {stats.avgProcessingMs}ms</span>
             </div>
 
-            <div style={cardStyle}>
-              <span style={cardTitle}>Anime Dice Logs</span>
-              <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#f59e0b', marginTop: '8px' }}>
-                {animeDiceCount}
-              </div>
-              <small style={{ color: '#64748b' }}>Game Events</small>
+            <div className="card stat">
+              <span className="stat-icon" aria-hidden="true">🔥</span>
+              <span className="card-title">Pengguna teraktif</span>
+              <div className="stat-value truncate" style={{ fontSize: 20, color: 'var(--warn)' }}>{stats.topUser}</div>
+              <span className="stat-sub">{stats.maxCount ? `${stats.maxCount} event` : 'Belum ada data'}</span>
             </div>
 
-            <div style={cardStyle}>
-              <span style={cardTitle}>DB Stats & Storage</span>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#eab308', marginTop: '6px' }}>
-                {metrics?.commandsCount || 0} Ops
+            <div className="card stat">
+              <span className="stat-icon" aria-hidden="true">🗄️</span>
+              <span className="card-title">Database & penyimpanan</span>
+              <div className="stat-value" style={{ fontSize: 20 }}>{formatNumber(metrics?.commandsCount || 0)} Ops</div>
+              <span className="stat-sub">{metrics?.usage?.usedFormatted || '0 MB'} terpakai ({storagePct}%)</span>
+              <div className="progress" role="progressbar" aria-valuenow={storagePct} aria-valuemin={0} aria-valuemax={100} aria-label="Penggunaan penyimpanan">
+                <span style={{ width: `${storagePct}%` }} />
               </div>
-              <small style={{ color: '#f43f5e', display: 'block', marginTop: '2px', fontSize: '11px' }}>
-                Storage: {metrics?.usage?.usedFormatted || '0 MB'} ({metrics?.usage?.percentage || 0}%)
-              </small>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', width: '100%' }}>
-            <input 
-              type="text" 
-              placeholder="Cari unit, floor, atau username..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: '200px',
-                padding: '12px 16px',
-                backgroundColor: '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '14px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h2 className="section-title">📈 Aktivitas webhook</h2>
+            {loading ? <div className="skeleton" /> : <ActivityChart data={activity} />}
+          </div>
 
-            <select
-              value={selectedUserFilter}
-              onChange={(e) => setSelectedUserFilter(e.target.value)}
-              style={{
-                backgroundColor: '#0f172a',
-                border: '1px solid #1e293b',
-                color: '#38bdf8',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 'bold',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="ALL_USERS">👤 Semua Akun</option>
-              {uniqueUsers.map(u => (
+          <div className="two-col">
+            <div className="card">
+              <h2 className="section-title">⚠️ Akun perlu perhatian</h2>
+              {problemAccounts.length === 0 ? (
+                <div className="hint">{accounts.length === 0 ? 'Belum ada akun terdaftar.' : 'Semua akun online. 🎉'}</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {problemAccounts.map(({ acc, state }) => (
+                    <div key={acc.username} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                      <span className="truncate"><b>@{acc.username}</b> <span className="muted">• {timeAgo(new Date(acc.lastUpdate).getTime(), serverNow)}</span></span>
+                      <span className={state === 'STALLED' ? 'pill pill-warn' : 'pill pill-bad'}>{state}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <h2 className="section-title">🕑 Event terbaru</h2>
+              {recentEvents.length === 0 ? (
+                <div className="hint">Belum ada event selain heartbeat.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {recentEvents.map((log) => (
+                    <button
+                      key={log.id}
+                      className="btn"
+                      style={{ justifyContent: 'space-between', fontWeight: 500 }}
+                      onClick={() => setSelectedLog(log)}
+                    >
+                      <span className="truncate">{log.payload?.event || log.eventType || 'Event'}{log.payload?.username ? ` • @${log.payload.username}` : ''}</span>
+                      <span className="muted" style={{ fontSize: 12, flex: 'none' }}>{timeAgo(new Date(log.receivedAt).getTime(), serverNow)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===================== RADAR ===================== */}
+      {activeTab === 'RADAR' && (
+        <section role="tabpanel" id="panel-RADAR" aria-labelledby="tab-RADAR">
+          <div className="toolbar">
+            <div className="grow">
+              <span className="search-icon" aria-hidden="true">🔎</span>
+              <input
+                ref={searchRef}
+                className="field"
+                type="search"
+                placeholder="Cari unit, floor, atau username…   ( / )"
+                aria-label="Cari log"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <select className="field" aria-label="Filter akun" value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
+              <option value="ALL_USERS">👤 Semua akun</option>
+              {stats.uniqueUsers.map((u) => (
                 <option key={u} value={u}>@{u}</option>
               ))}
             </select>
-
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => setFilterType('ALL')} style={filterBtnStyle(filterType === 'ALL')}>Semua</button>
-              <button onClick={() => setFilterType('ANIME_DICE')} style={filterBtnStyle(filterType === 'ANIME_DICE')}>🎲 Anime Dice</button>
-            </div>
+            <select className="field" aria-label="Rentang waktu" value={rangeId} onChange={(e) => setRangeId(e.target.value)}>
+              {RANGE_OPTIONS.map((r) => (
+                <option key={r.id} value={r.id}>🕒 {r.label}</option>
+              ))}
+            </select>
+            <select
+              className="field"
+              aria-label="Jumlah log dimuat"
+              value={logLimit}
+              onChange={(e) => setLogLimit(Number(e.target.value))}
+            >
+              {LIMIT_OPTIONS.map((n) => (
+                <option key={n} value={n}>Muat {n} log</option>
+              ))}
+            </select>
           </div>
 
-          {filterType === 'ANIME_DICE' && Object.keys(lootSummary).length > 0 && (
-            <div style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #3b82f6',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '24px',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🎁 Total Looting Accumulation
-              </h3>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                gap: '12px'
-              }}>
-                {Object.entries(lootSummary).map(([item, count]) => (
-                  <div key={item} style={{
-                    backgroundColor: '#020617',
-                    border: '1px solid #1e293b',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: '500' }}>{item}</span>
-                    <span style={{ fontSize: '14px', color: '#4ade80', fontWeight: 'bold' }}>x{count}</span>
-                  </div>
-                ))}
-              </div>
+          <div className="toolbar">
+            <div className="chips" role="group" aria-label="Filter jenis log">
+              <button className="chip" aria-pressed={typeFilter === 'ALL'} onClick={() => setTypeFilter('ALL')}>Semua</button>
+              <button className="chip" aria-pressed={typeFilter === 'ANIME_DICE'} onClick={() => setTypeFilter('ANIME_DICE')}>🎲 Anime Dice ({stats.animeDiceCount})</button>
+              <button className="chip" aria-pressed={hideHeartbeat} onClick={() => setHideHeartbeat((v) => !v)}>
+                🙈 Sembunyikan heartbeat ({stats.heartbeatCount})
+              </button>
             </div>
-          )}
+            <span className="hint" style={{ marginLeft: 'auto' }}>
+              Menampilkan {Math.min(visibleLogs.length, filteredLogs.length)} dari {filteredLogs.length} log
+            </span>
+          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+          <div className="log-list">
             {loading ? (
-              <p style={{ textAlign: 'center', color: '#64748b' }}>Memuat data dbdataentry SSE...</p>
+              <>
+                <div className="skeleton" />
+                <div className="skeleton" />
+                <div className="skeleton" />
+              </>
             ) : filteredLogs.length === 0 ? (
-              <div style={{ ...cardStyle, textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#64748b', margin: 0 }}>Belum ada webhook yang sesuai.</p>
+              <div className="card empty">
+                <div className="big">📭</div>
+                Belum ada webhook yang sesuai.
+                {(search || userFilter !== 'ALL_USERS' || typeFilter !== 'ALL' || hideHeartbeat || rangeId !== 'ALL') && (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => {
+                        setSearch('');
+                        setUserFilter('ALL_USERS');
+                        setTypeFilter('ALL');
+                        setHideHeartbeat(false);
+                        setRangeId('ALL');
+                      }}
+                    >
+                      Reset filter
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              filteredLogs.map((log) => {
-                const p = log.payload || {};
-                const embed = p.embeds?.[0];
-                const isAnimeDice = isAnimeDiceLog(log);
-
-                return (
-                  <LogBoundary key={log.id}>
-                  <div style={{
-                    backgroundColor: '#0f172a',
-                    border: isAnimeDice ? '1px solid #3b82f6' : '1px solid #1e293b',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)',
-                    boxSizing: 'border-box'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{
-                          backgroundColor: p.event === 'Aktif' || p.event === 'Heartbeat' ? '#065f46' : isAnimeDice ? '#1e1b4b' : '#0f172a',
-                          color: p.event === 'Aktif' || p.event === 'Heartbeat' ? '#34d399' : isAnimeDice ? '#818cf8' : '#64748b',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}>
-                          {p.event || (isAnimeDice ? 'Anime Dice' : log.eventType)}
-                        </span>
-                        {p.gameName && (
-                          <span style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold' }}>
-                            {p.gameName}
-                          </span>
-                        )}
-                        {str(p.content) && (
-                          <span style={{ color: '#fbbf24', fontSize: '13px', fontWeight: 'bold' }}>
-                            {str(p.content).replace(/\|\|/g, '')}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ color: '#38bdf8', fontSize: '11px', fontFamily: 'monospace' }}>
-                          ⚡ {log.processingTimeMs || 0}ms
-                        </span>
-                        <button 
-                          onClick={() => handleCopyJson(log.id, log.payload)}
-                          style={{
-                            backgroundColor: '#1e293b',
-                            color: copiedId === log.id ? '#4ade80' : '#94a3b8',
-                            border: '1px solid #334155',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {copiedId === log.id ? 'Copied!' : 'Copy JSON'}
-                        </button>
-                        <span style={{ color: '#64748b', fontSize: '12px' }}>
-                          {new Date(log.receivedAt).toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {p.username || p.displayName ? (
-                      <div style={{
-                        backgroundColor: '#020617',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        gap: '16px',
-                        alignItems: 'center',
-                        flexWrap: 'wrap'
-                      }}>
-                        <div style={{
-                          width: '56px',
-                          height: '56px',
-                          borderRadius: '50%',
-                          backgroundColor: '#1e293b',
-                          border: '2px solid #38bdf8',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#38bdf8',
-                          fontWeight: 'bold',
-                          fontSize: '20px'
-                        }}>
-                          {(p.displayName || p.username || 'U').charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>
-                            {p.displayName || p.username} <span style={{ color: '#fbbf24', fontSize: '13px' }}>({p.username})</span>
-                          </div>
-                          {p.jobId && (
-                            <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                              Job ID: {p.jobId}
-                            </div>
-                          )}
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>
-                            User ID: {p.userId || '-'} • Place ID: {p.placeId || '-'}
-                          </div>
-                        </div>
-                      </div>
-                    ) : embed ? (
-                      <div style={{
-                        backgroundColor: '#020617',
-                        borderLeft: `4px solid ${embedColor(embed.color)}`,
-                        padding: '16px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px' }}>{str(embed.title)}</h3>
-                            {embed.author?.name && (
-                              <small style={{ color: '#64748b', display: 'block', marginTop: '2px' }}>{embed.author.name}</small>
-                            )}
-                          </div>
-                          {safeImageUrl(embed.thumbnail?.url) && (
-                            <img src={safeImageUrl(embed.thumbnail?.url)} alt="thumb" referrerPolicy="no-referrer" loading="lazy" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />
-                          )}
-                        </div>
-
-                        {str(embed.description) && (
-                          <div style={{
-                            whiteSpace: 'pre-wrap',
-                            color: '#cbd5e1',
-                            fontSize: '13px',
-                            lineHeight: '1.6',
-                            fontFamily: 'monospace',
-                            backgroundColor: '#0f172a',
-                            padding: '12px',
-                            borderRadius: '6px'
-                          }}>
-                            {str(embed.description).replace(/\*\*/g, '')}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <pre style={{
-                        backgroundColor: '#020617',
-                        border: '1px solid #0f172a',
-                        padding: '14px',
-                        borderRadius: '8px',
-                        overflowX: 'auto',
-                        fontSize: '13px',
-                        color: '#38bdf8',
-                        margin: 0,
-                        fontFamily: 'monospace'
-                      }}>
-                        {JSON.stringify(log.payload, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                  </LogBoundary>
-                );
-              })
+              visibleLogs.map((log) => (
+                <LogBoundary key={log.id}>
+                  <LogCard
+                    log={log}
+                    isNew={newIds.has(log.id)}
+                    copied={copiedId === log.id}
+                    onOpen={setSelectedLog}
+                    onCopy={handleCopyLog}
+                  />
+                </LogBoundary>
+              ))
+            )}
+            {filteredLogs.length > visibleLogs.length && (
+              <button className="btn" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                Tampilkan {Math.min(PAGE_SIZE, filteredLogs.length - visibleLogs.length)} log lagi
+              </button>
             )}
           </div>
-        </div>
+        </section>
       )}
 
+      {/* ===================== AKUN ===================== */}
       {activeTab === 'ACCOUNTS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>Active Script Accounts</h2>
-            <button onClick={handlePullRequest} style={{ ...btnStyle, fontSize: '12px', padding: '6px 12px' }}>
-              📥 Pull Latest Data
-            </button>
+        <section role="tabpanel" id="panel-ACCOUNTS" aria-labelledby="tab-ACCOUNTS">
+          <div className="summary-row">
+            <div className="summary-chip"><span className="pill pill-ok"><span className="dot" />Online</span><b>{stateCounts.ONLINE}</b></div>
+            <div className="summary-chip"><span className="pill pill-warn"><span className="dot" />Stalled</span><b>{stateCounts.STALLED}</b></div>
+            <div className="summary-chip"><span className="pill pill-bad"><span className="dot" />Offline</span><b>{stateCounts.OFFLINE}</b></div>
+          </div>
+
+          <div className="toolbar">
+            <div className="grow">
+              <span className="search-icon" aria-hidden="true">🔎</span>
+              <input
+                className="field"
+                type="search"
+                placeholder="Cari username, game, atau Job ID…"
+                aria-label="Cari akun"
+                value={accSearch}
+                onChange={(e) => setAccSearch(e.target.value)}
+              />
+            </div>
+            <div className="chips" role="group" aria-label="Filter status akun">
+              {['ALL', 'ONLINE', 'STALLED', 'OFFLINE'].map((s) => (
+                <button key={s} className="chip" aria-pressed={accStatus === s} onClick={() => setAccStatus(s)}>
+                  {s === 'ALL' ? 'Semua' : s}
+                </button>
+              ))}
+            </div>
+            <select className="field" aria-label="Urutkan akun" value={accSort} onChange={(e) => setAccSort(e.target.value)}>
+              <option value="STATUS">Urutkan: Status</option>
+              <option value="NAME">Urutkan: Nama</option>
+              <option value="UPTIME">Urutkan: Uptime</option>
+              <option value="LATENCY">Urutkan: Latensi</option>
+            </select>
           </div>
 
           {accounts.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: 'center', padding: '40px', width: '100%' }}>
-              <p style={{ color: '#64748b', margin: 0 }}>Belum ada akun terdaftar.</p>
+            <div className="card empty">
+              <div className="big">👤</div>
+              Belum ada akun terdaftar.
+            </div>
+          ) : visibleAccounts.length === 0 ? (
+            <div className="card empty">
+              <div className="big">🔍</div>
+              Tidak ada akun yang cocok dengan filter.
+              <div style={{ marginTop: 12 }}>
+                <button className="btn btn-sm" onClick={resetAccountFilters}>Reset filter</button>
+              </div>
             </div>
           ) : (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', 
-              gap: '20px', 
-              width: '100%' 
-            }}>
-              {accounts.map((acc, index) => {
-                const preciseStatus = getAccountPreciseStatus(acc);
-                const isOnline = preciseStatus.state === 'ONLINE' || preciseStatus.state === 'STALLED';
-
-                return (
-                  <div key={acc.username || index} style={{
-                    backgroundColor: '#0f172a',
-                    border: '1px solid #1e293b',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    boxSizing: 'border-box',
-                    width: '100%'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '50%',
-                          backgroundColor: '#1e293b',
-                          border: '2px solid #38bdf8',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#38bdf8',
-                          fontWeight: 'bold',
-                          fontSize: '16px'
-                        }}>
-                          {(acc.displayName || acc.username || 'U').charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>
-                            {acc.displayName || acc.username}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#fbbf24' }}>
-                            @{acc.username}
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{
-                        backgroundColor: preciseStatus.bg,
-                        color: preciseStatus.color,
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}>
-                        ● {preciseStatus.state}
-                      </span>
-                    </div>
-
-                    <div style={{
-                      backgroundColor: '#020617',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                      fontSize: '12px'
-                    }}>
-                      <div style={{ color: '#cbd5e1', display: 'flex', justifyContent: 'space-between' }}>
-                        <span><strong style={{ color: '#38bdf8' }}>Game:</strong> {acc.gameName || '-'}</span>
-                        <span style={{ color: isOnline ? '#34d399' : '#f43f5e', fontWeight: 'bold' }}>
-                          Active: {calculateUptime(acc.timestamp, acc.lastUpdate, isOnline)}
-                        </span>
-                      </div>
-                      <div style={{ color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <strong style={{ color: '#38bdf8' }}>Job ID:</strong> {acc.jobId || 'Local/Private'}
-                      </div>
-                      <div style={{ color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
-                        <span><strong>User ID:</strong> {acc.userId || '-'}</span>
-                        <span><strong>Latency:</strong> {acc.latencyMs ? `${acc.latencyMs}ms` : '-'}</span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
-                      <span>Start: {acc.timestamp ? new Date(acc.timestamp).toLocaleTimeString('id-ID') : '-'}</span>
-                      <span>Sync: {acc.lastUpdate ? new Date(acc.lastUpdate).toLocaleTimeString('id-ID') : '-'}</span>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="acc-grid">
+              {visibleAccounts.map(({ acc, state, uptimeSec }) => (
+                <AccountCard
+                  key={acc.username}
+                  acc={acc}
+                  state={state}
+                  uptime={acc.timestamp ? formatDuration(uptimeSec) : '-'}
+                  syncText={acc.lastUpdate ? new Date(acc.lastUpdate).toLocaleTimeString('id-ID') : '-'}
+                  latency={latencySeries(logs, acc.username)}
+                  onDelete={askDeleteAccount}
+                  onCopyJob={handleCopyJob}
+                />
+              ))}
             </div>
           )}
-        </div>
+        </section>
       )}
 
+      {/* ===================== ANALITIK ===================== */}
+      {activeTab === 'ANALYTICS' && (
+        <section role="tabpanel" id="panel-ANALYTICS" aria-labelledby="tab-ANALYTICS">
+          <p className="hint" style={{ marginTop: 0 }}>
+            Dihitung dari {logs.length} log yang sedang dimuat. Ubah jumlahnya lewat pilihan “Muat … log” di tab Webhook Radar.
+          </p>
+          <div className="stat-grid">
+            <div className="card stat">
+              <span className="card-title">Tower & unit langka</span>
+              <div className="stat-value" style={{ color: 'var(--accent-2)' }}>{stats.maxFloor ? `Floor ${stats.maxFloor}` : '-'}</div>
+              <span className="stat-sub" style={{ color: 'var(--bad)', fontWeight: 700 }}>Rare unit: {stats.highestRarityText}</span>
+            </div>
+            <div className="card stat">
+              <span className="card-title">Unit baru didapat</span>
+              <div className="stat-value" style={{ color: 'var(--ok)' }}>{stats.totalUnits}</div>
+              <span className="stat-sub">Units dropped</span>
+            </div>
+            <div className="card stat">
+              <span className="card-title">Event Anime Dice</span>
+              <div className="stat-value" style={{ color: 'var(--warn)' }}>{stats.animeDiceCount}</div>
+              <span className="stat-sub">{stats.heartbeatCount} heartbeat</span>
+            </div>
+            <div className="card stat">
+              <span className="card-title">Waktu proses webhook</span>
+              <div className="stat-value">{stats.avgProcessingMs}<span className="muted" style={{ fontSize: 15 }}> ms</span></div>
+              <span className="stat-sub">rata-rata • maks {stats.maxProcessingMs}ms</span>
+            </div>
+          </div>
+
+          <div className="two-col">
+            <div className="card">
+              <h2 className="section-title">🏆 Pengguna teraktif</h2>
+              <BarList items={stats.topUsers} emptyText="Belum ada aktivitas pengguna." />
+            </div>
+            <div className="card">
+              <h2 className="section-title">🧩 Jenis event</h2>
+              <BarList items={stats.topEvents} emptyText="Belum ada event." />
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 className="section-title">🎁 Total looting terkumpul</h2>
+            <BarList items={stats.topLoot.slice(0, 15)} emptyText="Belum ada data looting dari log Anime Dice." format={formatNumber} />
+          </div>
+        </section>
+      )}
+
+      <LogDrawer log={selectedLog} onClose={() => setSelectedLog(null)} onCopy={handleCopyLog} onDownload={handleDownloadLog} />
+      <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
+      <ConfirmDialog dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
+      <Toasts toasts={toasts} />
     </div>
   );
 }
-
-const cardStyle = {
-  backgroundColor: '#0f172a',
-  border: '1px solid #1e293b',
-  borderRadius: '12px',
-  padding: '16px',
-  boxSizing: 'border-box'
-};
-
-const cardTitle = {
-  fontSize: '11px',
-  textTransform: 'uppercase',
-  color: '#64748b',
-  fontWeight: '600',
-  letterSpacing: '0.5px'
-};
-
-const btnStyle = {
-  backgroundColor: '#1e293b',
-  color: '#38bdf8',
-  border: '1px solid #334155',
-  padding: '8px 16px',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontWeight: '600'
-};
-
-const filterBtnStyle = (active) => ({
-  backgroundColor: active ? '#0284c7' : '#0f172a',
-  color: active ? '#fff' : '#94a3b8',
-  border: '1px solid #1e293b',
-  padding: '8px 12px',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontSize: '12px',
-  fontWeight: 'bold'
-});

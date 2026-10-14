@@ -52,11 +52,25 @@ Key juga diterima lewat `Authorization: Bearer <key>` atau `?key=<key>` (untuk p
 | `/api/webhook` | POST | API key (dapat dimatikan dengan saklar di dashboard) |
 | `/api/accounts/status` | POST | API key |
 | `/api/webhook` | GET | sesi login (`?limit=1..200`) |
-| `/api/accounts/status`, `/api/stream`, `/api/ping`, `/api/user` | GET | sesi login |
+| `/api/accounts/status`, `/api/stream`, `/api/ping`, `/api/user` | GET | sesi login (`/api/stream?limit=10..200`) |
 | `/api/webhook/toggle` | GET, POST | sesi login |
-| `/api/webhook/clear` | POST | sesi login |
+| `/api/accounts/status` | DELETE | sesi login (hapus satu akun, body `{"username":"..."}`) |
+| `/api/webhook/clear` | POST | sesi login (body opsional `{"scope":"all\|logs\|accounts"}`, default `all`) |
 
 Endpoint API selain yang tertera di atas otomatis tertutup (wajib login). Aturannya ada di `middleware.js`, dan route dashboard memeriksa sesi sekali lagi di dalamnya.
+
+## Fitur dashboard
+
+- **4 tab**: Ringkasan (kartu status, grafik aktivitas, akun bermasalah), Webhook Radar (log), Akun, Analitik.
+- **Realtime (SSE)** dengan indikator koneksi (LIVE / menyambung ulang / dijeda), tombol Jeda, dan jumlah log yang dimuat 50 / 100 / 200.
+- **Filter log**: pencarian teks, akun, rentang waktu, jenis (Anime Dice), sembunyikan heartbeat. Klik **Detail** untuk panel JSON berwarna.
+- **Akun**: cari, filter status, urutkan (status, nama, uptime, latensi), tren latensi, salin Job ID, hapus satu akun, notifikasi saat akun offline / kembali online.
+- **Ekspor** log (JSON / CSV, sel CSV dinetralkan dari injeksi rumus) dan akun (CSV).
+- **Hapus data per bagian**: log saja, akun saja, atau semuanya (dengan dialog konfirmasi).
+- **Tema gelap / terang**, tampilan responsif untuk ponsel, dan dukungan `prefers-reduced-motion`.
+- **Palet perintah** `Ctrl/Cmd + K`. Pintasan lain: `/` cari log, `1`-`4` pindah tab, `Esc` tutup panel.
+
+Semua fitur ini tanpa dependensi tambahan (grafik memakai SVG sendiri), jadi `package.json` tidak berubah.
 
 ## Status akun
 
@@ -69,8 +83,10 @@ Ambang ada di `lib/accountStatus.js` dan dipakai bersama oleh server dan dashboa
 ## Struktur
 
 ```
-app/            halaman dan route API
-lib/            sesi, auth, akses Redis, aturan akun, helper HTTP
+app/            halaman, gaya (globals.css), dan route API
+components/     grafik, kartu log / akun, panel detail, palet perintah, dialog
+lib/            sesi, auth, akses Redis, aturan akun, helper HTTP,
+                logStats.js (statistik / filter / ekspor), client.js (hook SSE, tema, toast)
 middleware.js   gerbang login untuk halaman dan API
 scripts/        pembuat hash password
 ```

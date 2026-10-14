@@ -6,12 +6,15 @@ import { useRouter } from 'next/navigation';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
 
@@ -38,91 +41,58 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#0a0f1d',
-      padding: '20px'
-    }}>
-      <form onSubmit={handleLogin} style={{
-        backgroundColor: '#0f172a',
-        border: '1px solid #1e293b',
-        borderRadius: '12px',
-        padding: '32px',
-        width: '100%',
-        maxWidth: '360px'
-      }}>
-        <h2 style={{ color: '#38bdf8', marginTop: 0, textAlign: 'center' }}>🔒 Access Control</h2>
-        <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', marginBottom: '24px' }}>
-          Masukkan kredensial dbdataentry
-        </p>
+    <main className="login-page">
+      <form onSubmit={handleLogin} className="card login-card" aria-busy={loading}>
+        <div className="brand-logo" aria-hidden="true">🔒</div>
+        <h2>Access Control</h2>
+        <p className="sub">Masukkan kredensial dbdataentry</p>
 
-        {error && (
-          <div style={{
-            backgroundColor: '#7f1d1d',
-            color: '#fca5a5',
-            padding: '10px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            {error}
-          </div>
-        )}
+        {error && <div className="banner banner-bad" role="alert" style={{ justifyContent: 'center' }}>{error}</div>}
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ color: '#94a3b8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>USERNAME</label>
+        <div className="form-group">
+          <label htmlFor="username">USERNAME</label>
           <input
+            id="username"
+            className="field"
             type="text"
             autoComplete="username"
+            autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            style={inputStyle}
           />
         </div>
 
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ color: '#94a3b8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>PASSWORD</label>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={inputStyle}
-          />
+        <div className="form-group">
+          <label htmlFor="password">PASSWORD</label>
+          <div className="pw-wrap">
+            <input
+              id="password"
+              className="field"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyUp={(e) => setCapsLock(e.getModifierState?.('CapsLock') === true)}
+              onBlur={() => setCapsLock(false)}
+              required
+            />
+            <button
+              type="button"
+              className="pw-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? 'Sembunyikan' : 'Tampilkan'}
+            </button>
+          </div>
+          {capsLock && <div className="hint" style={{ color: 'var(--warn)', marginTop: 6 }}>⚠ Caps Lock sedang aktif</div>}
         </div>
 
-        <button type="submit" disabled={loading} style={{
-          width: '100%',
-          backgroundColor: '#0284c7',
-          color: '#fff',
-          border: 'none',
-          padding: '12px',
-          borderRadius: '8px',
-          fontWeight: 'bold',
-          cursor: loading ? 'wait' : 'pointer',
-          opacity: loading ? 0.7 : 1
-        }}>
+        <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', padding: 12 }}>
           {loading ? 'Verifikasi...' : 'Masuk Dashboard'}
         </button>
       </form>
-    </div>
+    </main>
   );
 }
-
-const inputStyle = {
-  width: '100%',
-  padding: '10px 12px',
-  backgroundColor: '#020617',
-  border: '1px solid #1e293b',
-  borderRadius: '6px',
-  color: '#fff',
-  fontSize: '14px',
-  outline: 'none',
-  boxSizing: 'border-box'
-};
