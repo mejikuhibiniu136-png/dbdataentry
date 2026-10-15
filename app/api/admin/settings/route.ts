@@ -41,7 +41,9 @@ export async function PUT(request: Request) {
       else await writeSecretSetting(redis, 'WEBHOOK_SECRET', webhookSecret);
     }
 
-    return json({ success: true, data: await readSettings(redis) });
+    // Bentuk respons harus sama dengan GET: klien mengganti seluruh state dengan hasil PUT,
+    // jadi tanpa encryptionReady input Webhook Secret ikut terkunci setelah toggle apa pun.
+    return json({ success: true, data: await readSettings(redis), encryptionReady: Boolean(tryGetEncryptionKeyHex()) });
   } catch (err) {
     return errorResponse(err, 'admin/settings PUT');
   }
