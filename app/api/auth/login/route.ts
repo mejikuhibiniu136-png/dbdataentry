@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const result = await performLogin(redis, request.headers, parsed.data.username, parsed.data.password);
     (await cookies()).set(SESSION_COOKIE, result.token, sessionCookieOptions());
-    return json({ success: true, username: result.username, role: result.role });
+    return json({ success: true, username: result.username, role: result.role, status: result.status });
   } catch (err) {
     return errorResponse(err, 'auth/login');
   }

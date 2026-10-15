@@ -212,6 +212,13 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 `;
 
-export function renderAccountStatusLua(endpoint: string): string {
-  return ACCOUNT_STATUS_LUA.replace(ENDPOINT_PLACEHOLDER, endpoint);
+import { obfuscateLuaSource } from '@/lib/lua/obfuscate';
+
+// `obfuscate` dikontrol sakelar LUA_OBFUSCATION_ENABLED (Pengaturan Sistem, khusus Superadmin).
+// Saat aktif: URL endpoint webhook dienkripsi (XOR runtime-decrypt) + seluruh skrip dibungkus
+// control-flow obfuscation, sehingga endpoint tidak langsung terbaca dari hasil dekompilasi.
+export function renderAccountStatusLua(endpoint: string, options: { obfuscate?: boolean } = {}): string {
+  const rendered = ACCOUNT_STATUS_LUA.replace(ENDPOINT_PLACEHOLDER, endpoint);
+  if (!options.obfuscate) return rendered;
+  return obfuscateLuaSource(rendered, [{ configField: 'URL', value: endpoint }]).source;
 }

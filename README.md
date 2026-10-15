@@ -14,8 +14,9 @@ Backend memakai **Opsi C**: route handler Next.js (runtime Node.js). Alasannya: 
 | Variabel | Wajib | Keterangan |
 |---|---|---|
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | ya | Integrasi Upstash di Vercel mengisi `KV_REST_API_URL/TOKEN`; keduanya dikenali |
-| `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` | ya | Pemilik kredensial ini otomatis role **admin**. Hash: `npm run hash -- "password"` (Argon2id; bcrypt juga diterima) |
+| `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD_HASH` | ya | Pemilik kredensial ini otomatis role **superadmin** permanen (tidak bisa diubah/ditangguhkan dari dashboard). `ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH` (nama lama) tetap diterima sebagai alias. Hash: `npm run hash -- "password"` (Argon2id; bcrypt juga diterima) |
 | `JWT_SECRET` | ya | Minimal 32 karakter acak |
+| `ENCRYPTION_KEY` | tidak* | Hex 32-byte (64 karakter) untuk AES-256-GCM. Wajib hanya jika Superadmin mengisi Webhook Secret / API Key di tab **Sistem** |
 | `WEBHOOK_INGEST_TOKEN` | tidak | Jika diisi, endpoint universal menolak request tanpa token (`x-api-key`, `Authorization: Bearer`, atau `?key=`) |
 | `LOG_MAX_PER_TABLE`, `LOG_MAX_STREAM`, `MAX_GAME_TABLES` | tidak | Batas penyimpanan (default 500 / 500 / 100) |
 | `GEOIP_ISP_LOOKUP=off` | tidak | Mematikan lookup ISP eksternal saat login |
@@ -38,6 +39,23 @@ Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik,
 | `/api/logs?game=` | sesi; DELETE = admin | Baca / Clear Logs |
 | `/api/accounts` | sesi; DELETE = admin | Akun yang dilacak |
 | `/api/stream?game=&limit=` | sesi | SSE |
+| `/api/admin/users`, `/api/admin/users/[username]` | staf (baca) / superadmin (ubah) | Daftar pengguna; approve/reject/suspend & ubah role (admin↔viewer) |
+| `/api/admin/settings` | superadmin | Mode maintenance, rate limit, sakelar proteksi skrip Lua, Webhook Secret (AES-256-GCM) |
+| `/api/admin/apikey` | superadmin | Generate / cabut API Key |
+
+## RBAC berjenjang
+
+| Role | Akses |
+|---|---|
+| **Superadmin** (dari `.env`, permanen) | Semua halaman/API. Satu-satunya yang approve/reject pendaftaran, kelola pengguna, Pengaturan Sistem, API Key, Webhook Secret, proteksi skrip Lua |
+| **Admin** | CRUD Akun & Game, ekspor CSV/JSON, lihat daftar pengguna & log. Tidak bisa approve pendaftaran atau mengubah Pengaturan Sistem |
+| **Viewer** (default pendaftar baru) | Baca saja di Ringkasan, Log, Akun, Game. Semua aksi mutasi disembunyikan di UI dan diblokir di API |
+
+Pendaftar baru berstatus **pending** dan diarahkan ke `/pending-approval` sampai Superadmin menyetujui dari tab **Pengguna**.
+
+## Proteksi skrip Lua
+
+Sakelar "Proteksi Skrip Lua" di tab **Sistem** (Superadmin) mengaktifkan enkripsi string (endpoint webhook) + control-flow obfuscation sebelum skrip disajikan ke `/scripts/account_status.lua`. Skema ini berjalan sepenuhnya di server (tanpa API key pihak ketiga); titik integrasi untuk layanan eksternal (WeAreDevs API dsb.) tersedia di `lib/lua/obfuscate.ts` bila suatu saat dibutuhkan.
 | `/api/system`, `/api/system/receiver`, `/api/admin/users[/…/devices]` | admin | Status sistem, saklar receiver, pengguna + riwayat perangkat |
 
 Alias lama tetap hidup supaya script dan webhook yang sudah terpasang tidak putus: `/api/webhook` dan `/api/receiver/dice` (masuk ke tabel Anime Dice jika payload tidak memuat identitas), `/api/receiver/account` dan `/api/receiver/game` (status akun). Hapus foldernya jika tidak dipakai.

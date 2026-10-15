@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { buildDeviceEntry } from '@/lib/device';
-import { ConfigError, getAdminConfig, getJwtSecret } from '@/lib/env';
+import { ConfigError, getJwtSecret, getSuperadminConfig } from '@/lib/env';
 import { HttpError, getClientIp } from '@/lib/http';
 import { KEYS } from '@/lib/keys';
 import { hitRateLimit, resetRateLimit } from '@/lib/rateLimit';
@@ -10,7 +10,7 @@ import type { RedisLike } from '@/lib/redis';
 import { signSession } from '@/lib/auth/jwt';
 import { verifyAgainstDummy, verifyPassword } from '@/lib/auth/password';
 import { createUser, getUser, recordDevice, userKey } from '@/lib/users';
-import type { Role } from '@/types';
+import type { Role, UserStatus } from '@/types';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 const safeEqualText = (a: string, b: string) => timingSafeEqual(sha(a), sha(b));
@@ -23,6 +23,7 @@ export interface LoginResult {
   token: string;
   username: string;
   role: Role;
+  status: UserStatus;
 }
 
 const BAD_LOGIN = new HttpError(401, 'Username atau password salah');
@@ -33,15 +34,15 @@ export async function performLogin(
   username: string,
   password: string
 ): Promise<LoginResult> {
-  let admin;
+  let superadmin;
   let secret;
   try {
-    admin = getAdminConfig();
+    superadmin = getSuperadminConfig();
     secret = getJwtSecret();
   } catch (err) {
     if (err instanceof ConfigError) {
       console.error('[login] konfigurasi belum lengkap:', err.message);
-      throw new HttpError(503, 'Server belum dikonfigurasi. Admin: lengkapi Environment Variables di Vercel.');
+      throw new HttpError(503, 'Server belum dikonfigurasi. Superadmin: lengkapi Environment Variables di Vercel.');
     }
     throw err;
   }
@@ -70,19 +71,28 @@ export async function performLogin(
 
   // Verifikasi hash selalu dijalankan sekali agar waktu respons tidak membocorkan username valid.
   let role: Role | null = null;
+  let status: UserStatus = 'active';
   let canonical = username.trim();
-  const isAdminName = safeEqualText(lowered, userKey(admin.username));
+  const isSuperadminName = safeEqualText(lowered, userKey(superadmin.username));
 
-  if (isAdminName) {
-    if (await verifyPassword(admin.passwordHash, password)) {
-      role = 'admin';
-      canonical = admin.username;
+  if (isSuperadminName) {
+    if (await verifyPassword(superadmin.passwordHash, password)) {
+      role = 'superadmin'; // Superadmin: role permanen, tidak bisa diubah/ditangguhkan dari dashboard
+      status = 'active';
+      canonical = superadmin.username;
     }
   } else if (redis) {
     const user = await getUser(redis, username);
     if (user) {
       if (await verifyPassword(user.passwordHash, password)) {
-        role = 'user';
+        // Akun ditolak/ditangguhkan Superadmin: login ditolak sepenuhnya, bukan sekadar dibatasi.
+        if (user.status === 'rejected' || user.status === 'suspended') {
+          throw new HttpError(403, user.status === 'rejected'
+            ? 'Pendaftaran Anda ditolak oleh Superadmin.'
+            : 'Akun Anda ditangguhkan oleh Superadmin.');
+        }
+        role = user.role;
+        status = user.status; // 'pending' tetap boleh login; proxy mengarahkan ke /pending-approval
         canonical = user.username;
       }
     } else {
@@ -107,7 +117,7 @@ export async function performLogin(
     }
   }
 
-  return { token: await signSession({ sub: canonical, role, sid }, secret), username: canonical, role };
+  return { token: await signSession({ sub: canonical, role, status, sid }, secret), username: canonical, role, status };
 }
 
 export async function performRegister(redis: RedisLike, headers: Headers, username: string, password: string) {
@@ -119,10 +129,10 @@ export async function performRegister(redis: RedisLike, headers: Headers, userna
   }
   let reserved: string[] = [];
   try {
-    reserved = [userKey(getAdminConfig().username)];
+    reserved = [userKey(getSuperadminConfig().username)];
   } catch {
-    // admin belum dikonfigurasi: tidak ada nama yang perlu dicadangkan
+    // superadmin belum dikonfigurasi: tidak ada nama yang perlu dicadangkan
   }
   const user = await createUser(redis, username, password, reserved);
-  return { username: user.username, role: user.role };
+  return { username: user.username, role: user.role, status: user.status };
 }

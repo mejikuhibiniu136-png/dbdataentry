@@ -14,6 +14,10 @@ const PUBLIC_API_PREFIXES = ['/api/receiver/'];
 const PUBLIC_API_EXACT_ANY_METHOD = ['/api/webhook'];
 
 const AUTH_PAGES = ['/login', '/register'];
+const PENDING_PAGE = '/pending-approval';
+// API yang tetap boleh diakses walau status akun belum 'active' (pending/suspended/rejected):
+// agar halaman /pending-approval bisa menampilkan status & logout tanpa diblokir 403.
+const API_ALLOWED_WHEN_NOT_ACTIVE = ['/api/auth/me', '/api/auth/logout'];
 // Skrip Lua dimuat executor tanpa cookie.
 const PUBLIC_PATHS = ['/scripts/'];
 
@@ -28,6 +32,8 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const secret = tryGetJwtSecret();
   const session = token && secret ? await verifySession(token, secret) : null;
+  // Superadmin selalu aktif; pengguna lain harus berstatus 'active' (lolos persetujuan Superadmin).
+  const isActive = Boolean(session) && (session!.role === 'superadmin' || session!.status === 'active');
 
   // ----- API -----
   if (pathname === '/api' || pathname.startsWith('/api/')) {
@@ -42,17 +48,32 @@ export async function proxy(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
+    // Akun pending/suspended/rejected: hanya boleh memeriksa sesi sendiri & logout, sisanya diblokir.
+    if (!isActive && !API_ALLOWED_WHEN_NOT_ACTIVE.includes(pathname)) {
+      return NextResponse.json(
+        { success: false, message: 'Akun Anda belum disetujui Superadmin' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     return NextResponse.next();
   }
 
   // ----- Halaman -----
   const isAuthPage = AUTH_PAGES.includes(pathname);
-  if (!session && !isAuthPage) {
+  if (!session && !isAuthPage && pathname !== PENDING_PAGE) {
     const response = NextResponse.redirect(new URL('/login', request.url));
     if (token) response.cookies.delete(SESSION_COOKIE); // cookie lama / tidak valid
     return response;
   }
   if (session && isAuthPage) return NextResponse.redirect(new URL('/', request.url));
+
+  if (pathname === PENDING_PAGE) {
+    if (!session) return NextResponse.redirect(new URL('/login', request.url));
+    if (isActive) return NextResponse.redirect(new URL('/', request.url)); // sudah disetujui: tidak perlu menunggu lagi
+    return NextResponse.next();
+  }
+  if (session && !isActive && !isAuthPage) return NextResponse.redirect(new URL(PENDING_PAGE, request.url));
+
   return NextResponse.next();
 }
 

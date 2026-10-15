@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { createHmac } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanGameName, slugify } from '@/lib/slug';
 import { parsePayload } from '@/lib/ingest/parse';
 import { detectEventType, detectGameName, isAccountStatus } from '@/lib/ingest/detect';
@@ -6,7 +7,7 @@ import { parseUserAgent, readGeo } from '@/lib/device';
 import { sanitizeDeep } from '@/lib/sanitize';
 import { getAccountState, mergeAccount } from '@/lib/accounts';
 import { getEnvReport, getJwtSecret, getRedisConfig, getAdminConfig, ConfigError } from '@/lib/env';
-import { clearableLogKeys } from '@/lib/keys';
+import { clearableLogKeys, generateApiKey, verifyHmacSignature } from '@/lib/keys';
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -189,10 +190,10 @@ describe('env', () => {
     expect(getRedisConfig({ UPSTASH_REDIS_REST_URL: 'https://u', UPSTASH_REDIS_REST_TOKEN: 'a', KV_REST_API_URL: 'https://k', KV_REST_API_TOKEN: 'b' }).url).toBe('https://u');
   });
   it('laporan env menandai hash yang salah format tanpa membocorkan nilai', () => {
-    const r = getEnvReport({ ADMIN_PASSWORD_HASH: 'argon2idsalah', JWT_SECRET: 'x'.repeat(40) });
+    const r = getEnvReport({ SUPERADMIN_PASSWORD_HASH: 'argon2idsalah', JWT_SECRET: 'x'.repeat(40) });
     expect(r.ok).toBe(false);
     expect(JSON.stringify(r)).not.toContain('argon2idsalah');
-    expect(r.required.find((x) => x.name === 'ADMIN_PASSWORD_HASH')?.note).toMatch(/\\\$/);
+    expect(r.required.find((x) => x.name === 'SUPERADMIN_PASSWORD_HASH')?.note).toMatch(/\\\$/);
   });
 });
 
@@ -202,5 +203,46 @@ describe('keys', () => {
     expect(all).toEqual(['logs:stream', 'game:a:logs', 'game:b:logs']);
     expect(all.some((k) => k.startsWith('users:'))).toBe(false);
     expect(clearableLogKeys([], { game: 'x' })).toEqual(['game:x:logs']);
+  });
+  it('verifyHmacSignature: cocok hanya dengan secret & body yang benar', () => {
+    const secret = 'rahasia-webhook';
+    const body = new TextEncoder().encode('{"a":1}');
+    const sig = createHmac('sha256', secret).update(body).digest('hex');
+    expect(verifyHmacSignature(body, sig, secret)).toBe(true);
+    expect(verifyHmacSignature(body, `sha256=${sig}`, secret)).toBe(true);
+    expect(verifyHmacSignature(body, sig, 'secret-salah')).toBe(false);
+    expect(verifyHmacSignature(body, null, secret)).toBe(false);
+  });
+  it('generateApiKey menghasilkan kunci unik berprefiks', () => {
+    const a = generateApiKey();
+    const b = generateApiKey();
+    expect(a).not.toBe(b);
+    expect(a.startsWith('dbde_')).toBe(true);
+  });
+});
+
+describe('crypto (AES-256-GCM)', () => {
+  const ORIGINAL = process.env.ENCRYPTION_KEY;
+  beforeEach(() => { process.env.ENCRYPTION_KEY = '11'.repeat(32); });
+  afterEach(() => { process.env.ENCRYPTION_KEY = ORIGINAL; });
+
+  it('round-trip: decrypt(encrypt(x)) === x, format iv:authTag:data', async () => {
+    const { encrypt, decrypt, isCiphertext } = await import('@/lib/crypto');
+    const ciphertext = encrypt('rahasia-super');
+    expect(ciphertext.split(':')).toHaveLength(3);
+    expect(isCiphertext(ciphertext)).toBe(true);
+    expect(decrypt(ciphertext)).toBe('rahasia-super');
+  });
+
+  it('dua enkripsi dari plaintext sama menghasilkan ciphertext berbeda (IV acak)', async () => {
+    const { encrypt } = await import('@/lib/crypto');
+    expect(encrypt('x')).not.toBe(encrypt('x'));
+  });
+
+  it('decrypt menolak ciphertext yang diubah (auth tag gagal)', async () => {
+    const { encrypt, decrypt } = await import('@/lib/crypto');
+    const c = encrypt('data-penting');
+    const tampered = c.slice(0, -1) + (c.endsWith('0') ? '1' : '0');
+    expect(() => decrypt(tampered)).toThrow();
   });
 });

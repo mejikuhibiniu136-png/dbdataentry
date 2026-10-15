@@ -82,12 +82,12 @@ describe('staging', () => {
 describe('jwt', () => {
   const secret = 'x'.repeat(40);
   it('sign + verify', async () => {
-    const t = await signSession({ sub: 'alice', role: 'user', sid: 's1' }, secret);
-    expect(await verifySession(t, secret)).toMatchObject({ sub: 'alice', role: 'user', sid: 's1' });
+    const t = await signSession({ sub: 'alice', role: 'viewer', status: 'active', sid: 's1' }, secret);
+    expect(await verifySession(t, secret)).toMatchObject({ sub: 'alice', role: 'viewer', status: 'active', sid: 's1' });
   });
   it('menolak secret salah, token diubah, kedaluwarsa, dan alg none', async () => {
     const now = Date.now();
-    const t = await signSession({ sub: 'alice', role: 'admin', sid: 's' }, secret, now);
+    const t = await signSession({ sub: 'alice', role: 'admin', status: 'active', sid: 's' }, secret, now);
     expect(await verifySession(t, 'y'.repeat(40), now)).toBeNull();
     const [h, p, s] = t.split('.');
     const forgedPayload = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, 'base64url').toString()), role: 'admin', sub: 'mallory' })).toString('base64url');

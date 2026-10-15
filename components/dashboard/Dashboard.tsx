@@ -14,6 +14,7 @@ import { GamesView } from '@/components/views/GamesView';
 import { LogsView } from '@/components/views/LogsView';
 import { OverviewView } from '@/components/views/OverviewView';
 import { SystemView } from '@/components/views/SystemView';
+import { UsersView } from '@/components/views/UsersView';
 import { apiJson, copyText, downloadText, useLiveStream, useToasts, type Connection } from '@/lib/client';
 import type { GameTable, LogEntry, Role, StreamPayload, TrackedAccount } from '@/types';
 
@@ -24,8 +25,11 @@ const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; text: st
 };
 
 export function Dashboard({ username, role }: { username: string; role: Role }) {
-  const isAdmin = role === 'admin';
+  // RBAC berjenjang: Superadmin (mutlak) > Admin (CRUD akun/game, baca pengguna/log) > Viewer (baca saja).
+  const isStaff = role === 'admin' || role === 'superadmin';
+  const isSuperadmin = role === 'superadmin';
   const [view, setView] = useState<ViewId>('overview');
+  const [pendingCount, setPendingCount] = useState(0);
   const [game, setGame] = useState<string>('all');
   const [games, setGames] = useState<GameTable[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -49,6 +53,14 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   // Jam detik untuk uptime dan status. Dikoreksi dengan selisih jam server agar jam perangkat yang meleset tidak menyesatkan.
   useEffect(() => { const t = setInterval(() => setNow(Date.now() + clockOffset.current), 1000); return () => clearInterval(t); }, []);
+
+  // Badge "menunggu persetujuan" di Sidebar harus terlihat walau belum membuka menu Pengguna.
+  useEffect(() => {
+    if (!isSuperadmin) return;
+    apiJson<{ data: { status: string }[] }>('/api/admin/users', 'GET')
+      .then((res) => setPendingCount(res.data.filter((u) => u.status === 'pending').length))
+      .catch(() => undefined);
+  }, [isSuperadmin]);
 
   const onStream = useCallback((d: StreamPayload) => {
     clockOffset.current = d.timestamp - Date.now();
@@ -122,17 +134,18 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const content = useMemo(() => {
     switch (view) {
       case 'overview': return <OverviewView loading={loading} logs={logs} games={games} accounts={accounts} now={now} gameLabel={gameLabel} onCopyResult={copyResult} />;
-      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} isAdmin={isAdmin} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} />;
-      case 'games': return <GamesView loading={loading && games.length === 0} games={games} isAdmin={isAdmin} onCreate={() => setNameDialog({ mode: 'create' })}
+      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} />;
+      case 'games': return <GamesView loading={loading && games.length === 0} games={games} isAdmin={isStaff} onCreate={() => setNameDialog({ mode: 'create' })}
         onOpen={(g) => { switchGame(g.slug); setView('logs'); }} onRename={(g) => setNameDialog({ mode: 'rename', game: g })}
         onDelete={(g) => setConfirm({ title: `Hapus tabel "${g.name}"?`, danger: true, confirmLabel: 'Hapus tabel', message: 'Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.', onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), 'Tabel dihapus') })} />;
-      case 'accounts': return <AccountsView loading={loading} accounts={accounts} logs={logs} now={now} isAdmin={isAdmin} onCopyJob={copyJob}
+      case 'accounts': return <AccountsView loading={loading} accounts={accounts} logs={logs} now={now} isAdmin={isStaff} onCopyJob={copyJob}
         onDelete={(a) => setConfirm({ title: `Hapus akun ${a.username}?`, danger: true, confirmLabel: 'Hapus akun', message: 'Akun dihapus dari daftar tracker. Akan muncul lagi jika script masih mengirim heartbeat.', onConfirm: () => run(() => apiJson(`/api/accounts?username=${encodeURIComponent(a.username)}`, 'DELETE'), 'Akun dihapus') })} />;
       case 'analytics': return <AnalyticsView loading={loading} logs={logs} gameLabel={gameLabel} />;
-      case 'system': return isAdmin ? <SystemView toast={toast} /> : null;
+      case 'users': return isStaff ? <UsersView role={role} toast={toast} onPendingCount={setPendingCount} /> : null;
+      case 'system': return isSuperadmin ? <SystemView toast={toast} /> : null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isAdmin, copyResult, copyLog, copyJob, toast]);
+  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isStaff, isSuperadmin, role, copyResult, copyLog, copyJob, toast]);
 
   const showSwitcher = view === 'overview' || view === 'logs' || view === 'analytics';
   const current = VIEWS.find((v) => v.id === view);
@@ -140,7 +153,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   return (
     <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
-      <Sidebar view={view} onView={setView} isAdmin={isAdmin} username={username} onLogout={logout} />
+      <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 
       <main className="min-w-0 flex-1 space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">

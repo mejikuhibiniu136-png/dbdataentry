@@ -1,5 +1,5 @@
 // Fungsi murni untuk dashboard (tanpa React/Redis).
-import type { LogEntry, TrackedAccount } from '@/types';
+import type { GameTable, LogEntry, TrackedAccount } from '@/types';
 
 export const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
@@ -188,4 +188,10 @@ export const accountsToCsv = (accounts: TrackedAccount[], stateOf: (a: TrackedAc
   toCsv(
     ['username', 'displayName', 'state', 'gameName', 'userId', 'placeId', 'jobId', 'event', 'latencyMs', 'sessionStart', 'lastUpdate'],
     accounts.map((a) => [a.username, a.displayName, stateOf(a), a.gameName, a.userId, a.placeId, a.jobId, a.event, a.latencyMs, a.timestamp, a.lastUpdate])
+  );
+
+export const gamesToCsv = (games: GameTable[]) =>
+  toCsv(
+    ['slug', 'name', 'source', 'builtin', 'createdAt', 'createdBy', 'total'],
+    games.map((g) => [g.slug, g.name, g.source, g.builtin, g.createdAt, g.createdBy ?? '', g.total])
   );

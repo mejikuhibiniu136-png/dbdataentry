@@ -48,10 +48,10 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         <div className="text-center">
           <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_32px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-6" aria-hidden /></div>
           <h1 className="text-xl font-semibold text-white">{isLogin ? 'Masuk ke dbdataentry' : 'Buat akun'}</h1>
-          <p className="mt-1 text-sm text-slate-400">{isLogin ? 'Pantau webhook dan status akun secara real-time.' : 'Akun baru memiliki akses lihat (role user).'}</p>
+          <p className="mt-1 text-sm text-slate-400">{isLogin ? 'Pantau webhook dan status akun secara real-time.' : 'Akun baru menunggu persetujuan Superadmin sebelum bisa dipakai.'}</p>
         </div>
 
-        {registered && isLogin && <div role="status" className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-center text-sm text-emerald-200">Akun dibuat. Silakan masuk.</div>}
+        {registered && isLogin && <div role="status" className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-center text-sm text-emerald-200">Akun dibuat. Masuk untuk melihat status persetujuan.</div>}
         {error && <div role="alert" className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-center text-sm text-rose-200">{error}</div>}
 
         <div>

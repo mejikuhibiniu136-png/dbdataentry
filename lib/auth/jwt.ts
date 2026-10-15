@@ -1,20 +1,22 @@
 // JWT (HS256) lewat `jose`. Hanya memakai Web API, jadi aman di proxy (Edge) maupun Node.js.
 import { SignJWT, jwtVerify } from 'jose';
-import type { Role, SessionClaims } from '@/types';
+import type { Role, SessionClaims, UserStatus } from '@/types';
 
 export const SESSION_COOKIE = 'session';
 export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 jam
 const ISSUER = 'dbdataentry';
+const ROLES: readonly Role[] = ['superadmin', 'admin', 'viewer'];
+const STATUSES: readonly UserStatus[] = ['pending', 'active', 'suspended', 'rejected'];
 
 const encoder = new TextEncoder();
 
 export async function signSession(
-  claims: { sub: string; role: Role; sid: string },
+  claims: { sub: string; role: Role; status: UserStatus; sid: string },
   secret: string,
   nowMs = Date.now()
 ): Promise<string> {
   const iat = Math.floor(nowMs / 1000);
-  return new SignJWT({ role: claims.role, sid: claims.sid })
+  return new SignJWT({ role: claims.role, status: claims.status, sid: claims.sid })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(claims.sub)
     .setIssuer(ISSUER)
@@ -32,10 +34,13 @@ export async function verifySession(token: string, secret: string, nowMs = Date.
       currentDate: new Date(nowMs),
     });
     const role = payload.role;
-    if (typeof payload.sub !== 'string' || (role !== 'admin' && role !== 'user')) return null;
+    if (typeof payload.sub !== 'string' || !ROLES.includes(role as Role)) return null;
+    // Token lama (sebelum RBAC berjenjang) tidak punya field status: anggap aktif agar sesi lama tidak langsung logout.
+    const status = STATUSES.includes(payload.status as UserStatus) ? (payload.status as UserStatus) : 'active';
     return {
       sub: payload.sub,
-      role,
+      role: role as Role,
+      status,
       sid: typeof payload.sid === 'string' ? payload.sid : '',
       iat: payload.iat,
       exp: payload.exp,

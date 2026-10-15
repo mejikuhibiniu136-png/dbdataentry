@@ -1,8 +1,21 @@
-export type Role = 'admin' | 'user';
+// Matriks RBAC berjenjang:
+//   superadmin : akses mutlak (satu-satunya akun dari .env Vercel, permanen, tidak bisa diubah)
+//   admin      : CRUD akun & game, lihat pengguna/log, TIDAK bisa approve/reject/kelola sistem
+//   viewer     : baca saja (default untuk pendaftar baru, sampai disetujui superadmin)
+export type Role = 'superadmin' | 'admin' | 'viewer';
+// Role yang disimpan di Redis untuk users:account:* (superadmin selalu dari env, tidak pernah disimpan)
+export type StorableRole = 'admin' | 'viewer';
+
+// pending   : baru daftar, menunggu keputusan superadmin
+// active    : disetujui, boleh memakai dashboard sesuai role
+// suspended : ditangguhkan superadmin (bisa diaktifkan lagi)
+// rejected  : ditolak superadmin
+export type UserStatus = 'pending' | 'active' | 'suspended' | 'rejected';
 
 export interface SessionClaims {
   sub: string; // username
   role: Role;
+  status: UserStatus; // superadmin selalu 'active'; proxy mengarahkan status lain ke /pending-approval
   sid: string; // id sesi, juga dicatat di riwayat perangkat
   iat?: number;
   exp?: number;
@@ -72,8 +85,21 @@ export interface DeviceEntry {
 export interface UserSummary {
   username: string;
   role: Role;
+  status: UserStatus;
   createdAt: string | null;
   lastLogin: DeviceEntry | null;
+  /** true untuk akun superadmin (dari .env): tidak bisa diubah/ditangguhkan/dihapus dari dashboard. */
+  immutable: boolean;
+}
+
+// Pengaturan dinamis (Upstash Redis, hanya dibaca/ditulis Superadmin). Nilai sensitif
+// (WEBHOOK_SECRET, API_KEY) dienkripsi AES-256-GCM di Redis; endpoint hanya melaporkan "sudah diisi".
+export interface SystemSettings {
+  maintenanceMode: boolean;
+  rateLimitPerMin: number;
+  luaObfuscationEnabled: boolean;
+  webhookSecretSet: boolean;
+  apiKeySet: boolean;
 }
 
 export interface StreamPayload {

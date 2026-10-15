@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/session';
+import { requireSuperadmin } from '@/lib/auth/session';
 import { getEnvReport, getRedisConfig, envInt } from '@/lib/env';
 import { errorResponse, json } from '@/lib/http';
 import { getRedis } from '@/lib/redis';
@@ -11,7 +11,7 @@ const fmt = (bytes: number) => (bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024))
 // Admin: status konfigurasi (tanpa nilai rahasia), kesehatan Redis, dan pemakaian Upstash.
 export async function GET() {
   try {
-    const { denied } = await requireAdmin();
+    const { denied } = await requireSuperadmin();
     if (denied) return denied;
 
     const env = getEnvReport();

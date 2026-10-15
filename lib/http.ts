@@ -17,6 +17,7 @@ export function json(data: unknown, status = 200, headers: Record<string, string
 
 export const unauthorized = () => json({ success: false, message: 'Unauthorized' }, 401);
 export const forbidden = () => json({ success: false, message: 'Hanya admin yang boleh melakukan aksi ini' }, 403);
+export const forbiddenSuperadmin = () => json({ success: false, message: 'Hanya Superadmin yang boleh melakukan aksi ini' }, 403);
 
 // Detail error asli hanya masuk log server; klien hanya menerima pesan umum.
 export function errorResponse(err: unknown, context = 'api'): Response {

@@ -10,11 +10,26 @@ import { isReceiverEnabled, writeAccountAndLog, writeLogOnly } from '@/lib/inges
 import { isHeartbeatEvent, mergeAccount, normalizeUsername } from '@/lib/accounts';
 import { resolveGame } from '@/lib/games';
 import { HttpError, errorResponse, getClientIp, json } from '@/lib/http';
-import { KEYS } from '@/lib/keys';
+import { KEYS, verifyHmacSignature } from '@/lib/keys';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis, type RedisLike } from '@/lib/redis';
+import { readSecretSetting } from '@/lib/settings';
 import { accountPayloadSchema } from '@/schemas/account';
 import type { LogEntry } from '@/types';
+
+// Verifikasi HMAC-SHA256 opsional (header X-Webhook-Signature / X-Hub-Signature-256) terhadap
+// WEBHOOK_SECRET yang Superadmin set di Pengaturan Sistem (tersimpan terenkripsi di Redis,
+// didekripsi di sini). Tanpa secret yang dikonfigurasi, endpoint tetap terbuka seperti semula
+// (kompatibel dengan klien lama, termasuk skrip Lua yang memakai WEBHOOK_INGEST_TOKEN).
+async function verifyWebhookSignature(redis: RedisLike, headers: Headers, rawBody: Uint8Array): Promise<Response | null> {
+  const secret = await readSecretSetting(redis, 'WEBHOOK_SECRET');
+  if (!secret) return null;
+  const signature = headers.get('x-webhook-signature') ?? headers.get('x-hub-signature-256');
+  if (!verifyHmacSignature(rawBody, signature, secret)) {
+    return json({ success: false, message: 'Signature HMAC tidak valid' }, 401);
+  }
+  return null;
+}
 
 export const MAX_BODY_BYTES = 256 * 1024;
 const RATE = { limit: 600, windowSeconds: 60 };
@@ -127,6 +142,10 @@ export async function handleIngest(
     if (declared !== null && declared > MAX_BODY_BYTES) throw new HttpError(413, 'Payload terlalu besar');
 
     const bytes = await readBodyBytes(request, MAX_BODY_BYTES);
+
+    const badSignature = await verifyWebhookSignature(redis, request.headers, bytes);
+    if (badSignature) return withCors(badSignature);
+
     const contentType = request.headers.get('content-type');
     const query = new URL(request.url).searchParams;
 

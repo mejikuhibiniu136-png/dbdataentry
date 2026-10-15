@@ -1,6 +1,6 @@
 // Sesi sisi server (runtime Node.js). Jangan diimpor dari proxy.ts.
 import { cookies } from 'next/headers';
-import { forbidden, unauthorized } from '@/lib/http';
+import { forbidden, forbiddenSuperadmin, unauthorized } from '@/lib/http';
 import { tryGetJwtSecret } from '@/lib/env';
 import { SESSION_COOKIE, verifySession } from '@/lib/auth/jwt';
 import type { SessionClaims } from '@/types';
@@ -19,10 +19,20 @@ export async function requireSession(): Promise<Guard> {
   return session ? { session } : { denied: unauthorized() };
 }
 
-// Hanya role admin: pembersihan log, manajemen tabel, konfigurasi sistem.
+// Staf (admin + superadmin): CRUD akun/game, hapus log, lihat daftar pengguna.
+// Viewer (read-only) ditolak di sini walau sudah login.
 export async function requireAdmin(): Promise<Guard> {
   const session = await getSession();
   if (!session) return { denied: unauthorized() };
-  if (session.role !== 'admin') return { denied: forbidden() };
+  if (session.role !== 'admin' && session.role !== 'superadmin') return { denied: forbidden() };
+  return { session };
+}
+
+// Hanya Superadmin (akun dari .env Vercel): persetujuan pendaftaran, role/status pengguna,
+// Pengaturan Sistem, API Key, Secret Token HMAC, proteksi skrip Lua.
+export async function requireSuperadmin(): Promise<Guard> {
+  const session = await getSession();
+  if (!session) return { denied: unauthorized() };
+  if (session.role !== 'superadmin') return { denied: forbiddenSuperadmin() };
   return { session };
 }

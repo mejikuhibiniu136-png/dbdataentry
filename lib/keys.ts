@@ -13,6 +13,7 @@ export const KEYS = {
   gamesAlias: 'games:alias', // hash: slug lama -> slug baru (setelah rename)
   trackerAccounts: 'tracker:accounts', // hash: username Roblox -> JSON status akun
   receiverEnabled: 'config:receiver_enabled',
+  settings: 'config:settings', // hash: nama pengaturan -> nilai (sensitif dienkripsi, lihat lib/settings.ts)
 
   // ----- Akun & pengguna dashboard -----
   usersList: 'users:list', // sorted set: username (lowercase) -> waktu daftar
@@ -28,4 +29,39 @@ export function clearableLogKeys(slugs: string[], scope: 'all' | 'stream' | { ga
   if (scope === 'stream') return [KEYS.streamLogs];
   if (scope === 'all') return [KEYS.streamLogs, ...slugs.map(KEYS.gameLogs)];
   return [KEYS.gameLogs(scope.game)];
+}
+
+// ----- API Key & verifikasi signature HMAC (Superadmin: Pengaturan Sistem / Keamanan) -----
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+
+const API_KEY_PREFIX = 'dbde_';
+
+// Kunci acak kriptografis (32 byte, encode hex) berprefiks agar mudah dikenali di log/UI.
+// Disimpan terenkripsi (lib/settings.ts writeSecretSetting); ditampilkan utuh ke Superadmin
+// hanya sekali, tepat setelah di-generate.
+export function generateApiKey(): string {
+  return `${API_KEY_PREFIX}${randomBytes(24).toString('hex')}`;
+}
+
+export function maskApiKey(key: string): string {
+  if (key.length <= 10) return '••••••••';
+  return `${key.slice(0, 9)}${'•'.repeat(8)}${key.slice(-4)}`;
+}
+
+// Verifikasi API key dari request (header x-api-key) terhadap nilai yang tersimpan, waktu konstan.
+export function verifyApiKey(provided: string | null | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const a = createHash('sha256').update(provided).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+// Verifikasi signature HMAC-SHA256 (header X-Webhook-Signature / X-Hub-Signature-256) terhadap
+// body mentah + WEBHOOK_SECRET yang didekripsi dari Redis. Dipakai app/api/webhook & receiver/*.
+export function verifyHmacSignature(rawBody: Uint8Array, signatureHeader: string | null | undefined, secret: string): boolean {
+  if (!signatureHeader) return false;
+  const provided = signatureHeader.replace(/^sha256=/i, '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(provided)) return false;
+  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+  return timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
 }

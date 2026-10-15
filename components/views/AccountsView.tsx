@@ -39,6 +39,7 @@ export function AccountsView({ loading, accounts, logs, now, isAdmin, onDelete, 
         <select className="field w-auto" aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)}><option value="ALL">Semua status</option><option value="ONLINE">Online</option><option value="STALLED">Stalled</option><option value="OFFLINE">Offline</option></select>
         <select className="field w-auto" aria-label="Urutkan" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="STATUS">Urut: status</option><option value="NAME">Urut: nama</option><option value="UPTIME">Urut: uptime</option><option value="LATENCY">Urut: latensi</option></select>
         <Button size="sm" disabled={!rows.length} onClick={() => downloadText('accounts.csv', accountsToCsv(rows.map((r) => r.a), (a) => getAccountState(a, now)), 'text/csv')}><Download className="size-3.5" />CSV</Button>
+        <Button size="sm" disabled={!rows.length} onClick={() => downloadText('accounts.json', JSON.stringify(rows.map((r) => ({ ...r.a, state: r.s })), null, 2), 'application/json')}><Download className="size-3.5" />JSON</Button>
       </div>
 
       {loading ? <SkeletonGrid count={6} className="h-60" /> : rows.length === 0 ? (
