@@ -1,109 +1,101 @@
-# dbdataentry
+# dbdataentry v4
 
-Dashboard Next.js untuk memantau webhook dan status akun script secara realtime, dengan penyimpanan di Upstash Redis.
+Dashboard Next.js (App Router, TypeScript, Tailwind v4, Motion) untuk menerima webhook dari sumber mana pun dan memantau status akun secara real-time. Penyimpanan di Upstash Redis, siap deploy di Vercel.
+
+## Stack
+
+Backend memakai **Opsi C**: route handler Next.js (runtime Node.js). Alasannya: semua kebutuhan (header geolokasi `x-vercel-ip-*`, `/tmp` untuk staging, Environment Variables) bersifat native di Vercel; Go/Rust akan menambah satu runtime terpisah tanpa manfaat yang terukur pada beban webhook ini. Bagian kriptografi memakai Rust lewat `@node-rs/argon2` (Argon2id).
 
 ## Setup
 
 1. `npm install`
-2. Salin `.env.example` menjadi `.env.local` (atau isi di dashboard Vercel) dan lengkapi nilainya:
+2. Isi Environment Variables (Vercel > Settings > Environment Variables, atau `.env.local` untuk lokal). Contoh lengkap: `.env.example`.
 
-| Variabel | Keterangan |
-|---|---|
-| `DASHBOARD_USER` | Username login dashboard |
-| `DASHBOARD_PASS_HASH` | Hash bcrypt password, buat dengan `npm run hash -- "password-anda"` |
-| `SESSION_SECRET` | String acak minimal 32 karakter untuk menandatangani sesi login |
-| `RECEIVER_API_KEY` | String acak minimal 16 karakter; khusus script Lua status akun (header `x-api-key`) |
-| `WEBHOOK_INGEST_TOKEN` | Token terpisah untuk webhook pihak ketiga (Anime Dice), dipasang di URL `?key=`. Jika kosong, jatuh ke `RECEIVER_API_KEY` |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Kredensial Upstash Redis (atau `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`) |
-| `STREAM_INTERVAL_MS` | Opsional, interval polling stream (2000-60000, default 5000) |
-| `REDIS_MEMORY_LIMIT_MB` | Opsional, batas memori paket Redis untuk persentase (default 256) |
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | ya | Integrasi Upstash di Vercel mengisi `KV_REST_API_URL/TOKEN`; keduanya dikenali |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` | ya | Pemilik kredensial ini otomatis role **admin**. Hash: `npm run hash -- "password"` (Argon2id; bcrypt juga diterima) |
+| `JWT_SECRET` | ya | Minimal 32 karakter acak |
+| `WEBHOOK_INGEST_TOKEN` | tidak | Jika diisi, endpoint universal menolak request tanpa token (`x-api-key`, `Authorization: Bearer`, atau `?key=`) |
+| `LOG_MAX_PER_TABLE`, `LOG_MAX_STREAM`, `MAX_GAME_TABLES` | tidak | Batas penyimpanan (default 500 / 500 / 100) |
+| `GEOIP_ISP_LOOKUP=off` | tidak | Mematikan lookup ISP eksternal saat login |
+| `STREAM_INTERVAL_MS`, `REDIS_MEMORY_LIMIT_MB` | tidak | Interval SSE (default 4000) dan batas memori paket Redis |
 
-Membuat nilai acak:
+Di file `.env`, setiap `$` pada hash ditulis `\$`. Di dashboard Vercel tidak perlu.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # SESSION_SECRET
-node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"   # RECEIVER_API_KEY
-```
+Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik, nama variabelnya dicatat di log server, dan tab **Sistem** (admin) menampilkan status tiap variabel.
 
-Jika memakai file `.env`/`.env.local`, escape setiap karakter `$` pada hash menjadi `\$`. Di dashboard Vercel tidak perlu.
-
-3. `npm run dev` untuk pengembangan, atau `npm run build && npm start` untuk produksi.
-
-Tidak ada nilai bawaan untuk kredensial. Jika env belum lengkap, login menolak dengan pesan konfigurasi dan detailnya ada di log server.
-
-## Mengirim data dari script
-
-Semua endpoint penerima wajib menyertakan API key:
-
-```bash
-curl -X POST https://DOMAIN-ANDA/api/receiver/game \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ISI_RECEIVER_API_KEY" \
-  -d '{"username":"Alice","displayName":"Alice","userId":123,"placeId":456,"jobId":"abc","gameName":"Anime Dice","event":"Heartbeat"}'
-```
-
-Key juga diterima lewat `Authorization: Bearer <key>` atau `?key=<key>` (untuk pengirim yang tidak bisa mengatur header; header lebih aman karena URL bisa tercatat di log). Body maksimal 64 KB.
+3. `npm run dev`, atau `npm run build && npm start`.
 
 ## Endpoint
 
-| Endpoint | Metode | Akses |
+| Endpoint | Akses | Fungsi |
 |---|---|---|
-| `/api/login`, `/api/logout` | POST | publik (login dibatasi 5 percobaan / 15 menit per IP) |
-| `/api/receiver/game` | POST | API key |
-| `/api/webhook` | POST | API key (dapat dimatikan dengan saklar di dashboard) |
-| `/api/accounts/status` | POST | API key |
-| `/api/webhook` | GET | sesi login (`?limit=1..200`) |
-| `/api/accounts/status`, `/api/stream`, `/api/ping`, `/api/user` | GET | sesi login (`/api/stream?limit=10..200`) |
-| `/api/webhook/toggle` | GET, POST | sesi login |
-| `/api/accounts/status` | DELETE | sesi login (hapus satu akun, body `{"username":"..."}`) |
-| `/api/webhook/clear` | POST | sesi login (body opsional `{"scope":"all\|logs\|accounts"}`, default `all`) |
+| `POST /api/receiver/universal` | terbuka | Terima JSON, URL-encoded, form-data, atau teks mentah. Game dikenali dari `game_name`, `gameName`, `game`, `game_id`, `source`, dan kunci serupa (juga bersarang, header `x-game-name`, atau `?game=`). Tabel baru dibuat otomatis |
+| `GET /scripts/account_status.lua` | terbuka | Script Lua, alamat endpoint diisi dari domain yang melayani. Tanpa API key |
+| `/api/auth/{login,register,logout,me}` | publik / sesi | JWT di cookie HttpOnly, Secure, SameSite=Strict |
+| `/api/games`, `/api/games/[slug]` | sesi; tulis = admin | Daftar, buat, ganti nama, hapus tabel |
+| `/api/logs?game=` | sesi; DELETE = admin | Baca / Clear Logs |
+| `/api/accounts` | sesi; DELETE = admin | Akun yang dilacak |
+| `/api/stream?game=&limit=` | sesi | SSE |
+| `/api/system`, `/api/system/receiver`, `/api/admin/users[/…/devices]` | admin | Status sistem, saklar receiver, pengguna + riwayat perangkat |
 
-Endpoint API selain yang tertera di atas otomatis tertutup (wajib login). Aturannya ada di `middleware.js`, dan route dashboard memeriksa sesi sekali lagi di dalamnya.
+Alias lama tetap hidup supaya script dan webhook yang sudah terpasang tidak putus: `/api/webhook` dan `/api/receiver/dice` (masuk ke tabel Anime Dice jika payload tidak memuat identitas), `/api/receiver/account` dan `/api/receiver/game` (status akun). Hapus foldernya jika tidak dipakai.
 
-## Fitur dashboard
+Status akun dikenali dari `"type": "account_status"` di payload. Webhook pihak ketiga yang kebetulan memuat field `username` tidak membuat akun palsu. Heartbeat rutin hanya memperbarui akun; log ditulis saat sesi mulai (`Online`), `Offline`, atau event lain.
 
-- **4 tab**: Ringkasan (kartu status, grafik aktivitas, akun bermasalah), Webhook Radar (log), Akun, Analitik.
-- **Realtime (SSE)** dengan indikator koneksi (LIVE / menyambung ulang / dijeda), tombol Jeda, dan jumlah log yang dimuat 50 / 100 / 200.
-- **Filter log**: pencarian teks, akun, rentang waktu, jenis (Anime Dice), sembunyikan heartbeat. Klik **Detail** untuk panel JSON berwarna.
-- **Akun**: cari, filter status, urutkan (status, nama, uptime, latensi), tren latensi, salin Job ID, hapus satu akun, notifikasi saat akun offline / kembali online.
-- **Ekspor** log (JSON / CSV, sel CSV dinetralkan dari injeksi rumus) dan akun (CSV).
-- **Hapus data per bagian**: log saja, akun saja, atau semuanya (dengan dialog konfirmasi).
-- **Tema gelap / terang**, tampilan responsif untuk ponsel, dan dukungan `prefers-reduced-motion`.
-- **Palet perintah** `Ctrl/Cmd + K`. Pintasan lain: `/` cari log, `1`-`4` pindah tab, `Esc` tutup panel.
-
-Semua fitur ini tanpa dependensi tambahan (grafik memakai SVG sendiri), jadi `package.json` tidak berubah.
-
-## Status akun
-
-- ONLINE: heartbeat terakhir 30 detik atau kurang
-- STALLED: lebih dari 30 detik
-- OFFLINE: lebih dari 45 detik, atau script mengirim event `Offline`
-
-Ambang ada di `lib/accountStatus.js` dan dipakai bersama oleh server dan dashboard.
-
-## Struktur
+## Struktur Redis
 
 ```
-app/            halaman, gaya (globals.css), dan route API
-components/     grafik, kartu log / akun, panel detail, palet perintah, dialog
-lib/            sesi, auth, akses Redis, aturan akun, helper HTTP,
-                logStats.js (statistik / filter / ekspor), client.js (hook SSE, tema, toast)
-middleware.js   gerbang login untuk halaman dan API
-scripts/        pembuat hash password
+logs:stream                 semua log (list, terbaru di depan)
+game:<slug>:logs            log per tabel game
+games:meta | games:counts | games:alias    metadata, total diterima, alias setelah rename
+tracker:accounts            status akun Roblox
+users:account:<username>    akun terdaftar (hash Argon2id)
+users:list                  daftar username (sorted set)
+users:devices:<username>    riwayat perangkat/IP/lokasi login (maks 50)
 ```
 
+**Clear Logs** hanya menghapus `logs:stream` dan/atau `game:<slug>:logs` (daftar putih di `lib/keys.ts`). Seluruh `users:*`, `tracker:accounts`, dan metadata tabel tidak disentuh; ada tes yang membuktikannya.
 
-## Endpoint receiver (v3)
+## Alur webhook (staging → Redis)
 
-| Endpoint | Pengirim | Auth | Catatan |
-|---|---|---|---|
-| `POST /api/receiver/account` | Script Lua milik sendiri | header `x-api-key` = `RECEIVER_API_KEY` | Skema ketat (Zod), 400 jika salah bentuk |
-| `POST /api/receiver/game` | Alias lama endpoint di atas | sama | Agar script lama tetap jalan |
-| `POST /api/receiver/dice` | Webhook pihak ketiga | `?key=` = `WEBHOOK_INGEST_TOKEN` | Longgar: tidak pernah 500 karena bentuk payload |
-| `POST /api/webhook` | Alias lama endpoint dice | sama | URL lama tetap jalan |
+Body mentah ditulis ke `/tmp/dbdataentry-staging` bersama checksum SHA-256 dan Content-Length, dibaca ulang dan diverifikasi (terpotong atau korup → ditolak), diurai, lalu ditulis ke Redis dalam **satu EVAL atomik** (log stream + log tabel + metadata/penghitung tabel + status akun). File staging dihapus di `finally`, berhasil maupun gagal; sisa karena proses mati disapu otomatis (>2 menit). Redis gagal → 503 + `Retry-After`, tanpa file sampah.
 
-Detail rencana kerja, keputusan desain, dan catatan keamanan ada di `docs/UPGRADE_V3.md`.
+Catatan jujur: `/tmp` di Vercel hanya per-instance dan tidak tahan lama, jadi staging berfungsi sebagai gerbang verifikasi integritas, bukan antrean. Jika `/tmp` tidak bisa ditulis, payload tetap diproses dari memori.
+
+## Keamanan yang perlu diketahui
+
+- Endpoint universal **terbuka tanpa autentikasi** sesuai permintaan. Pengaman yang ada: batas 256 KB, rate limit 600/menit per IP, batas jumlah tabel dan log, sanitasi kunci/kedalaman payload, serta nama tabel yang dipetakan ke slug `a-z0-9-` (tidak bisa menyusup ke key lain). Siapa pun yang tahu URL-nya bisa menulis data; isi `WEBHOOK_INGEST_TOKEN` untuk menutupnya.
+- Script Lua dibaca siapa pun yang memegang URL-nya, karena itu tidak memuat rahasia.
+- Vercel tidak menyediakan nama ISP di header-nya. ISP dicari lewat `ipwho.is` (best effort, timeout 1,5 dtk) dan itu mengirim IP pengguna ke layanan pihak ketiga; matikan dengan `GEOIP_ISP_LOOKUP=off`.
+- Cookie `SameSite=Strict`: membuka dashboard lewat tautan dari situs lain meminta login ulang sekali.
+- JWT bersifat stateless (8 jam). Menghapus pengguna tidak langsung memutus sesi yang sudah berjalan.
+
+## Migrasi dari v3
+
+| Lama | Baru |
+|---|---|
+| `DASHBOARD_USER` / `DASHBOARD_PASS_HASH` / `SESSION_SECRET` | `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` / `JWT_SECRET` |
+| `RECEIVER_API_KEY` | dihapus (script Lua tanpa key) |
+| Key Redis `webhook_logs`, `account_status`, `webhook_quarantine`, `webhook:status` | `logs:stream`, `tracker:accounts`, (karantina dihapus), `config:receiver_enabled` |
+
+Data lama tidak dimigrasi: log kosong di awal dan akun terisi lagi dari heartbeat berikutnya. Key lama bisa dihapus manual dari Upstash.
+
+## Struktur proyek
+
+```
+app/            halaman (login, register, dashboard) dan route API
+components/     ui, forms, charts, tables, views, dashboard
+lib/            env, redis, keys, auth/, ingest/ (parse, detect, staging, store, handler), games, users, device, lua/
+schemas/        Zod
+types/          tipe TypeScript bersama
+public/         robots.txt
+scripts/        hash-password.mjs
+tests/          Vitest
+proxy.ts        gerbang login (Next 16)
+```
 
 ## Pengujian
 
-`npm test` (Vitest). Script Lua klien ada di `roblox/account_status.lua`.
+`npm test`. Tes integrasi memakai Redis sungguhan (script Lua dijalankan di server Redis) dan otomatis dilewati jika tidak ada Redis di `TEST_REDIS_PORT` (default 6390): `redis-server --port 6390`.
