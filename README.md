@@ -40,8 +40,13 @@ Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik,
 | `/api/accounts` | sesi; DELETE = admin | Akun yang dilacak |
 | `/api/stream?game=&limit=` | sesi | SSE |
 | `/api/admin/users`, `/api/admin/users/[username]` | staf (baca) / superadmin (ubah) | Daftar pengguna; approve/reject/suspend & ubah role (admin↔viewer) |
-| `/api/admin/settings` | superadmin | Mode maintenance, rate limit, sakelar proteksi skrip Lua, Webhook Secret (AES-256-GCM) |
-| `/api/admin/apikey` | superadmin | Generate / cabut API Key |
+| `/api/admin/settings` | superadmin | Rate limit, sakelar proteksi skrip Lua, "Wajibkan API Key", retensi log, Webhook Secret (AES-256-GCM), status enkripsi |
+| `/api/admin/apikey` | superadmin | Daftar / buat (label, masa berlaku) / cabut (`?id=`) API Key |
+| `/api/admin/audit?limit=` | superadmin | Jejak audit aksi sensitif |
+| `/api/admin/encryption/rotate` | superadmin | Enkripsi ulang secret dengan `ENCRYPTION_KEY` saat ini |
+| `/api/admin/retention` | superadmin | Jalankan pembersihan retensi sekarang |
+| `/api/cron/retention` | `CRON_SECRET` | Dipanggil Vercel Cron harian (`vercel.json`) |
+| `/api/logs/export?game=&format=csv\|json` | sesi | Ekspor penuh semua log tersimpan (bukan hanya yang dimuat di layar) |
 
 ## RBAC berjenjang
 
@@ -52,6 +57,15 @@ Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik,
 | **Viewer** (default pendaftar baru) | Baca saja di Ringkasan, Log, Akun, Game. Semua aksi mutasi disembunyikan di UI dan diblokir di API |
 
 Pendaftar baru berstatus **pending** dan diarahkan ke `/pending-approval` sampai Superadmin menyetujui dari tab **Pengguna**.
+
+## API Key, audit, retensi, rotasi kunci
+
+- **API Key**: banyak key berlabel dengan masa berlaku opsional, dibuat dan dicabut sendiri-sendiri di tab **Sistem**. Hanya hash SHA-256 yang disimpan; nilai key tampil sekali. Key dikirim lewat `x-api-key`, `Authorization: Bearer`, atau `?key=`. Secara bawaan endpoint receiver tetap **terbuka**. Sakelar **Wajibkan API Key** menolak request tanpa key valid (401); skrip Lua bawaan tidak membawa key, jadi ikut ditolak bila sakelar dinyalakan. `WEBHOOK_INGEST_TOKEN` (env) tetap berlaku dan, bila diisi, selalu mewajibkan kredensial.
+- **Rate limit** memakai angka dari tab Sistem (bawaan 600/menit): per **API Key** untuk request ber-key, per **IP** untuk selebihnya.
+- **Audit log**: pelaku, aksi, target, dan IP untuk perubahan pengaturan, API Key, saklar receiver, pengguna, hapus log/tabel/akun, rotasi, dan retensi. Nilai rahasia tidak pernah dicatat. Maksimal 1.000 entri terbaru (`audit:log`). Gagal mencatat tidak menggagalkan aksinya.
+- **Keamanan receiver**: hitungan 24 jam terakhir untuk HMAC gagal, kredensial ditolak, dan kena rate limit.
+- **Retensi log**: hapus log lebih tua dari N hari (0 = mati), manual lewat tombol atau otomatis harian 03:00 UTC lewat Vercel Cron (butuh `CRON_SECRET`). Pemangkasan dari ekor list secara atomik; hanya key log yang disentuh.
+- **Rotasi `ENCRYPTION_KEY`**: isi `ENCRYPTION_KEY_PREVIOUS` dengan kunci lama, redeploy, klik **Enkripsi ulang sekarang**, lalu hapus variabel itu. Selama rotasi secret tetap terbaca (HMAC tidak putus). Penulisan memakai compare-and-set sehingga secret yang baru diganti tidak tertimpa.
 
 ## Proteksi skrip Lua
 
@@ -69,6 +83,10 @@ logs:stream                 semua log (list, terbaru di depan)
 game:<slug>:logs            log per tabel game
 games:meta | games:counts | games:alias    metadata, total diterima, alias setelah rename
 tracker:accounts            status akun Roblox
+config:apikeys              hash SHA-256 API Key -> metadata (key asli tidak disimpan)
+config:apikeys:used         id key -> waktu terakhir dipakai
+audit:log                   jejak audit (list, maks 1.000)
+stats:security:<YYYY-MM-DD> hitungan penolakan per jam (kedaluwarsa 3 hari)
 users:account:<username>    akun terdaftar (hash Argon2id)
 users:list                  daftar username (sorted set)
 users:devices:<username>    riwayat perangkat/IP/lokasi login (maks 50)
@@ -84,7 +102,7 @@ Catatan jujur: `/tmp` di Vercel hanya per-instance dan tidak tahan lama, jadi st
 
 ## Keamanan yang perlu diketahui
 
-- Endpoint universal **terbuka tanpa autentikasi** sesuai permintaan. Pengaman yang ada: batas 256 KB, rate limit 600/menit per IP, batas jumlah tabel dan log, sanitasi kunci/kedalaman payload, serta nama tabel yang dipetakan ke slug `a-z0-9-` (tidak bisa menyusup ke key lain). Siapa pun yang tahu URL-nya bisa menulis data; isi `WEBHOOK_INGEST_TOKEN` untuk menutupnya.
+- Endpoint universal **terbuka tanpa autentikasi** sesuai permintaan. Pengaman yang ada: batas 256 KB, rate limit (bawaan 600/menit, dapat diubah di tab Sistem) per IP atau per API Key, batas jumlah tabel dan log, sanitasi kunci/kedalaman payload, serta nama tabel yang dipetakan ke slug `a-z0-9-` (tidak bisa menyusup ke key lain). Siapa pun yang tahu URL-nya bisa menulis data; isi `WEBHOOK_INGEST_TOKEN` atau nyalakan **Wajibkan API Key** untuk menutupnya.
 - Script Lua dibaca siapa pun yang memegang URL-nya, karena itu tidak memuat rahasia.
 - Vercel tidak menyediakan nama ISP di header-nya. ISP dicari lewat `ipwho.is` (best effort, timeout 1,5 dtk) dan itu mengirim IP pengguna ke layanan pihak ketiga; matikan dengan `GEOIP_ISP_LOOKUP=off`.
 - Cookie `SameSite=Strict`: membuka dashboard lewat tautan dari situs lain meminta login ulang sekali.
@@ -105,7 +123,7 @@ Data lama tidak dimigrasi: log kosong di awal dan akun terisi lagi dari heartbea
 ```
 app/            halaman (login, register, dashboard) dan route API
 components/     ui, forms, charts, tables, views, dashboard
-lib/            env, redis, keys, auth/, ingest/ (parse, detect, staging, store, handler), games, users, device, lua/
+lib/            env, redis, keys, crypto, settings, apikeys, audit, securityStats, retention, auth/, ingest/ (parse, detect, staging, store, handler), games, users, device, lua/
 schemas/        Zod
 types/          tipe TypeScript bersama
 public/         robots.txt

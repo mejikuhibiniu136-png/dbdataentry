@@ -1,3 +1,4 @@
+import { actorOf, recordAudit } from '@/lib/audit';
 import { requireAdmin, requireSession } from '@/lib/auth/session';
 import { applyOfflineTimeout, normalizeUsername } from '@/lib/accounts';
 import { deleteAccount, readAccounts } from '@/lib/ingest/store';
@@ -20,11 +21,13 @@ export async function GET() {
 // Admin: menghapus satu akun dari daftar tracker. ?username=...
 export async function DELETE(request: Request) {
   try {
-    const { denied } = await requireAdmin();
+    const { session, denied } = await requireAdmin();
     if (denied) return denied;
     const username = normalizeUsername(new URL(request.url).searchParams.get('username'));
     if (!username) throw new HttpError(400, 'Username tidak valid');
-    if (!(await deleteAccount(getRedis(), username))) throw new HttpError(404, 'Akun tidak ditemukan');
+    const redis = getRedis();
+    if (!(await deleteAccount(redis, username))) throw new HttpError(404, 'Akun tidak ditemukan');
+    await recordAudit(redis, { ...actorOf(session, request.headers), action: 'account.delete', target: username });
     return json({ success: true });
   } catch (err) {
     return errorResponse(err, 'accounts DELETE');

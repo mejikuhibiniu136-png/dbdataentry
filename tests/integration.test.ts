@@ -11,6 +11,8 @@ import { performLogin, performRegister } from '@/lib/auth/login';
 import { hashPassword } from '@/lib/auth/password';
 import { KEYS } from '@/lib/keys';
 import { readDevices } from '@/lib/users';
+import { __resetRuntimeSettingsCache } from '@/lib/settings';
+import { __resetApiKeyUsedThrottle } from '@/lib/apikeys';
 import type { RedisLike } from '@/lib/redis';
 import { connectTestRedis } from './helpers/redis';
 
@@ -38,6 +40,8 @@ d('ingest (Redis sungguhan)', () => {
   beforeEach(async () => {
     await raw.flushdb();
     __resetReceiverCache();
+    __resetRuntimeSettingsCache();
+    __resetApiKeyUsedThrottle();
     __clearResolveCache();
     delete process.env.WEBHOOK_INGEST_TOKEN;
   });
@@ -274,13 +278,14 @@ d('ingest (Redis sungguhan)', () => {
 
   it('registrasi: duplikat (tanpa pembeda huruf besar) dan username admin ditolak; password di-hash Argon2id', async () => {
     process.env.ADMIN_USERNAME = 'Boss';
+    process.env.ADMIN_PASSWORD_HASH = await hashPassword('admin-pass-1'); // nama dicadangkan hanya bila Superadmin terkonfigurasi lengkap
     const h = new Headers({ 'x-forwarded-for': '2.2.2.2' });
     await performRegister(redis, h, 'Carol', 'password-carol');
     await expect(performRegister(redis, h, 'CAROL', 'password-lain')).rejects.toMatchObject({ status: 409 });
     await expect(performRegister(redis, h, 'boss', 'password-x-123')).rejects.toMatchObject({ status: 409 });
     const stored = JSON.parse((await raw.get('users:account:carol'))!);
     expect(stored.passwordHash.startsWith('$argon2id$')).toBe(true);
-    expect(stored.role).toBe('user');
+    expect(stored.role).toBe('viewer');
     expect(JSON.stringify(stored)).not.toContain('password-carol');
   });
 
@@ -299,9 +304,9 @@ d('ingest (Redis sungguhan)', () => {
       'x-vercel-ip-country-region': 'JK',
     });
     const admin = await performLogin(redis, headers, 'BOSS', 'admin-pass-1');
-    expect(admin).toMatchObject({ role: 'admin', username: 'boss' });
+    expect(admin).toMatchObject({ role: 'superadmin', username: 'boss' });
     const user = await performLogin(redis, headers, 'Dave', 'password-dave');
-    expect(user).toMatchObject({ role: 'user', username: 'dave' });
+    expect(user).toMatchObject({ role: 'viewer', status: 'pending', username: 'dave' });
 
     const [entry] = await readDevices(redis, 'dave', 5);
     expect(entry).toMatchObject({ ip: '203.0.113.9', os: 'Android', device: 'Android', browser: 'Chrome', deviceType: 'mobile', city: 'Jakarta', country: 'ID', region: 'JK' });

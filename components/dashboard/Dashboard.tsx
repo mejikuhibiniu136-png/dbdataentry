@@ -134,7 +134,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const content = useMemo(() => {
     switch (view) {
       case 'overview': return <OverviewView loading={loading} logs={logs} games={games} accounts={accounts} now={now} gameLabel={gameLabel} onCopyResult={copyResult} />;
-      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} />;
+      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} gameSlug={game} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} />;
       case 'games': return <GamesView loading={loading && games.length === 0} games={games} isAdmin={isStaff} onCreate={() => setNameDialog({ mode: 'create' })}
         onOpen={(g) => { switchGame(g.slug); setView('logs'); }} onRename={(g) => setNameDialog({ mode: 'rename', game: g })}
         onDelete={(g) => setConfirm({ title: `Hapus tabel "${g.name}"?`, danger: true, confirmLabel: 'Hapus tabel', message: 'Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.', onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), 'Tabel dihapus') })} />;

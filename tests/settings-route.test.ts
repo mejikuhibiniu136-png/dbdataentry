@@ -5,11 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const store: Record<string, string> = {};
 const fakeRedis = {
   hgetall: async () => ({ ...store }),
+  hget: async (_k: string, f: string) => store[f] ?? null,
   hset: async (_k: string, obj: Record<string, string>) => void Object.assign(store, obj),
   hdel: async (_k: string, f: string) => void delete store[f],
+  lpush: async () => 1,
+  ltrim: async () => 'OK',
 };
 
-vi.mock('@/lib/auth/session', () => ({ requireSuperadmin: async () => ({ denied: null }) }));
+vi.mock('@/lib/auth/session', () => ({ requireSuperadmin: async () => ({ session: { sub: 'root', role: 'superadmin' }, denied: undefined }) }));
 vi.mock('@/lib/redis', () => ({ getRedis: () => fakeRedis }));
 
 const { GET, PUT } = await import('@/app/api/admin/settings/route');

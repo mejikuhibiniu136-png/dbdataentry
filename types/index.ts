@@ -99,7 +99,64 @@ export interface SystemSettings {
   rateLimitPerMin: number;
   luaObfuscationEnabled: boolean;
   webhookSecretSet: boolean;
-  apiKeySet: boolean;
+  /** true = receiver menolak request tanpa API Key dashboard yang valid (default mati: endpoint terbuka). */
+  apiKeyRequired: boolean;
+  /** Log lebih tua dari N hari dihapus (0 = nonaktif). */
+  logRetentionDays: number;
+}
+
+// Status enkripsi untuk panel rotasi kunci (tanpa nilai rahasia).
+export interface EncryptionStatus {
+  /** ENCRYPTION_KEY_PREVIOUS: kosong / valid / diisi tetapi bukan hex 64 karakter. */
+  previousKey: 'unset' | 'valid' | 'invalid';
+  /** Secret yang masih terenkripsi dengan kunci lama (perlu "Enkripsi ulang"). */
+  stale: number;
+  /** Secret yang tidak bisa dibuka oleh kunci mana pun. */
+  undecryptable: number;
+}
+
+export interface ApiKeyView {
+  id: string;
+  label: string;
+  /** Penanda aman, mis. dbde_2bb5••••••••7853. */
+  hint: string;
+  createdAt: string;
+  createdBy: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  expired: boolean;
+}
+
+export type AuditAction =
+  | 'settings.update'
+  | 'apikey.create'
+  | 'apikey.revoke'
+  | 'receiver.toggle'
+  | 'user.update'
+  | 'logs.clear'
+  | 'game.delete'
+  | 'game.rename'
+  | 'account.delete'
+  | 'encryption.rotate'
+  | 'retention.purge';
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actor: string;
+  role: string;
+  action: AuditAction;
+  target?: string;
+  detail?: string;
+  ip?: string;
+}
+
+// Kejadian keamanan receiver dalam 24 jam terakhir.
+export interface SecurityStats {
+  windowHours: number;
+  hmacFail: number;
+  authFail: number;
+  rateLimited: number;
 }
 
 export interface StreamPayload {

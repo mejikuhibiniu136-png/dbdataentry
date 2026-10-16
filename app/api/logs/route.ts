@@ -1,3 +1,4 @@
+import { actorOf, recordAudit } from '@/lib/audit';
 import { requireAdmin, requireSession } from '@/lib/auth/session';
 import { clearLogs } from '@/lib/games';
 import { readLogs } from '@/lib/ingest/store';
@@ -27,11 +28,13 @@ export async function GET(request: Request) {
 // Hanya key log yang dihapus. Data registrasi, perangkat, dan daftar akun tidak tersentuh.
 export async function DELETE(request: Request) {
   try {
-    const { denied } = await requireAdmin();
+    const { session, denied } = await requireAdmin();
     if (denied) return denied;
     const game = new URL(request.url).searchParams.get('game') ?? 'all';
     if (game !== 'all' && !SLUG.test(game)) return json({ success: false, message: 'Parameter game tidak valid' }, 400);
-    const removed = await clearLogs(getRedis(), game === 'all' ? 'all' : { game });
+    const redis = getRedis();
+    const removed = await clearLogs(redis, game === 'all' ? 'all' : { game });
+    await recordAudit(redis, { ...actorOf(session, request.headers), action: 'logs.clear', target: game, detail: `${removed} key log dihapus` });
     return json({ success: true, removedKeys: removed });
   } catch (err) {
     return errorResponse(err, 'logs DELETE');

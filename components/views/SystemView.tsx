@@ -1,22 +1,26 @@
 'use client';
-import { CheckCircle2, Copy, Key, RefreshCw, ShieldOff, XCircle } from 'lucide-react';
+import { CheckCircle2, ShieldOff, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { apiJson, copyText } from '@/lib/client';
+import { ApiKeysPanel } from '@/components/views/system/ApiKeysPanel';
+import { AuditPanel } from '@/components/views/system/AuditPanel';
+import { EncryptionPanel } from '@/components/views/system/EncryptionPanel';
+import { RetentionPanel } from '@/components/views/system/RetentionPanel';
+import { SecurityPanel } from '@/components/views/system/SecurityPanel';
+import { apiJson } from '@/lib/client';
 import type { EnvReport } from '@/lib/env';
-import type { SystemSettings } from '@/types';
+import type { EncryptionStatus, SecurityStats, SystemSettings } from '@/types';
 
-interface SystemInfo { env: EnvReport; receiverEnabled: boolean; redis: { ok: boolean; pingMs: number | null; usedMemory: string; limit: string; percentage: string; commands: number; bandwidth: string } }
-interface SettingsInfo { success: boolean; data: SystemSettings; encryptionReady: boolean }
+interface SystemInfo { env: EnvReport; receiverEnabled: boolean; security?: SecurityStats; redis: { ok: boolean; pingMs: number | null; usedMemory: string; limit: string; percentage: string; commands: number; bandwidth: string } }
+interface SettingsInfo { success: boolean; data: SystemSettings; encryptionReady: boolean; encryption: EncryptionStatus }
 
 // Superadmin-only (lihat Sidebar & Dashboard): Environment Variables, Redis, Penerima webhook,
 // Pengaturan Dinamis (maintenance, rate limit, proteksi skrip Lua), dan API Key.
 export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'error' | 'info') => void }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
-  const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -30,20 +34,10 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
     try { await apiJson('/api/system/receiver', 'POST', { enabled: !info.receiverEnabled }); toast(`Penerima webhook ${info.receiverEnabled ? 'dimatikan' : 'dinyalakan'}`, 'success'); void load(); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal', 'error'); }
   };
 
-  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; rateLimitPerMin: number; luaObfuscationEnabled: boolean; webhookSecret: string }>) => {
+  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; rateLimitPerMin: number; luaObfuscationEnabled: boolean; apiKeyRequired: boolean; logRetentionDays: number; webhookSecret: string }>) => {
     setBusy(true);
     try { setSettings(await apiJson<SettingsInfo>('/api/admin/settings', 'PUT', patch)); toast('Pengaturan disimpan', 'success'); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'error'); } finally { setBusy(false); }
   };
-
-  const generateApiKey = async () => {
-    setBusy(true);
-    try { const res = await apiJson<{ apiKey: string }>('/api/admin/apikey', 'POST'); setNewApiKey(res.apiKey); toast('API Key baru dibuat', 'success'); void load(); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal membuat API Key', 'error'); } finally { setBusy(false); }
-  };
-  const revokeApiKey = async () => {
-    setBusy(true);
-    try { await apiJson('/api/admin/apikey', 'DELETE'); setNewApiKey(null); toast('API Key dicabut', 'success'); void load(); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal mencabut', 'error'); } finally { setBusy(false); }
-  };
-  const copyKey = async () => { if (newApiKey && (await copyText(newApiKey))) toast('API Key disalin', 'success'); };
 
   return (
     <div className="space-y-6">
@@ -86,6 +80,8 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
         </section>
       </div>
 
+      {info?.security && <SecurityPanel stats={info.security} />}
+
       <section className="glass p-5">
         <h3 className="mb-1 text-sm font-semibold text-white">Pengaturan Dinamis</h3>
         <p className="mb-4 text-xs text-slate-500">Tersimpan di Redis (nilai sensitif dienkripsi AES-256-GCM). Hanya Superadmin.</p>
@@ -121,24 +117,16 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
         )}
       </section>
 
-      <section className="glass p-5">
-        <h3 className="mb-1 text-sm font-semibold text-white">API Key</h3>
-        <p className="mb-4 text-xs text-slate-500">Dipakai klien eksternal untuk otentikasi ke endpoint tertentu. Hanya Superadmin.</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Pill tone={settings?.data.apiKeySet ? 'ok' : 'neutral'}>{settings?.data.apiKeySet ? 'Terpasang' : 'Belum ada'}</Pill>
-          <Button onClick={generateApiKey} disabled={busy}><RefreshCw className="size-3.5" />Generate Baru</Button>
-          {settings?.data.apiKeySet && <Button variant="danger" onClick={revokeApiKey} disabled={busy}><Key className="size-3.5" />Cabut</Button>}
+      {settings && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RetentionPanel days={settings.data.logRetentionDays} busy={busy} onSave={(n) => void patchSettings({ logRetentionDays: n })} toast={toast} />
+          <EncryptionPanel ready={settings.encryptionReady} status={settings.encryption} toast={toast} onChanged={() => void load()} />
         </div>
-        {newApiKey && (
-          <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
-            <p className="mb-2 text-xs text-amber-200">Salin sekarang — kunci ini tidak akan ditampilkan lagi setelah Anda meninggalkan halaman ini.</p>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-black/40 px-2.5 py-1.5 text-xs text-emerald-200">{newApiKey}</code>
-              <Button size="sm" onClick={copyKey}><Copy className="size-3.5" />Salin</Button>
-            </div>
-          </div>
-        )}
-      </section>
+      )}
+
+      {settings && <ApiKeysPanel toast={toast} required={settings.data.apiKeyRequired} busy={busy} onToggleRequired={(v) => void patchSettings({ apiKeyRequired: v })} />}
+
+      <AuditPanel toast={toast} />
     </div>
   );
 }

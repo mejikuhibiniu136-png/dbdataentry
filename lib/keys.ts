@@ -14,6 +14,10 @@ export const KEYS = {
   trackerAccounts: 'tracker:accounts', // hash: username Roblox -> JSON status akun
   receiverEnabled: 'config:receiver_enabled',
   settings: 'config:settings', // hash: nama pengaturan -> nilai (sensitif dienkripsi, lihat lib/settings.ts)
+  apiKeys: 'config:apikeys', // hash: sha256(API Key) -> JSON metadata; kunci aslinya TIDAK pernah disimpan
+  apiKeysUsed: 'config:apikeys:used', // hash: id key -> ISO waktu terakhir dipakai
+  auditLog: 'audit:log', // list, terbaru di depan, dipangkas ke AUDIT_MAX (lib/audit.ts)
+  securityStats: (day: string) => `stats:security:${day}`, // hash per hari UTC: "HH:jenis" -> jumlah
 
   // ----- Akun & pengguna dashboard -----
   usersList: 'users:list', // sorted set: username (lowercase) -> waktu daftar

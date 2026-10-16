@@ -3,6 +3,8 @@ import { getEnvReport, getRedisConfig, envInt } from '@/lib/env';
 import { errorResponse, json } from '@/lib/http';
 import { getRedis } from '@/lib/redis';
 import { readReceiverEnabled } from '@/lib/ingest/store';
+import { readSecurityStats } from '@/lib/securityStats';
+import type { SecurityStats } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,7 @@ export async function GET() {
     if (denied) return denied;
 
     const env = getEnvReport();
-    const base = { env, receiverEnabled: true, redis: { ok: false as boolean, pingMs: null as number | null, usedMemory: '-', limit: `${envInt('REDIS_MEMORY_LIMIT_MB', 256, 1, 102400)} MB`, percentage: '0', commands: 0, bandwidth: '-' } };
+    const base = { env, receiverEnabled: true, security: { windowHours: 24, hmacFail: 0, authFail: 0, rateLimited: 0 } as SecurityStats, redis: { ok: false as boolean, pingMs: null as number | null, usedMemory: '-', limit: `${envInt('REDIS_MEMORY_LIMIT_MB', 256, 1, 102400)} MB`, percentage: '0', commands: 0, bandwidth: '-' } };
     if (!env.ok) return json({ success: true, ...base });
 
     const redis = getRedis();
@@ -24,6 +26,11 @@ export async function GET() {
     base.redis.pingMs = Date.now() - started;
     base.redis.ok = true;
     base.receiverEnabled = await readReceiverEnabled(redis);
+    try {
+      base.security = await readSecurityStats(redis);
+    } catch (err) {
+      console.error('[system] statistik keamanan gagal:', err);
+    }
 
     // Statistik dari endpoint INFO Upstash (opsional, boleh gagal).
     try {

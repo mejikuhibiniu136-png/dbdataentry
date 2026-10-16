@@ -13,11 +13,11 @@ const PAGE = 60;
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
 interface Props {
-  loading: boolean; logs: LogEntry[]; newIds: Set<string>; copiedId: string | null; showGame: boolean; gameLabel: string; isAdmin: boolean;
+  loading: boolean; logs: LogEntry[]; newIds: Set<string>; copiedId: string | null; showGame: boolean; gameLabel: string; gameSlug: string; isAdmin: boolean;
   onOpen: (l: LogEntry) => void; onCopy: (l: LogEntry) => void; onClear: () => void;
 }
 
-export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel, isAdmin, onOpen, onCopy, onClear }: Props) {
+export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel, gameSlug, isAdmin, onOpen, onCopy, onClear }: Props) {
   const [search, setSearch] = useState('');
   const [user, setUser] = useState('ALL');
   const [rangeId, setRangeId] = useState('ALL');
@@ -50,6 +50,8 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
         <div className="flex flex-wrap gap-2">
           <Button size="sm" disabled={!filtered.length} onClick={() => downloadText(`logs-${stamp()}.json`, JSON.stringify(filtered, null, 2))}><Download className="size-3.5" />JSON</Button>
           <Button size="sm" disabled={!filtered.length} onClick={() => downloadText(`logs-${stamp()}.csv`, logsToCsv(filtered), 'text/csv')}><Download className="size-3.5" />CSV</Button>
+          <Button size="sm" title="Semua log yang tersimpan di server, bukan hanya yang dimuat di layar" onClick={() => window.location.assign(`/api/logs/export?game=${encodeURIComponent(gameSlug)}&format=csv`)}><Download className="size-3.5" />CSV penuh</Button>
+          <Button size="sm" title="Semua log yang tersimpan di server, bukan hanya yang dimuat di layar" onClick={() => window.location.assign(`/api/logs/export?game=${encodeURIComponent(gameSlug)}&format=json`)}><Download className="size-3.5" />JSON penuh</Button>
           {isAdmin && <Button size="sm" variant="danger" onClick={onClear}><Trash2 className="size-3.5" />Clear Logs</Button>}
         </div>
       </div>

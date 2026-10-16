@@ -13,7 +13,9 @@ import { HttpError, errorResponse, getClientIp, json } from '@/lib/http';
 import { KEYS, verifyHmacSignature } from '@/lib/keys';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis, type RedisLike } from '@/lib/redis';
-import { readSecretSetting } from '@/lib/settings';
+import { authenticateApiKey } from '@/lib/apikeys';
+import { recordSecurityEvent } from '@/lib/securityStats';
+import { readRuntimeSettings, readSecretSetting } from '@/lib/settings';
 import { accountPayloadSchema } from '@/schemas/account';
 import type { LogEntry } from '@/types';
 
@@ -26,6 +28,7 @@ async function verifyWebhookSignature(redis: RedisLike, headers: Headers, rawBod
   if (!secret) return null;
   const signature = headers.get('x-webhook-signature') ?? headers.get('x-hub-signature-256');
   if (!verifyHmacSignature(rawBody, signature, secret)) {
+    await recordSecurityEvent(redis, 'hmac_fail');
     return json({ success: false, message: 'Signature HMAC tidak valid' }, 401);
   }
   return null;
@@ -68,10 +71,18 @@ export const ingestInfo = () =>
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 
-// Token opsional: aktif hanya jika WEBHOOK_INGEST_TOKEN diset. Tanpa itu endpoint terbuka.
-function checkToken(request: Request, env: Record<string, string | undefined> = process.env): Response | null {
+// Autentikasi receiver. Kredensial diterima dari header x-api-key, Authorization: Bearer, atau ?key=.
+// Sah bila cocok dengan WEBHOOK_INGEST_TOKEN (env, opsional) atau API Key dashboard yang aktif.
+// Wajib hanya jika WEBHOOK_INGEST_TOKEN diset ATAU Superadmin menyalakan "Wajibkan API Key";
+// selain itu endpoint tetap terbuka (kompatibel dengan skrip Lua yang sudah terpasang).
+// `keyId` terisi bila request memakai API Key dashboard: dipakai sebagai kunci rate limit.
+async function authenticate(
+  request: Request,
+  redis: RedisLike,
+  apiKeyRequired: boolean,
+  env: Record<string, string | undefined> = process.env
+): Promise<{ denied: Response | null; keyId: string | null }> {
   const expected = (env.WEBHOOK_INGEST_TOKEN ?? '').trim();
-  if (!expected) return null;
   const auth = request.headers.get('authorization') ?? '';
   const bearer = /^bearer\s+/i.test(auth) ? auth.replace(/^bearer\s+/i, '').trim() : '';
   let query = '';
@@ -81,10 +92,15 @@ function checkToken(request: Request, env: Record<string, string | undefined> = 
     query = '';
   }
   const provided = request.headers.get('x-api-key') || bearer || query;
-  if (!provided || !timingSafeEqual(sha(provided), sha(expected))) {
-    return json({ success: false, message: 'Unauthorized' }, 401);
+
+  if (provided && expected && timingSafeEqual(sha(provided), sha(expected))) return { denied: null, keyId: null };
+  if (provided) {
+    const key = await authenticateApiKey(redis, provided);
+    if (key) return { denied: null, keyId: key.id };
   }
-  return null;
+  if (!expected && !apiKeyRequired) return { denied: null, keyId: null };
+  await recordSecurityEvent(redis, 'auth_fail');
+  return { denied: json({ success: false, message: 'Unauthorized' }, 401), keyId: null };
 }
 
 // Membaca body dengan batas ukuran tanpa menampung seluruh stream lebih dulu.
@@ -124,12 +140,17 @@ export async function handleIngest(
 ): Promise<Response> {
   const startedAt = Date.now();
   try {
-    const denied = checkToken(request);
+    const redis = deps.redis ?? getRedis();
+    const settings = await readRuntimeSettings(redis);
+
+    const { denied, keyId } = await authenticate(request, redis, settings.apiKeyRequired);
     if (denied) return withCors(denied);
 
-    const redis = deps.redis ?? getRedis();
-    const rate = await hitRateLimit(redis, KEYS.rateLimit('ingest', getClientIp(request.headers)), RATE);
+    // Pemakai API Key dihitung per key (adil untuk beberapa skrip di satu IP); selain itu per IP.
+    const rateKey = keyId ? KEYS.rateLimit('ingest-key', keyId) : KEYS.rateLimit('ingest', getClientIp(request.headers));
+    const rate = await hitRateLimit(redis, rateKey, { limit: settings.rateLimitPerMin, windowSeconds: RATE.windowSeconds });
     if (!rate.allowed) {
+      await recordSecurityEvent(redis, 'rate_limited');
       return withCors(json({ success: false, message: 'Terlalu banyak request' }, 429, { 'Retry-After': String(rate.retryAfterSeconds) }));
     }
 

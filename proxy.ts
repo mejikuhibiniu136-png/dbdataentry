@@ -10,7 +10,7 @@ const PUBLIC_API: Record<string, string[]> = {
   '/api/auth/logout': ['POST'],
 };
 // Penerima webhook terbuka untuk semua sumber (token opsional dicek di handler-nya).
-const PUBLIC_API_PREFIXES = ['/api/receiver/'];
+const PUBLIC_API_PREFIXES = ['/api/receiver/', '/api/cron/']; // /api/cron/* dijaga CRON_SECRET di route-nya
 const PUBLIC_API_EXACT_ANY_METHOD = ['/api/webhook'];
 
 const AUTH_PAGES = ['/login', '/register'];

@@ -1,21 +1,33 @@
+import { actorOf, recordAudit } from '@/lib/audit';
 import { requireSuperadmin } from '@/lib/auth/session';
 import { tryGetEncryptionKeyHex } from '@/lib/env';
 import { errorResponse, json, readJson } from '@/lib/http';
 import { KEYS } from '@/lib/keys';
 import { getRedis } from '@/lib/redis';
-import { readSettings, writeSecretSetting, writeSetting } from '@/lib/settings';
+import type { RedisLike } from '@/lib/redis';
+import { inspectSecrets, readSettings, writeSecretSetting, writeSetting } from '@/lib/settings';
 import { settingsUpdateSchema } from '@/schemas/admin';
 
 export const dynamic = 'force-dynamic';
 
+// Satu-satunya pembentuk respons GET dan PUT. Klien mengganti seluruh state dengan hasil PUT,
+// jadi kedua metode WAJIB mengembalikan bentuk yang sama (encryptionReady, status enkripsi).
+async function settingsResponse(redis: RedisLike) {
+  return {
+    success: true,
+    data: await readSettings(redis),
+    encryptionReady: Boolean(tryGetEncryptionKeyHex()),
+    encryption: await inspectSecrets(redis),
+  };
+}
+
 // Superadmin: status pengaturan dinamis saat ini. Nilai sensitif TIDAK pernah dikirim ke
-// klien, hanya flag "sudah diisi" (webhookSecretSet / apiKeySet).
+// klien, hanya flag "sudah diisi" (webhookSecretSet).
 export async function GET() {
   try {
     const { denied } = await requireSuperadmin();
     if (denied) return denied;
-    const data = await readSettings(getRedis());
-    return json({ success: true, data, encryptionReady: Boolean(tryGetEncryptionKeyHex()) });
+    return json(await settingsResponse(getRedis()));
   } catch (err) {
     return errorResponse(err, 'admin/settings GET');
   }
@@ -25,25 +37,28 @@ export async function GET() {
 // field lain disimpan langsung. Kirim string kosong pada webhookSecret untuk menghapusnya.
 export async function PUT(request: Request) {
   try {
-    const { denied } = await requireSuperadmin();
+    const { session, denied } = await requireSuperadmin();
     if (denied) return denied;
     const parsed = settingsUpdateSchema.safeParse(await readJson(request, 4096));
     if (!parsed.success) return json({ success: false, message: parsed.error.issues[0]?.message ?? 'Data tidak valid' }, 400);
 
     const redis = getRedis();
-    const { maintenanceMode, rateLimitPerMin, luaObfuscationEnabled, webhookSecret } = parsed.data;
+    const { maintenanceMode, rateLimitPerMin, luaObfuscationEnabled, apiKeyRequired, logRetentionDays, webhookSecret } = parsed.data;
+    const changes: string[] = [];
 
-    if (maintenanceMode !== undefined) await writeSetting(redis, 'MAINTENANCE_MODE', maintenanceMode);
-    if (rateLimitPerMin !== undefined) await writeSetting(redis, 'RATE_LIMIT_PER_MIN', rateLimitPerMin);
-    if (luaObfuscationEnabled !== undefined) await writeSetting(redis, 'LUA_OBFUSCATION_ENABLED', luaObfuscationEnabled);
+    if (maintenanceMode !== undefined) { await writeSetting(redis, 'MAINTENANCE_MODE', maintenanceMode); changes.push(`maintenanceMode=${maintenanceMode}`); }
+    if (rateLimitPerMin !== undefined) { await writeSetting(redis, 'RATE_LIMIT_PER_MIN', rateLimitPerMin); changes.push(`rateLimitPerMin=${rateLimitPerMin}`); }
+    if (luaObfuscationEnabled !== undefined) { await writeSetting(redis, 'LUA_OBFUSCATION_ENABLED', luaObfuscationEnabled); changes.push(`luaObfuscationEnabled=${luaObfuscationEnabled}`); }
+    if (apiKeyRequired !== undefined) { await writeSetting(redis, 'API_KEY_REQUIRED', apiKeyRequired); changes.push(`apiKeyRequired=${apiKeyRequired}`); }
+    if (logRetentionDays !== undefined) { await writeSetting(redis, 'LOG_RETENTION_DAYS', logRetentionDays); changes.push(`logRetentionDays=${logRetentionDays}`); }
     if (webhookSecret !== undefined) {
       if (webhookSecret === '') await redis.hdel(KEYS.settings, 'WEBHOOK_SECRET');
       else await writeSecretSetting(redis, 'WEBHOOK_SECRET', webhookSecret);
+      changes.push(webhookSecret === '' ? 'webhookSecret=dihapus' : 'webhookSecret=diganti'); // nilainya tidak pernah dicatat
     }
 
-    // Bentuk respons harus sama dengan GET: klien mengganti seluruh state dengan hasil PUT,
-    // jadi tanpa encryptionReady input Webhook Secret ikut terkunci setelah toggle apa pun.
-    return json({ success: true, data: await readSettings(redis), encryptionReady: Boolean(tryGetEncryptionKeyHex()) });
+    if (changes.length) await recordAudit(redis, { ...actorOf(session, request.headers), action: 'settings.update', detail: changes.join(', ') });
+    return json(await settingsResponse(redis));
   } catch (err) {
     return errorResponse(err, 'admin/settings PUT');
   }

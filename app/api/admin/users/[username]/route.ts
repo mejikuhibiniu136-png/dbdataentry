@@ -1,3 +1,4 @@
+import { actorOf, recordAudit } from '@/lib/audit';
 import { requireSuperadmin } from '@/lib/auth/session';
 import { getSuperadminConfig } from '@/lib/env';
 import { HttpError, errorResponse, json, readJson } from '@/lib/http';
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
 // (aktif/ditangguhkan/ditolak), atau mempromosikan/menurunkan role admin<->viewer.
 export async function PATCH(request: Request, { params }: { params: Promise<{ username: string }> }) {
   try {
-    const { denied } = await requireSuperadmin();
+    const { session, denied } = await requireSuperadmin();
     if (denied) return denied;
 
     const { username } = await params;
@@ -30,7 +31,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ us
     const parsed = userUpdateSchema.safeParse(await readJson(request, 1024));
     if (!parsed.success) return json({ success: false, message: parsed.error.issues[0]?.message ?? 'Data tidak valid' }, 400);
 
-    const updated = await updateUser(getRedis(), key, parsed.data);
+    const redis = getRedis();
+    const updated = await updateUser(redis, key, parsed.data);
+    const changes = [parsed.data.status !== undefined && `status=${parsed.data.status}`, parsed.data.role !== undefined && `role=${parsed.data.role}`].filter(Boolean).join(', ');
+    await recordAudit(redis, { ...actorOf(session, request.headers), action: 'user.update', target: updated.username, detail: changes });
     return json({ success: true, data: { username: updated.username, role: updated.role, status: updated.status } });
   } catch (err) {
     return errorResponse(err, 'admin/users PATCH');

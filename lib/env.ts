@@ -91,6 +91,21 @@ export function tryGetEncryptionKeyHex(env: Env = process.env): string | null {
   }
 }
 
+// Kunci lama untuk rotasi (opsional). Selama diisi, ciphertext lama tetap bisa dibaca sampai
+// Superadmin menekan "Enkripsi ulang"; setelah itu variabel ini boleh dihapus dari Vercel.
+export function tryGetPreviousEncryptionKeyHex(env: Env = process.env): string | null {
+  const key = clean(env.ENCRYPTION_KEY_PREVIOUS);
+  return /^[0-9a-fA-F]{64}$/.test(key) ? key : null;
+}
+
+export type PreviousKeyState = 'unset' | 'valid' | 'invalid';
+
+export function getPreviousEncryptionKeyState(env: Env = process.env): PreviousKeyState {
+  const key = clean(env.ENCRYPTION_KEY_PREVIOUS);
+  if (!key) return 'unset';
+  return /^[0-9a-fA-F]{64}$/.test(key) ? 'valid' : 'invalid';
+}
+
 export interface EnvReport {
   ok: boolean;
   required: { name: string; set: boolean; note?: string }[];
