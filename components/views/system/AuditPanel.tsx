@@ -19,6 +19,12 @@ const LABEL: Record<AuditAction, string> = {
   'account.delete': 'Hapus akun tracker',
   'encryption.rotate': 'Enkripsi ulang secret',
   'retention.purge': 'Pembersihan retensi',
+  'notify.update': 'Ubah saluran notifikasi',
+  'notify.test': 'Uji notifikasi',
+  'session.revoke': 'Cabut sesi',
+  'queue.drain': 'Kuras antrean ingest',
+  'queue.setting': 'Ubah mode antrean',
+  'crypto.sweep': 'Sapuan rotasi KEK',
 };
 
 // Jejak 50 aksi sensitif terakhir. Teks berasal dari input pengguna, jadi hanya dirender sebagai teks.

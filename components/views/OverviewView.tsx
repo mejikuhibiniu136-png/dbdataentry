@@ -25,10 +25,10 @@ export function OverviewView({ loading, logs, games, accounts, now, gameLabel, o
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {loading ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-28" delay={i * 80} />) : (
           <>
-            <StatCard label="Total log diterima" value={total} hint="Seluruh tabel game" icon={<Radio className="size-4" />} />
-            <StatCard label="Tabel game" value={games.length} hint="Dibuat otomatis atau manual" icon={<Boxes className="size-4" />} tone="violet" />
-            <StatCard label="Akun online" value={online} hint={`dari ${accounts.length} akun dilacak`} icon={<Users className="size-4" />} tone="emerald" />
-            <StatCard label="Rata-rata proses" value={stats.avgProcessingMs} suffix="ms" hint={`maks ${stats.maxProcessingMs} ms`} icon={<Gauge className="size-4" />} tone="amber" />
+            <StatCard index={0} label="Total log diterima" value={total} hint="Seluruh tabel game" icon={<Radio className="size-4" />} />
+            <StatCard index={1} label="Tabel game" value={games.length} hint="Dibuat otomatis atau manual" icon={<Boxes className="size-4" />} tone="violet" />
+            <StatCard index={2} label="Akun online" value={online} hint={`dari ${accounts.length} akun dilacak`} icon={<Users className="size-4" />} tone="emerald" />
+            <StatCard index={3} label="Rata-rata proses" value={stats.avgProcessingMs} suffix="ms" hint={`maks ${stats.maxProcessingMs} ms`} icon={<Gauge className="size-4" />} tone="amber" />
           </>
         )}
       </div>

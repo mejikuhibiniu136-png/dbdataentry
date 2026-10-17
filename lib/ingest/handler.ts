@@ -2,13 +2,14 @@
 //   token opsional -> rate limit -> saklar receiver -> baca body (batas ukuran) ->
 //   STAGING (/tmp, verifikasi utuh) -> parse JSON / URL-encoded / form-data / teks ->
 //   deteksi game -> tulis atomik ke Upstash -> hapus file staging (selalu).
-import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { isAccountStatus, detectEventType, detectGameName } from '@/lib/ingest/detect';
-import { parsePayload } from '@/lib/ingest/parse';
+import { timingSafeEqual, createHash } from 'node:crypto';
+import { drainQueue } from '@/lib/ingest/drain';
+import { processIngest } from '@/lib/ingest/process';
+import { buildItem, enqueue, queueLimits } from '@/lib/ingest/queue';
 import { withStaging } from '@/lib/ingest/staging';
-import { isReceiverEnabled, writeAccountAndLog, writeLogOnly } from '@/lib/ingest/store';
-import { isHeartbeatEvent, mergeAccount, normalizeUsername } from '@/lib/accounts';
-import { resolveGame } from '@/lib/games';
+import { isReceiverEnabled } from '@/lib/ingest/store';
+import { scheduleBackground } from '@/lib/background';
+import { emitAlert } from '@/lib/notify/emit';
 import { HttpError, errorResponse, getClientIp, json } from '@/lib/http';
 import { KEYS, verifyHmacSignature } from '@/lib/keys';
 import { hitRateLimit } from '@/lib/rateLimit';
@@ -16,8 +17,6 @@ import { getRedis, type RedisLike } from '@/lib/redis';
 import { authenticateApiKey } from '@/lib/apikeys';
 import { recordSecurityEvent } from '@/lib/securityStats';
 import { readRuntimeSettings, readSecretSetting } from '@/lib/settings';
-import { accountPayloadSchema } from '@/schemas/account';
-import type { LogEntry } from '@/types';
 
 // Verifikasi HMAC-SHA256 opsional (header X-Webhook-Signature / X-Hub-Signature-256) terhadap
 // WEBHOOK_SECRET yang Superadmin set di Pengaturan Sistem (tersimpan terenkripsi di Redis,
@@ -36,6 +35,19 @@ async function verifyWebhookSignature(redis: RedisLike, headers: Headers, rawBod
 
 export const MAX_BODY_BYTES = 256 * 1024;
 const RATE = { limit: 600, windowSeconds: 60 };
+
+// Memicu pengurasan antrean setelah respons dikirim (satu pengurus pada satu waktu berkat kunci Redis).
+// Cron /api/cron/ingest-drain adalah jaring pengaman bila tidak ada trafik yang memicunya.
+const defaultScheduleDrain = async (redis: RedisLike): Promise<void> => {
+  await scheduleBackground(() => drainQueue(redis, { budgetMs: 8000 }));
+};
+
+export interface IngestDeps {
+  redis?: RedisLike;
+  /** false = paksa jalur langsung walau mode antrean menyala (dipakai tes). */
+  queue?: boolean;
+  scheduleDrain?: (redis: RedisLike) => void | Promise<void>;
+}
 
 export interface IngestOptions {
   /** Game bila payload tidak memuat identitas (mis. alias lama /api/webhook -> Anime Dice). */
@@ -136,7 +148,7 @@ async function readBodyBytes(request: Request, maxBytes: number): Promise<Uint8A
 export async function handleIngest(
   request: Request,
   options: IngestOptions = {},
-  deps: { redis?: RedisLike } = {}
+  deps: IngestDeps = {}
 ): Promise<Response> {
   const startedAt = Date.now();
   try {
@@ -168,53 +180,34 @@ export async function handleIngest(
     if (badSignature) return withCors(badSignature);
 
     const contentType = request.headers.get('content-type');
-    const query = new URL(request.url).searchParams;
+    const url = new URL(request.url);
+    const query = url.searchParams;
 
-    const { value, staged } = await withStaging(bytes, { contentType, declaredLength: declared }, async (verified) => {
-      const parsed = await parsePayload(verified, contentType);
-      const gameName = detectGameName(parsed.data, request.headers, query, options.defaultGame);
-      const game = await resolveGame(redis, gameName);
-      const eventType = detectEventType(request.headers, parsed.data);
-
-      const makeLog = (nowMs: number): LogEntry => ({
-        id: randomUUID(),
-        game: game.slug,
-        gameName: game.name,
-        eventType,
-        payload: parsed.data,
-        format: parsed.format,
-        bytes: verified.length,
-        processingTimeMs: Math.max(0, nowMs - startedAt),
-        receivedAt: new Date(nowMs).toISOString(),
-      });
-
-      const base = { game: game.slug, gameName: game.name, newTable: game.isNew, format: parsed.format, bytes: verified.length };
-
+    // Mode antrean (opsional, dinyalakan Superadmin): tulis cepat ke antrean, jawab 202, proses di latar.
+    // Payload besar tetap diproses langsung agar antrean tidak menampung blob. Gagal mengantre karena
+    // Redis bermasalah jatuh ke jalur langsung (yang akan gagal dengan 503 + Retry-After bila Redis memang mati).
+    if (settings.ingestQueueEnabled && bytes.length <= queueLimits().maxItemBytes && (deps.queue ?? true)) {
       try {
-        if (options.forceAccount || isAccountStatus(parsed.data)) {
-          const acc = accountPayloadSchema.safeParse(parsed.data);
-          const username = acc.success ? normalizeUsername(acc.data.username) : null;
-          if (acc.success && username) {
-            const res = await writeAccountAndLog(redis, game, username, (existing) => {
-              const nowMs = Date.now();
-              const { account, newSession } = mergeAccount(existing, acc.data, { nowMs, latencyMs: nowMs - startedAt });
-              // Heartbeat rutin hanya memperbarui akun; log ditulis saat sesi mulai, offline, atau event lain.
-              const shouldLog = newSession || account.state === 'OFFLINE' || !isHeartbeatEvent(acc.data.event);
-              return { account, log: shouldLog ? makeLog(nowMs) : null };
-            });
-            return { ...base, id: res.log?.id ?? null, logged: res.log !== null, account: res.account.state };
-          }
-          // Bentuk status akun tidak valid: tetap disimpan sebagai log biasa, tidak dibuang.
+        const item = buildItem({ bytes, contentType, headers: request.headers, url, defaultGame: options.defaultGame, forceAccount: options.forceAccount });
+        const queued = await enqueue(redis, item);
+        if (!queued.ok) {
+          await emitAlert({ kind: 'queue.backlog', severity: 'critical', title: 'Antrean ingest penuh', message: 'Antrean mencapai batas kedalaman; request baru ditolak (503) sampai pemroses mengejar.', fields: [{ name: 'Batas', value: String(queueLimits().maxDepth) }], dedupeKey: 'full' }, { redis });
+          throw new HttpError(503, 'Antrean penuh, coba kirim ulang', { 'Retry-After': '10' });
         }
-        const log = makeLog(Date.now());
-        await writeLogOnly(redis, game, log);
-        return { ...base, id: log.id, logged: true };
+        if (queued.depth >= queueLimits().alertDepth) {
+          await emitAlert({ kind: 'queue.backlog', severity: 'warning', title: 'Antrean ingest menumpuk', message: `Kedalaman antrean ${queued.depth} melewati ambang peringatan.`, fields: [{ name: 'Kedalaman', value: String(queued.depth) }], dedupeKey: 'depth' }, { redis });
+        }
+        await (deps.scheduleDrain ?? defaultScheduleDrain)(redis);
+        return withCors(json({ success: true, stored: false, queued: true, id: queued.id, depth: queued.depth, rttMs: Date.now() - startedAt }, 202));
       } catch (err) {
         if (err instanceof HttpError) throw err;
-        console.error('[ingest] gagal menulis ke Redis:', err);
-        throw new HttpError(503, 'Penyimpanan sementara tidak tersedia, coba kirim ulang', { 'Retry-After': '5' });
+        console.error('[ingest] antrean tidak tersedia, memakai jalur langsung:', err instanceof Error ? err.message : err);
       }
-    });
+    }
+
+    const { value, staged } = await withStaging(bytes, { contentType, declaredLength: declared }, (verified) =>
+      processIngest(redis, { verified, contentType, headers: request.headers, query, startedAt, defaultGame: options.defaultGame, forceAccount: options.forceAccount })
+    );
 
     return withCors(json({ success: true, stored: true, staged, ...value, rttMs: Date.now() - startedAt }, 200));
   } catch (err) {

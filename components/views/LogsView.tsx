@@ -1,8 +1,10 @@
 'use client';
 import { AnimatePresence } from 'motion/react';
-import { Download, Search, Trash2 } from 'lucide-react';
+import { Download, Search, Server, Trash2 } from 'lucide-react';
 import { useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { LogBoundary, LogCard } from '@/components/tables/LogList';
+import { ServerLogSearch } from '@/components/views/logs/ServerLogSearch';
 import { Button } from '@/components/ui/Button';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { downloadText } from '@/lib/client';
@@ -15,9 +17,12 @@ const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 interface Props {
   loading: boolean; logs: LogEntry[]; newIds: Set<string>; copiedId: string | null; showGame: boolean; gameLabel: string; gameSlug: string; isAdmin: boolean;
   onOpen: (l: LogEntry) => void; onCopy: (l: LogEntry) => void; onClear: () => void;
+  toast?: (m: string, t?: 'success' | 'error' | 'info') => void;
 }
 
-export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel, gameSlug, isAdmin, onOpen, onCopy, onClear }: Props) {
+export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel, gameSlug, isAdmin, onOpen, onCopy, onClear, toast = () => undefined }: Props) {
+  const { t } = useI18n();
+  const [serverMode, setServerMode] = useState(false);
   const [search, setSearch] = useState('');
   const [user, setUser] = useState('ALL');
   const [rangeId, setRangeId] = useState('ALL');
@@ -28,6 +33,19 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
 
   const users = useMemo(() => computeLogStats(logs).uniqueUsers, [logs]);
   const filtered = useMemo(() => filterLogs(logs, { search: deferred, user, hideHeartbeat, rangeId }), [logs, deferred, user, hideHeartbeat, rangeId]);
+
+  const modeToggle = (
+    <Button size="sm" variant={serverMode ? 'primary' : 'ghost'} aria-pressed={serverMode} onClick={() => setServerMode((v) => !v)}><Server className="size-3.5" aria-hidden />{t('logs.serverSearch')}</Button>
+  );
+
+  if (serverMode) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">{modeToggle}</div>
+        <ServerLogSearch gameSlug={gameSlug} gameLabel={gameLabel} showGame={showGame} copiedId={copiedId} onOpen={onOpen} onCopy={onCopy} toast={toast} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -48,6 +66,7 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
         <span>{filtered.length.toLocaleString('id-ID')} dari {logs.length.toLocaleString('id-ID')} log dimuat · {gameLabel}</span>
         <div className="flex flex-wrap gap-2">
+          {modeToggle}
           <Button size="sm" disabled={!filtered.length} onClick={() => downloadText(`logs-${stamp()}.json`, JSON.stringify(filtered, null, 2))}><Download className="size-3.5" />JSON</Button>
           <Button size="sm" disabled={!filtered.length} onClick={() => downloadText(`logs-${stamp()}.csv`, logsToCsv(filtered), 'text/csv')}><Download className="size-3.5" />CSV</Button>
           <Button size="sm" title="Semua log yang tersimpan di server, bukan hanya yang dimuat di layar" onClick={() => window.location.assign(`/api/logs/export?game=${encodeURIComponent(gameSlug)}&format=csv`)}><Download className="size-3.5" />CSV penuh</Button>

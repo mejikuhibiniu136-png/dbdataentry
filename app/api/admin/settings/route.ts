@@ -43,7 +43,7 @@ export async function PUT(request: Request) {
     if (!parsed.success) return json({ success: false, message: parsed.error.issues[0]?.message ?? 'Data tidak valid' }, 400);
 
     const redis = getRedis();
-    const { maintenanceMode, rateLimitPerMin, luaObfuscationEnabled, apiKeyRequired, logRetentionDays, webhookSecret } = parsed.data;
+    const { maintenanceMode, rateLimitPerMin, luaObfuscationEnabled, apiKeyRequired, logRetentionDays, ingestQueueEnabled, webhookSecret } = parsed.data;
     const changes: string[] = [];
 
     if (maintenanceMode !== undefined) { await writeSetting(redis, 'MAINTENANCE_MODE', maintenanceMode); changes.push(`maintenanceMode=${maintenanceMode}`); }
@@ -51,6 +51,7 @@ export async function PUT(request: Request) {
     if (luaObfuscationEnabled !== undefined) { await writeSetting(redis, 'LUA_OBFUSCATION_ENABLED', luaObfuscationEnabled); changes.push(`luaObfuscationEnabled=${luaObfuscationEnabled}`); }
     if (apiKeyRequired !== undefined) { await writeSetting(redis, 'API_KEY_REQUIRED', apiKeyRequired); changes.push(`apiKeyRequired=${apiKeyRequired}`); }
     if (logRetentionDays !== undefined) { await writeSetting(redis, 'LOG_RETENTION_DAYS', logRetentionDays); changes.push(`logRetentionDays=${logRetentionDays}`); }
+    if (ingestQueueEnabled !== undefined) { await writeSetting(redis, 'INGEST_QUEUE_ENABLED', ingestQueueEnabled); changes.push(`ingestQueueEnabled=${ingestQueueEnabled}`); }
     if (webhookSecret !== undefined) {
       if (webhookSecret === '') await redis.hdel(KEYS.settings, 'WEBHOOK_SECRET');
       else await writeSecretSetting(redis, 'WEBHOOK_SECRET', webhookSecret);

@@ -171,18 +171,19 @@ export function csvCell(value: unknown): string {
   if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
   return `"${t.replace(/"/g, '""')}"`;
 }
+export const csvLine = (cells: unknown[]) => cells.map(csvCell).join(',');
 const toCsv = (headers: string[], rows: unknown[][]) =>
   `\uFEFF${[headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\r\n')}`;
 
-export const logsToCsv = (logs: LogEntry[]) =>
-  toCsv(
-    ['receivedAt', 'game', 'eventType', 'username', 'event', 'format', 'bytes', 'processingTimeMs', 'payload'],
-    logs.map((l) => {
-      let payload = '';
-      try { payload = JSON.stringify(l.payload); } catch { payload = ''; }
-      return [l.receivedAt, l.gameName, l.eventType, l.payload?.username, l.payload?.event, l.format, l.bytes, l.processingTimeMs, payload];
-    })
-  );
+export const LOG_CSV_HEADERS = ['receivedAt', 'game', 'eventType', 'username', 'event', 'format', 'bytes', 'processingTimeMs', 'payload'];
+
+export function logCsvRow(l: LogEntry): unknown[] {
+  let payload = '';
+  try { payload = JSON.stringify(l.payload); } catch { payload = ''; }
+  return [l.receivedAt, l.gameName, l.eventType, l.payload?.username, l.payload?.event, l.format, l.bytes, l.processingTimeMs, payload];
+}
+
+export const logsToCsv = (logs: LogEntry[]) => toCsv(LOG_CSV_HEADERS, logs.map(logCsvRow));
 
 export const accountsToCsv = (accounts: TrackedAccount[], stateOf: (a: TrackedAccount) => string) =>
   toCsv(

@@ -9,7 +9,9 @@ import { hitRateLimit, resetRateLimit } from '@/lib/rateLimit';
 import type { RedisLike } from '@/lib/redis';
 import { signSession } from '@/lib/auth/jwt';
 import { verifyAgainstDummy, verifyPassword } from '@/lib/auth/password';
-import { createUser, getUser, recordDevice, userKey } from '@/lib/users';
+import { emitAlert } from '@/lib/notify/emit';
+import { recordFromDevice, registerSession } from '@/lib/sessions';
+import { createUser, getUser, readDevices, recordDevice, userKey } from '@/lib/users';
 import type { Role, UserStatus } from '@/types';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
@@ -111,9 +113,22 @@ export async function performLogin(
   const sid = randomUUID();
   if (redis) {
     try {
-      await recordDevice(redis, userKey(canonical), await buildDeviceEntry(headers, sid));
+      const key = userKey(canonical);
+      const prior = await readDevices(redis, key);
+      const entry = await buildDeviceEntry(headers, sid);
+      await recordDevice(redis, key, entry);
+      await registerSession(redis, recordFromDevice(canonical, role, entry));
+      // Alert hanya bila pengguna sudah punya riwayat dan IP ini belum pernah dipakai (login pertama bukan "IP baru").
+      if (prior.length > 0 && !prior.some((d) => d.ip === entry.ip)) {
+        await emitAlert({
+          kind: 'auth.new_ip', severity: role === 'superadmin' ? 'critical' : 'warning',
+          title: `Login dari IP baru: ${canonical}`, message: `${canonical} (${role}) masuk dari alamat yang belum pernah dipakai sebelumnya.`,
+          fields: [{ name: 'IP', value: entry.ip }, { name: 'Perangkat', value: `${entry.browser} / ${entry.os}` }, { name: 'Lokasi', value: [entry.city, entry.country].filter(Boolean).join(', ') || '-' }],
+          dedupeKey: `${key}|${entry.ip}`,
+        }, { redis });
+      }
     } catch (err) {
-      console.error('[login] gagal mencatat perangkat:', err);
+      console.error('[login] gagal mencatat perangkat/sesi:', err);
     }
   }
 
@@ -134,5 +149,10 @@ export async function performRegister(redis: RedisLike, headers: Headers, userna
     // superadmin belum dikonfigurasi: tidak ada nama yang perlu dicadangkan
   }
   const user = await createUser(redis, username, password, reserved);
+  await emitAlert({
+    kind: 'user.pending_approval', severity: 'info', title: `Pendaftaran baru menunggu persetujuan: ${user.username}`,
+    message: 'Seorang pengguna baru mendaftar dan menunggu keputusan Superadmin di tab Pengguna.',
+    fields: [{ name: 'Username', value: user.username }, { name: 'IP', value: getClientIp(headers) }], dedupeKey: userKey(user.username),
+  }, { redis });
   return { username: user.username, role: user.role, status: user.status };
 }

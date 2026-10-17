@@ -16,6 +16,7 @@ export const settingsUpdateSchema = z.object({
   luaObfuscationEnabled: z.boolean().optional(),
   apiKeyRequired: z.boolean().optional(),
   logRetentionDays: z.number().int().min(0).max(3650).optional(),
+  ingestQueueEnabled: z.boolean().optional(),
   webhookSecret: z.string().trim().min(8, 'Minimal 8 karakter').max(256).optional().or(z.literal('')),
 });
 

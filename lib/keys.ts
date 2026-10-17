@@ -19,6 +19,24 @@ export const KEYS = {
   auditLog: 'audit:log', // list, terbaru di depan, dipangkas ke AUDIT_MAX (lib/audit.ts)
   securityStats: (day: string) => `stats:security:${day}`, // hash per hari UTC: "HH:jenis" -> jumlah
 
+  // ----- Notifikasi terpusat (Discord / Telegram) -----
+  notifyConfig: 'config:notify', // hash: field "channel" -> amplop tersegel (token/URL tidak pernah plain di Redis)
+  notifyLog: 'notify:log', // list hasil pengiriman terakhir (tanpa rahasia)
+  notifyDedupe: (hash: string) => `notify:dedupe:${hash}`,
+  notifyCounter: (scope: string, bucket: string) => `notify:cnt:${scope}:${bucket}`,
+
+  // ----- Sesi & perangkat -----
+  sessionsIndex: 'sess:index', // sorted set: username (lowercase) -> aktivitas terakhir
+  sessionsOf: (usernameKey: string) => `sess:u:${usernameKey}`, // hash: sid -> JSON SessionRecord
+  sessionRevoked: (sid: string) => `sess:revoked:${sid}`, // penanda cabut, TTL = sisa umur JWT
+
+  // ----- Antrean ingest -----
+  queuePending: 'q:ingest:pending', // list (LPUSH produser, RPOP konsumen = FIFO)
+  queueInflight: 'q:ingest:inflight', // sorted set: item -> waktu lease habis
+  queueDead: 'q:ingest:dead', // list item yang gagal berulang kali
+  queueLock: 'q:ingest:lock', // kunci drainer tunggal (SET NX EX)
+  queueStats: 'q:ingest:stats', // hash: enqueued, processed, failed, dead
+
   // ----- Akun & pengguna dashboard -----
   usersList: 'users:list', // sorted set: username (lowercase) -> waktu daftar
   userAccount: (usernameKey: string) => `users:account:${usernameKey}`,

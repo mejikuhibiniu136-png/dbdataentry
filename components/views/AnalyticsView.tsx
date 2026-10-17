@@ -14,9 +14,9 @@ export function AnalyticsView({ loading, logs, gameLabel }: { loading: boolean; 
     <div className="space-y-6">
       <p className="text-sm text-slate-400">Dihitung dari {logs.length.toLocaleString('id-ID')} log yang dimuat · {gameLabel}</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Floor tertinggi" value={s.maxFloor} icon={<Layers className="size-4" />} />
-        <StatCard label="Unit baru" value={s.totalUnits} hint={s.highestRarity !== '-' ? `Terlangka ${s.highestRarity}` : undefined} icon={<Sparkles className="size-4" />} tone="violet" />
-        <StatCard label="Pemain teratas" value={s.topUsers[0]?.count ?? 0} hint={s.topUsers[0]?.name ?? '-'} icon={<Trophy className="size-4" />} tone="amber" />
+        <StatCard index={0} label="Floor tertinggi" value={s.maxFloor} icon={<Layers className="size-4" />} />
+        <StatCard index={1} label="Unit baru" value={s.totalUnits} hint={s.highestRarity !== '-' ? `Terlangka ${s.highestRarity}` : undefined} icon={<Sparkles className="size-4" />} tone="violet" />
+        <StatCard index={2} label="Pemain teratas" value={s.topUsers[0]?.count ?? 0} hint={s.topUsers[0]?.name ?? '-'} icon={<Trophy className="size-4" />} tone="amber" />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <section className="glass p-5"><h3 className="mb-4 text-sm font-semibold text-white">Event terbanyak</h3><BarList items={s.topEvents} /></section>

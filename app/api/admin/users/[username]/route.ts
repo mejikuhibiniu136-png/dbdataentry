@@ -3,6 +3,7 @@ import { requireSuperadmin } from '@/lib/auth/session';
 import { getSuperadminConfig } from '@/lib/env';
 import { HttpError, errorResponse, json, readJson } from '@/lib/http';
 import { getRedis } from '@/lib/redis';
+import { revokeAllForUser } from '@/lib/sessions';
 import { updateUser, userKey } from '@/lib/users';
 import { userUpdateSchema } from '@/schemas/admin';
 
@@ -34,7 +35,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ us
     const redis = getRedis();
     const updated = await updateUser(redis, key, parsed.data);
     const changes = [parsed.data.status !== undefined && `status=${parsed.data.status}`, parsed.data.role !== undefined && `role=${parsed.data.role}`].filter(Boolean).join(', ');
-    await recordAudit(redis, { ...actorOf(session, request.headers), action: 'user.update', target: updated.username, detail: changes });
+    // JWT membawa role/status di dalamnya: tanpa pencabutan, penurunan role atau penangguhan baru
+    // berlaku setelah token kedaluwarsa (hingga 8 jam). Semua sesi pengguna ini dicabut sekarang.
+    const revoked = await revokeAllForUser(redis, key).catch(() => 0);
+    await recordAudit(redis, { ...actorOf(session, request.headers), action: 'user.update', target: updated.username, detail: `${changes}${revoked ? `, ${revoked} sesi dicabut` : ''}` });
     return json({ success: true, data: { username: updated.username, role: updated.role, status: updated.status } });
   } catch (err) {
     return errorResponse(err, 'admin/users PATCH');

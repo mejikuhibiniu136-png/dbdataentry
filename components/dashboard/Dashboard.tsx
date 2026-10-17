@@ -2,7 +2,10 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Sidebar, VIEWS, type ViewId } from '@/components/dashboard/Sidebar';
+import { PageTransition } from '@/components/motion/Stagger';
 import { LogDrawer } from '@/components/tables/LogList';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog, NameDialog, type ConfirmState } from '@/components/ui/Modal';
@@ -13,18 +16,21 @@ import { AnalyticsView } from '@/components/views/AnalyticsView';
 import { GamesView } from '@/components/views/GamesView';
 import { LogsView } from '@/components/views/LogsView';
 import { OverviewView } from '@/components/views/OverviewView';
+import { SessionsView } from '@/components/views/SessionsView';
 import { SystemView } from '@/components/views/SystemView';
 import { UsersView } from '@/components/views/UsersView';
 import { apiJson, copyText, downloadText, useLiveStream, useToasts, type Connection } from '@/lib/client';
+import type { MessageKey } from '@/lib/i18n/dictionaries/en';
 import type { GameTable, LogEntry, Role, StreamPayload, TrackedAccount } from '@/types';
 
 const LIMITS = [50, 100, 200, 500];
-const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; text: string }> = {
-  live: { tone: 'ok', text: 'LIVE' }, connecting: { tone: 'neutral', text: 'Menyambung…' },
-  reconnecting: { tone: 'warn', text: 'Menyambung ulang…' }, paused: { tone: 'warn', text: 'Dijeda' },
+const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; key: MessageKey }> = {
+  live: { tone: 'ok', key: 'header.live' }, connecting: { tone: 'neutral', key: 'header.connecting' },
+  reconnecting: { tone: 'warn', key: 'header.reconnecting' }, paused: { tone: 'warn', key: 'header.paused' },
 };
 
 export function Dashboard({ username, role }: { username: string; role: Role }) {
+  const { t } = useI18n();
   // RBAC berjenjang: Superadmin (mutlak) > Admin (CRUD akun/game, baca pengguna/log) > Viewer (baca saja).
   const isStaff = role === 'admin' || role === 'superadmin';
   const isSuperadmin = role === 'superadmin';
@@ -134,13 +140,14 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const content = useMemo(() => {
     switch (view) {
       case 'overview': return <OverviewView loading={loading} logs={logs} games={games} accounts={accounts} now={now} gameLabel={gameLabel} onCopyResult={copyResult} />;
-      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} gameSlug={game} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} />;
+      case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} gameSlug={game} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} toast={toast} />;
       case 'games': return <GamesView loading={loading && games.length === 0} games={games} isAdmin={isStaff} onCreate={() => setNameDialog({ mode: 'create' })}
         onOpen={(g) => { switchGame(g.slug); setView('logs'); }} onRename={(g) => setNameDialog({ mode: 'rename', game: g })}
         onDelete={(g) => setConfirm({ title: `Hapus tabel "${g.name}"?`, danger: true, confirmLabel: 'Hapus tabel', message: 'Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.', onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), 'Tabel dihapus') })} />;
       case 'accounts': return <AccountsView loading={loading} accounts={accounts} logs={logs} now={now} isAdmin={isStaff} onCopyJob={copyJob}
         onDelete={(a) => setConfirm({ title: `Hapus akun ${a.username}?`, danger: true, confirmLabel: 'Hapus akun', message: 'Akun dihapus dari daftar tracker. Akan muncul lagi jika script masih mengirim heartbeat.', onConfirm: () => run(() => apiJson(`/api/accounts?username=${encodeURIComponent(a.username)}`, 'DELETE'), 'Akun dihapus') })} />;
       case 'analytics': return <AnalyticsView loading={loading} logs={logs} gameLabel={gameLabel} />;
+      case 'sessions': return <SessionsView role={role} toast={toast} />;
       case 'users': return isStaff ? <UsersView role={role} toast={toast} onPendingCount={setPendingCount} /> : null;
       case 'system': return isSuperadmin ? <SystemView toast={toast} /> : null;
     }
@@ -158,13 +165,14 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       <main className="min-w-0 flex-1 space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-white">{current?.label}</h1>
-            <p className="text-sm text-slate-400">Halo, {username}</p>
+            <h1 className="text-2xl font-semibold text-white">{current ? t(current.labelKey) : ''}</h1>
+            <p className="text-sm text-slate-400">{t('header.greeting', { name: username })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{conn.text}</Pill>
-            <select className="field w-auto py-1.5 text-xs" aria-label="Jumlah log dimuat" value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{l} log</option>)}</select>
-            <Button size="sm" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? 'Lanjut' : 'Jeda'}</Button>
+            <Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill>
+            <LanguageSwitcher compact align="right" />
+            <select className="field w-auto py-1.5 text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>
+            <Button size="sm" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? t('header.resume') : t('header.pause')}</Button>
           </div>
         </header>
 
@@ -183,7 +191,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
         )}
 
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={view} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>{content}</motion.div>
+          <PageTransition key={view}>{content}</PageTransition>
         </AnimatePresence>
       </main>
 

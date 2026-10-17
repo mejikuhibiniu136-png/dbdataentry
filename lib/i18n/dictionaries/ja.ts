@@ -1,0 +1,48 @@
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+
+export const ja: Dictionary = {
+  'nav.main': 'メインナビゲーション', 'nav.overview': '概要', 'nav.logs': 'ログ', 'nav.games': 'ゲームテーブル', 'nav.accounts': 'アカウント',
+  'nav.analytics': '分析', 'nav.users': 'ユーザー', 'nav.sessions': 'セッション', 'nav.system': 'システム', 'nav.logout': 'ログアウト',
+
+  'header.greeting': 'こんにちは、{name}さん', 'header.live': 'ライブ', 'header.connecting': '接続中…', 'header.reconnecting': '再接続中…', 'header.paused': '一時停止中',
+  'header.logCount': '{count}件のログ', 'header.logsLoaded': '読み込むログ件数', 'header.pause': '一時停止', 'header.resume': '再開',
+
+  'common.save': '保存', 'common.cancel': 'キャンセル', 'common.close': '閉じる', 'common.delete': '削除', 'common.retry': '再試行', 'common.refresh': '更新',
+  'common.loading': '読み込み中…', 'common.search': '検索', 'common.clear': 'クリア', 'common.from': '開始', 'common.to': '終了', 'common.enabled': '有効',
+  'common.disabled': '無効', 'common.actions': '操作', 'common.status': 'ステータス', 'common.user': 'ユーザー', 'common.never': 'なし', 'common.you': 'あなた',
+  'common.error': 'エラーが発生しました', 'common.confirm': '確認', 'common.loadMore': 'さらに読み込む', 'common.test': 'テスト送信',
+
+  'auth.loginTitle': 'dbdataentryにサインイン', 'auth.registerTitle': 'アカウントを作成', 'auth.loginSubtitle': 'Webhookとアカウントの状態をリアルタイムで監視します。', 'auth.registerSubtitle': '新しいアカウントは、スーパー管理者の承認後に利用できます。', 'auth.registered': 'アカウントを作成しました。サインインして承認状況を確認してください。', 'auth.username': 'ユーザー名', 'auth.password': 'パスワード', 'auth.confirmPassword': 'パスワードを再入力', 'auth.hidePassword': 'パスワードを隠す', 'auth.showPassword': 'パスワードを表示', 'auth.minChars': '8文字以上で入力してください。', 'auth.capsLock': 'Caps Lockがオンです', 'auth.processing': '処理中…', 'auth.login': 'サインイン', 'auth.register': '登録', 'auth.noAccount': 'アカウントをお持ちでない方は ', 'auth.haveAccount': 'すでにアカウントをお持ちの方は ', 'auth.mismatch': 'パスワードが一致しません', 'auth.errorGeneric': 'エラーが発生しました', 'auth.errorNetwork': 'ネットワークエラーが発生しました',
+
+  'role.superadmin': 'スーパー管理者', 'role.admin': 'モデレーター / アナリスト', 'role.viewer': 'ユーザー / クライアント',
+  'lang.label': '言語', 'lang.choose': '言語を選択',
+
+  'sessions.title': 'セッションとデバイス', 'sessions.subtitle': '有効なサインイン、その接続元、そして個別に終了する手段です。',
+  'sessions.mine': '自分のセッション', 'sessions.all': 'すべてのユーザー', 'sessions.current': 'このデバイス', 'sessions.device': 'デバイス', 'sessions.location': '場所',
+  'sessions.created': 'サインイン', 'sessions.lastActive': '最終アクティブ', 'sessions.revoke': '無効化', 'sessions.revokeOthers': '他のデバイスをログアウト',
+  'sessions.revokeUser': 'このユーザーを全て無効化', 'sessions.empty': '有効なセッションはありません。', 'sessions.revokedOne': 'セッションを無効化しました',
+  'sessions.revokedMany': '{count}件のセッションを無効化しました', 'sessions.confirmTitle': 'このセッションを無効化しますか？',
+  'sessions.confirmBody': 'そのデバイスはログアウトされます。無効化したセッションは数秒以内に使えなくなります。', 'sessions.confirmAllTitle': '{name}の全セッションを無効化しますか？',
+  'sessions.confirmOthersTitle': '他のすべてのデバイスをログアウトしますか？',
+
+  'notify.title': 'アラート通知', 'notify.subtitle': 'セキュリティとシステムのアラートをDiscordまたはTelegramに送信します。',
+  'notify.platform': '送信先', 'notify.discord': 'Discord', 'notify.telegram': 'Telegram', 'notify.webhookUrl': 'Discord Webhook URL', 'notify.botToken': 'ボットトークン',
+  'notify.chatId': 'チャットID', 'notify.keepHint': '空欄のままにすると保存済みの値を維持します', 'notify.enabled': 'アラートを送信', 'notify.minSeverity': '最小の重大度',
+  'notify.kinds': 'アラートの種類', 'notify.allKinds': 'すべての種類', 'notify.save': 'チャンネルを保存', 'notify.testSent': 'テストメッセージを送信しました', 'notify.testFailed': 'テストメッセージの送信に失敗しました',
+  'notify.saved': '通知チャンネルを保存しました', 'notify.remove': 'チャンネルを削除', 'notify.history': '最近の送信', 'notify.noHistory': 'まだ送信されていません。',
+  'notify.configured': '設定済み', 'notify.notConfigured': '未設定', 'notify.encryptionMissing': 'ENCRYPTION_KEYが未設定のため、認証情報を暗号化して保存できません。',
+  'notify.sealedNote': '認証情報は保存前に多層暗号化され、再表示されることはありません。',
+  'notify.severity.info': '情報', 'notify.severity.warning': '警告', 'notify.severity.critical': '重大',
+  'notify.kind.auth.new_ip': '新しいIPからのサインイン', 'notify.kind.security.spike': 'セキュリティイベントの急増', 'notify.kind.ingest.error_spike': '取り込みエラーの急増',
+  'notify.kind.user.pending_approval': '承認待ちのアカウント', 'notify.kind.queue.backlog': '取り込みキューの滞留', 'notify.kind.queue.dead_letter': '取り込みのデッドレター',
+  'notify.kind.crypto.rotation': '鍵ローテーションの問題', 'notify.kind.session.revoked': '管理者によるセッション無効化', 'notify.kind.system.test': 'テストメッセージ',
+
+  'queue.title': '取り込みキュー', 'queue.subtitle': 'ゲームスクリプトからの急激なトラフィックを吸収し、非同期で処理します。',
+  'queue.mode': 'キューモード', 'queue.modeHint': 'オン：リクエストを即座に受理(202)しバックグラウンドで処理。オフ：直接書き込み(既定)。',
+  'queue.depth': '待機中', 'queue.inflight': '処理中', 'queue.dead': 'デッドレター', 'queue.processed': '処理済み', 'queue.retried': '再試行', 'queue.rejected': '拒否(満杯)',
+  'queue.oldest': '最も古い項目', 'queue.drain': '今すぐ処理', 'queue.retryDead': 'デッドレターを再試行', 'queue.purgeDead': 'デッドレターを消去',
+
+  'logs.searchPlaceholder': '保存済みの全ログを検索…', 'logs.syntax': 'ヒント: "完全一致", -除外, event:Win, user:alice, game:slug',
+  'logs.results': '{count}件ヒット', 'logs.scanned': '{count}件のログをスキャン', 'logs.truncated': '検索対象は最新の5,000件のみです。',
+  'logs.exportCsv': 'CSVでエクスポート', 'logs.exportJson': 'JSONでエクスポート', 'logs.exportNdjson': 'NDJSONでエクスポート', 'logs.serverSearch': 'サーバー検索', 'logs.noMatches': '一致するログはありません。',
+};

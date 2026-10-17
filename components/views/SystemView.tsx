@@ -6,6 +6,8 @@ import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ApiKeysPanel } from '@/components/views/system/ApiKeysPanel';
 import { AuditPanel } from '@/components/views/system/AuditPanel';
+import { NotificationsPanel } from '@/components/views/system/NotificationsPanel';
+import { QueuePanel } from '@/components/views/system/QueuePanel';
 import { EncryptionPanel } from '@/components/views/system/EncryptionPanel';
 import { RetentionPanel } from '@/components/views/system/RetentionPanel';
 import { SecurityPanel } from '@/components/views/system/SecurityPanel';
@@ -34,7 +36,7 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
     try { await apiJson('/api/system/receiver', 'POST', { enabled: !info.receiverEnabled }); toast(`Penerima webhook ${info.receiverEnabled ? 'dimatikan' : 'dinyalakan'}`, 'success'); void load(); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal', 'error'); }
   };
 
-  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; rateLimitPerMin: number; luaObfuscationEnabled: boolean; apiKeyRequired: boolean; logRetentionDays: number; webhookSecret: string }>) => {
+  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; rateLimitPerMin: number; luaObfuscationEnabled: boolean; apiKeyRequired: boolean; logRetentionDays: number; ingestQueueEnabled: boolean; webhookSecret: string }>) => {
     setBusy(true);
     try { setSettings(await apiJson<SettingsInfo>('/api/admin/settings', 'PUT', patch)); toast('Pengaturan disimpan', 'success'); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'error'); } finally { setBusy(false); }
   };
@@ -121,6 +123,13 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
         <div className="grid gap-4 lg:grid-cols-2">
           <RetentionPanel days={settings.data.logRetentionDays} busy={busy} onSave={(n) => void patchSettings({ logRetentionDays: n })} toast={toast} />
           <EncryptionPanel ready={settings.encryptionReady} status={settings.encryption} toast={toast} onChanged={() => void load()} />
+        </div>
+      )}
+
+      {settings && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <NotificationsPanel toast={toast} />
+          <QueuePanel toast={toast} enabled={settings.data.ingestQueueEnabled} busy={busy} onToggle={(v) => void patchSettings({ ingestQueueEnabled: v })} />
         </div>
       )}
 

@@ -1,5 +1,9 @@
 'use client';
+import { motion } from 'motion/react';
 import type { Activity } from '@/lib/logStats';
+
+// Batang tumbuh dari garis dasar: transform-box fill-box membuat asal skala di tepi bawah batang itu sendiri.
+const BAR_STYLE = { transformBox: 'fill-box', transformOrigin: 'bottom' } as const;
 
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -15,7 +19,7 @@ export function Sparkline({ values, color = '#22d3ee', label }: { values: number
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg className="h-8 w-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label}: terakhir ${data[data.length - 1]} ms, rentang ${min}-${max} ms`}>
-      {data.length > 1 && <polyline points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+      {data.length > 1 && <motion.polyline initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
       <path d={`M${lx.toFixed(1)} ${ly.toFixed(1)}h0.001`} stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -48,8 +52,8 @@ export function ActivityChart({ data }: { data: Activity }) {
           return (
             <g key={bk.start}>
               <title>{`${fmtTime(bk.start)} • ${bk.other} event, ${bk.heartbeat} heartbeat`}</title>
-              {bk.heartbeat > 0 && <rect x={x} y={yH} width={barW} height={hH} rx="2" fill="#22d3ee" opacity="0.35" />}
-              {bk.other > 0 && <rect x={x} y={yO} width={barW} height={hO} rx="2" fill="#8b5cf6" />}
+              {bk.heartbeat > 0 && <motion.rect x={x} y={yH} width={barW} height={hH} rx="2" fill="#22d3ee" style={BAR_STYLE} initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 0.35 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
+              {bk.other > 0 && <motion.rect x={x} y={yO} width={barW} height={hO} rx="2" fill="#8b5cf6" style={BAR_STYLE} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
             </g>
           );
         })}

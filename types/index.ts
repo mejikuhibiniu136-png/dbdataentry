@@ -103,6 +103,8 @@ export interface SystemSettings {
   apiKeyRequired: boolean;
   /** Log lebih tua dari N hari dihapus (0 = nonaktif). */
   logRetentionDays: number;
+  /** true = ingest masuk antrean Redis (202) dan diproses asinkron; false = tulis langsung (bawaan). */
+  ingestQueueEnabled: boolean;
 }
 
 // Status enkripsi untuk panel rotasi kunci (tanpa nilai rahasia).
@@ -138,7 +140,13 @@ export type AuditAction =
   | 'game.rename'
   | 'account.delete'
   | 'encryption.rotate'
-  | 'retention.purge';
+  | 'retention.purge'
+  | 'notify.update'
+  | 'notify.test'
+  | 'session.revoke'
+  | 'queue.drain'
+  | 'queue.setting'
+  | 'crypto.sweep';
 
 export interface AuditEntry {
   id: string;
