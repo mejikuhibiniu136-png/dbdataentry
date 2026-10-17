@@ -48,7 +48,6 @@ export const zh: Dictionary = {
 
   'welcome.title': '欢迎，{name}', 'welcome.subtitle': '您的实时游戏账号监控仪表板已准备就绪。', 'welcome.f1': '实时监控',
   'welcome.f2': '账号管理', 'welcome.f3': '安全设计', 'welcome.enter': '进入仪表板', 'welcome.hint': '您可以从仪表板开始引导教程。',
-
   'tour.step': '第 {current} 步，共 {total} 步', 'tour.skip': '跳过教程', 'tour.back': '上一步', 'tour.done': '完成', 'tour.next': '下一步',
   'tour.s1.title': '欢迎使用仪表板', 'tour.s1.body': '本引导将介绍 dbdataentry 的主要区域。',
   'tour.s2.title': '浏览工作区', 'tour.s2.body': '使用侧边栏切换监控、报告和系统设置。',

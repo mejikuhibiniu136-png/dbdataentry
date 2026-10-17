@@ -48,7 +48,6 @@ export const id: Dictionary = {
 
   'welcome.title': 'Selamat datang, {name}', 'welcome.subtitle': 'Dasbor pemantauan akun game real-time Anda siap digunakan.', 'welcome.f1': 'Pemantauan langsung',
   'welcome.f2': 'Pengelolaan akun', 'welcome.f3': 'Dirancang aman', 'welcome.enter': 'Masuk ke dasbor', 'welcome.hint': 'Tur panduan dapat dimulai dari dasbor.',
-
   'tour.step': 'Langkah {current} dari {total}', 'tour.skip': 'Lewati tur', 'tour.back': 'Kembali', 'tour.done': 'Selesai', 'tour.next': 'Lanjut',
   'tour.s1.title': 'Selamat datang di dasbor', 'tour.s1.body': 'Tur singkat ini memperkenalkan bagian utama dbdataentry.',
   'tour.s2.title': 'Navigasikan ruang kerja', 'tour.s2.body': 'Gunakan bilah samping untuk berpindah antara pemantauan, laporan, dan pengaturan sistem.',

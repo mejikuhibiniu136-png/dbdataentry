@@ -47,7 +47,6 @@ export const en = {
 
   'welcome.title': 'Welcome, {name}', 'welcome.subtitle': 'Your real-time game account monitoring dashboard is ready.', 'welcome.f1': 'Live monitoring',
   'welcome.f2': 'Account management', 'welcome.f3': 'Secure by design', 'welcome.enter': 'Enter dashboard', 'welcome.hint': 'You can start a guided tour from the dashboard.',
-
   'tour.step': 'Step {current} of {total}', 'tour.skip': 'Skip tour', 'tour.back': 'Back', 'tour.done': 'Finish', 'tour.next': 'Next',
   'tour.s1.title': 'Welcome to your dashboard', 'tour.s1.body': 'This guided tour introduces the main areas of dbdataentry.',
   'tour.s2.title': 'Navigate your workspace', 'tour.s2.body': 'Use the sidebar to move between monitoring, reports, and system settings.',

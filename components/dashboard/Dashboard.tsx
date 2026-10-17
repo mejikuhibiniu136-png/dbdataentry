@@ -1,9 +1,11 @@
 'use client';
 import { AnimatePresence, motion } from 'motion/react';
-import { Pause, Play } from 'lucide-react';
+import { CircleHelp, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { TOUR_EVENT } from '@/components/onboarding/constants';
+import { getCopy } from '@/components/onboarding/copy';
 import { Sidebar, VIEWS, type ViewId } from '@/components/dashboard/Sidebar';
 import { PageTransition } from '@/components/motion/Stagger';
 import { LogDrawer } from '@/components/tables/LogList';
@@ -30,7 +32,7 @@ const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; key: Mes
 };
 
 export function Dashboard({ username, role }: { username: string; role: Role }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   // RBAC berjenjang: Superadmin (mutlak) > Admin (CRUD akun/game, baca pengguna/log) > Viewer (baca saja).
   const isStaff = role === 'admin' || role === 'superadmin';
   const isSuperadmin = role === 'superadmin';
@@ -162,17 +164,20 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
     <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
       <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 
-      <main className="min-w-0 flex-1 space-y-5">
+      <main data-tour="content" className="min-w-0 flex-1 space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-white">{current ? t(current.labelKey) : ''}</h1>
             <p className="text-sm text-slate-400">{t('header.greeting', { name: username })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill>
+            <span data-tour="status"><Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill></span>
             <LanguageSwitcher compact align="right" />
+            <span data-tour="controls" className="flex items-center gap-2">
             <select className="field w-auto py-1.5 text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>
             <Button size="sm" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? t('header.resume') : t('header.pause')}</Button>
+            </span>
+            <Button size="sm" variant="subtle" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}><CircleHelp className="size-3.5" aria-hidden />{getCopy(locale).replay}</Button>
           </div>
         </header>
 

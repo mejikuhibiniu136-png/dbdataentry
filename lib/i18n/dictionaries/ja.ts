@@ -48,7 +48,6 @@ export const ja: Dictionary = {
 
   'welcome.title': 'ようこそ、{name}さん', 'welcome.subtitle': 'リアルタイムのゲームアカウント監視ダッシュボードをご利用いただけます。', 'welcome.f1': 'ライブ監視',
   'welcome.f2': 'アカウント管理', 'welcome.f3': '安全な設計', 'welcome.enter': 'ダッシュボードへ', 'welcome.hint': 'ダッシュボードからガイドツアーを開始できます。',
-
   'tour.step': '{total}ステップ中 {current}ステップ', 'tour.skip': 'ツアーをスキップ', 'tour.back': '戻る', 'tour.done': '完了', 'tour.next': '次へ',
   'tour.s1.title': 'ダッシュボードへようこそ', 'tour.s1.body': 'このガイドツアーではdbdataentryの主な機能をご紹介します。',
   'tour.s2.title': 'ワークスペースを移動', 'tour.s2.body': 'サイドバーから監視、レポート、システム設定に移動できます。',

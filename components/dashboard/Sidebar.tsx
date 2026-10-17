@@ -42,7 +42,7 @@ export function Sidebar({
           <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-5" aria-hidden /></span>
           <span className="text-base font-semibold text-white">dbdataentry</span>
         </div>
-        <nav aria-label={t('nav.main')} className="flex flex-col gap-1">
+        <nav data-tour="nav" aria-label={t('nav.main')} className="flex flex-col gap-1">
           {items.map((v) => {
             const active = v.id === view;
             const count = badge(v.id);
@@ -63,7 +63,7 @@ export function Sidebar({
       </aside>
 
       {/* Mobile: bar bawah */}
-      <nav aria-label={t('nav.main')} className="glass fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-2xl p-1.5 lg:hidden">
+      <nav data-tour="nav" aria-label={t('nav.main')} className="glass fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-2xl p-1.5 lg:hidden">
         {items.map((v) => {
           const count = badge(v.id);
           return (
