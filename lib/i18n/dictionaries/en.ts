@@ -44,15 +44,17 @@ export const en = {
   'logs.searchPlaceholder': 'Search all stored logs…', 'logs.syntax': 'Tip: "exact phrase", -exclude, event:Win, user:alice, game:slug',
   'logs.results': '{count} matches', 'logs.scanned': '{count} logs scanned', 'logs.truncated': 'Only the newest 5,000 logs were searched.',
   'logs.exportCsv': 'Export CSV', 'logs.exportJson': 'Export JSON', 'logs.exportNdjson': 'Export NDJSON', 'logs.serverSearch': 'Server search', 'logs.noMatches': 'No logs match this search.',
-  'welcome.title': 'Welcome, {name}', 'welcome.subtitle': 'Your real-time command center for webhooks and account status. Live, secure, and one click away.', 'welcome.enter': 'Enter Dashboard', 'welcome.hint': 'A short guided tour starts on your first visit.',
-  'welcome.f1': 'Live stream', 'welcome.f2': 'Account tracking', 'welcome.f3': 'Secure access',
-  'tour.replay': 'Tour', 'tour.next': 'Next', 'tour.back': 'Back', 'tour.skip': 'Skip', 'tour.done': 'Finish', 'tour.step': '{current} / {total}',
-  'tour.s1.title': 'Welcome aboard', 'tour.s1.body': 'A few quick steps to show you around. You can replay this tour anytime with the Tour button.',
-  'tour.s2.title': 'Navigation', 'tour.s2.body': 'Switch between Overview, Logs, Game tables, Accounts and more from here.',
-  'tour.s3.title': 'Connection status', 'tour.s3.body': 'LIVE means data is streaming in real time. It turns amber if the connection drops.',
-  'tour.s4.title': 'Game tables', 'tour.s4.body': 'Filter everything by game or source. Pick "All" for the combined stream.',
-  'tour.s5.title': 'Main content', 'tour.s5.body': 'Stats, charts and logs for the selected page appear here and update automatically.',
-  'tour.s6.title': 'Controls', 'tour.s6.body': 'Pause the live stream when you want to inspect data without it moving.',
+
+  'welcome.title': 'Welcome, {name}', 'welcome.subtitle': 'Your real-time game account monitoring dashboard is ready.', 'welcome.f1': 'Live monitoring',
+  'welcome.f2': 'Account management', 'welcome.f3': 'Secure by design', 'welcome.enter': 'Enter dashboard', 'welcome.hint': 'You can start a guided tour from the dashboard.',
+
+  'tour.step': 'Step {current} of {total}', 'tour.skip': 'Skip tour', 'tour.back': 'Back', 'tour.done': 'Finish', 'tour.next': 'Next',
+  'tour.s1.title': 'Welcome to your dashboard', 'tour.s1.body': 'This guided tour introduces the main areas of dbdataentry.',
+  'tour.s2.title': 'Navigate your workspace', 'tour.s2.body': 'Use the sidebar to move between monitoring, reports, and system settings.',
+  'tour.s3.title': 'Check live status', 'tour.s3.body': 'See the connection and service status at a glance.',
+  'tour.s4.title': 'Review your data', 'tour.s4.body': 'Browse account, game, and event tables from the dashboard.',
+  'tour.s5.title': 'Explore this section', 'tour.s5.body': 'The main area shows the content for the section you selected.',
+  'tour.s6.title': 'Control the live feed', 'tour.s6.body': 'Pause or resume incoming live updates whenever you need.',
 } as const;
 
 export type MessageKey = keyof typeof en;
