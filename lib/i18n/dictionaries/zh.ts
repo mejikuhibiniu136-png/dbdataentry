@@ -45,4 +45,13 @@ export const zh: Dictionary = {
   'logs.searchPlaceholder': '搜索所有已存储的日志…', 'logs.syntax': '提示："精确短语"、-排除、event:Win、user:alice、game:slug',
   'logs.results': '匹配 {count} 条', 'logs.scanned': '已扫描 {count} 条日志', 'logs.truncated': '仅搜索了最新的 5,000 条日志。',
   'logs.exportCsv': '导出 CSV', 'logs.exportJson': '导出 JSON', 'logs.exportNdjson': '导出 NDJSON', 'logs.serverSearch': '服务器搜索', 'logs.noMatches': '没有匹配的日志。',
+  'welcome.title': '欢迎，{name}', 'welcome.subtitle': '实时掌握 Webhook 与账号状态的控制中心。实时、安全，一键进入。', 'welcome.enter': '进入仪表盘', 'welcome.hint': '首次访问时将开始简短的引导。',
+  'welcome.f1': '实时数据流', 'welcome.f2': '账号追踪', 'welcome.f3': '安全访问',
+  'tour.replay': '引导', 'tour.next': '下一步', 'tour.back': '上一步', 'tour.skip': '跳过', 'tour.done': '完成', 'tour.step': '{current} / {total}',
+  'tour.s1.title': '欢迎使用', 'tour.s1.body': '几个简单步骤带你熟悉仪表盘，之后可随时点击“引导”按钮重新查看。',
+  'tour.s2.title': '导航', 'tour.s2.body': '在这里切换概览、日志、游戏表、账号等页面。',
+  'tour.s3.title': '连接状态', 'tour.s3.body': '“实时”表示数据正在实时传输；连接中断时会变为黄色。',
+  'tour.s4.title': '游戏表', 'tour.s4.body': '按游戏或来源筛选所有数据，选择“全部”查看合并数据流。',
+  'tour.s5.title': '主要内容', 'tour.s5.body': '所选页面的统计、图表和日志显示在这里，并自动更新。',
+  'tour.s6.title': '控制', 'tour.s6.body': '想在数据不再滚动时仔细查看，可暂停实时数据流。',
 };

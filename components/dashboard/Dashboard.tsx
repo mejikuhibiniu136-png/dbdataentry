@@ -1,11 +1,12 @@
 'use client';
 import { AnimatePresence, motion } from 'motion/react';
-import { Pause, Play } from 'lucide-react';
+import { HelpCircle, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Sidebar, VIEWS, type ViewId } from '@/components/dashboard/Sidebar';
 import { PageTransition } from '@/components/motion/Stagger';
+import { Tour, TOUR_STORAGE_KEY } from '@/components/tour/Tour';
 import { LogDrawer } from '@/components/tables/LogList';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog, NameDialog, type ConfirmState } from '@/components/ui/Modal';
@@ -19,6 +20,7 @@ import { OverviewView } from '@/components/views/OverviewView';
 import { SessionsView } from '@/components/views/SessionsView';
 import { SystemView } from '@/components/views/SystemView';
 import { UsersView } from '@/components/views/UsersView';
+import { WELCOME_COOKIE } from '@/lib/welcome';
 import { apiJson, copyText, downloadText, useLiveStream, useToasts, type Connection } from '@/lib/client';
 import type { MessageKey } from '@/lib/i18n/dictionaries/en';
 import type { GameTable, LogEntry, Role, StreamPayload, TrackedAccount } from '@/types';
@@ -48,6 +50,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [nameDialog, setNameDialog] = useState<{ mode: 'create' | 'rename'; game?: GameTable } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
   const { toasts, push: toast } = useToasts();
 
@@ -119,7 +122,14 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   }, [toast]);
   const copyJob = useCallback(async (a: TrackedAccount) => copyResult(await copyText(a.jobId), 'Job ID'), [copyResult]);
 
-  const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; };
+  // Tur otomatis hanya untuk pengguna baru (sekali per browser); ulangi lewat tombol "Tur".
+  useEffect(() => {
+    try { if (localStorage.getItem(TOUR_STORAGE_KEY)) return; } catch { return; }
+    const id = setTimeout(() => setTourOpen(true), 900);
+    return () => clearTimeout(id);
+  }, []);
+
+  const logout = async () => { document.cookie = `${WELCOME_COOKIE}=; Path=/; Max-Age=0`; await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; };
 
   const clearLogs = () => setConfirm({
     title: 'Hapus log?', danger: true, confirmLabel: 'Hapus log',
@@ -169,15 +179,16 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
             <p className="text-sm text-slate-400">{t('header.greeting', { name: username })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill>
+            <span data-tour="status" className="inline-flex"><Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill></span>
             <LanguageSwitcher compact align="right" />
             <select className="field w-auto py-1.5 text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>
-            <Button size="sm" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? t('header.resume') : t('header.pause')}</Button>
+            <Button size="sm" data-tour="controls" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? t('header.resume') : t('header.pause')}</Button>
+            <Button size="sm" variant="subtle" onClick={() => setTourOpen(true)}><HelpCircle className="size-3.5" />{t('tour.replay')}</Button>
           </div>
         </header>
 
         {showSwitcher && (
-          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Pilih tabel game">
+          <div data-tour="tables" className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Pilih tabel game">
             {[{ slug: 'all', name: 'Semua' }, ...games].map((g) => {
               const active = g.slug === game;
               return (
@@ -190,9 +201,11 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
           </div>
         )}
 
-        <AnimatePresence mode="wait" initial={false}>
-          <PageTransition key={view}>{content}</PageTransition>
-        </AnimatePresence>
+        <div data-tour="content" className="min-w-0">
+          <AnimatePresence mode="wait" initial={false}>
+            <PageTransition key={view}>{content}</PageTransition>
+          </AnimatePresence>
+        </div>
       </main>
 
       <LogDrawer log={selected} onClose={() => setSelected(null)} onCopy={copyLog} onDownload={(l) => downloadText(`log-${l.id}.json`, JSON.stringify(l, null, 2))} />
@@ -200,6 +213,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       <NameDialog open={Boolean(nameDialog)} onClose={() => setNameDialog(null)}
         title={nameDialog?.mode === 'create' ? 'Buat tabel game' : 'Ganti nama tabel'} label="Nama game / sumber" initial={nameDialog?.game?.name ?? ''}
         submitLabel={nameDialog?.mode === 'create' ? 'Buat' : 'Simpan'} onSubmit={submitName} />
+      <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
       <Toasts toasts={toasts} />
     </div>
   );
