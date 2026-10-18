@@ -40,7 +40,7 @@ Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik,
 | `/api/accounts` | sesi; DELETE = admin | Akun yang dilacak |
 | `/api/stream?game=&limit=` | sesi | SSE |
 | `/api/admin/users`, `/api/admin/users/[username]` | staf (baca) / superadmin (ubah) | Daftar pengguna; approve/reject/suspend & ubah role (admin↔viewer) |
-| `/api/admin/settings` | superadmin | Rate limit, sakelar proteksi skrip Lua, "Wajibkan API Key", retensi log, Webhook Secret (AES-256-GCM), status enkripsi |
+| `/api/admin/settings` | superadmin | Mode maintenance + teks kustomnya, rate limit, sakelar proteksi skrip Lua, "Wajibkan API Key", retensi log, Webhook Secret (AES-256-GCM), status enkripsi |
 | `/api/admin/apikey` | superadmin | Daftar / buat (label, masa berlaku) / cabut (`?id=`) API Key |
 | `/api/admin/audit?limit=` | superadmin | Jejak audit aksi sensitif |
 | `/api/admin/encryption/rotate` | superadmin | Enkripsi ulang secret dengan `ENCRYPTION_KEY` saat ini |
@@ -63,6 +63,7 @@ Pendaftar baru berstatus **pending** dan diarahkan ke `/pending-approval` sampai
 - **API Key**: banyak key berlabel dengan masa berlaku opsional, dibuat dan dicabut sendiri-sendiri di tab **Sistem**. Hanya hash SHA-256 yang disimpan; nilai key tampil sekali. Key dikirim lewat `x-api-key`, `Authorization: Bearer`, atau `?key=`. Secara bawaan endpoint receiver tetap **terbuka**. Sakelar **Wajibkan API Key** menolak request tanpa key valid (401); skrip Lua bawaan tidak membawa key, jadi ikut ditolak bila sakelar dinyalakan. `WEBHOOK_INGEST_TOKEN` (env) tetap berlaku dan, bila diisi, selalu mewajibkan kredensial.
 - **Rate limit** memakai angka dari tab Sistem (bawaan 600/menit): per **API Key** untuk request ber-key, per **IP** untuk selebihnya.
 - **Audit log**: pelaku, aksi, target, dan IP untuk perubahan pengaturan, API Key, saklar receiver, pengguna, hapus log/tabel/akun, rotasi, dan retensi. Nilai rahasia tidak pernah dicatat. Maksimal 1.000 entri terbaru (`audit:log`). Gagal mencatat tidak menggagalkan aksinya.
+- **Mode maintenance** (tab Sistem > Pengaturan Dinamis): saat nyala, `/api/receiver/*` dan `/api/webhook` menjawab **503** `{ "success": false, "maintenance": true, "message": "..." }` dengan `Retry-After: 60`, termasuk untuk request ber-API Key. Dicek di `proxy.ts` (pintu depan) dan di `lib/ingest/handler.ts` (pagar terakhir). Dashboard, login, API admin, cron, dan `/scripts/*` tetap terbuka. Teks maintenance (maks. 200 karakter, kosong = teks bawaan) bisa diubah kapan saja; skrip Lua menampilkannya di panel dengan status **Maintenance**, berhenti mengirim data, lalu lanjut sendiri begitu maintenance dimatikan. Bila Redis gagal dibaca, request tetap lolos.
 - **Keamanan receiver**: hitungan 24 jam terakhir untuk HMAC gagal, kredensial ditolak, dan kena rate limit.
 - **Retensi log**: hapus log lebih tua dari N hari (0 = mati), manual lewat tombol atau otomatis harian 03:00 UTC lewat Vercel Cron (butuh `CRON_SECRET`). Pemangkasan dari ekor list secara atomik; hanya key log yang disentuh.
 - **Rotasi `ENCRYPTION_KEY`**: isi `ENCRYPTION_KEY_PREVIOUS` dengan kunci lama, redeploy, klik **Enkripsi ulang sekarang**, lalu hapus variabel itu. Selama rotasi secret tetap terbaca (HMAC tidak putus). Penulisan memakai compare-and-set sehingga secret yang baru diganti tidak tertimpa.

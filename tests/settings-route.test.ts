@@ -36,4 +36,21 @@ describe('admin/settings: encryptionReady konsisten GET vs PUT', () => {
     const body = await (await put({ maintenanceMode: true })).json();
     expect(body.encryptionReady).toBe(false);
   });
+
+  it('maintenanceMessage: disimpan bersih, terbaca di GET, kosong = dihapus (kembali ke teks bawaan)', async () => {
+    const saved = await (await put({ maintenanceMessage: '  Update\ndatabase  ' })).json();
+    expect(saved.data.maintenanceMessage).toBe('Update database');
+    expect(store.MAINTENANCE_MESSAGE).toBe('Update database');
+    expect((await (await GET()).json()).data.maintenanceMessage).toBe('Update database');
+
+    const cleared = await (await put({ maintenanceMessage: '   ' })).json();
+    expect(cleared.data.maintenanceMessage).toBe('');
+    expect('MAINTENANCE_MESSAGE' in store).toBe(false);
+  });
+
+  it('maintenanceMessage lebih dari 200 karakter ditolak 400', async () => {
+    const res = await put({ maintenanceMessage: 'x'.repeat(201) });
+    expect(res.status).toBe(400);
+    expect('MAINTENANCE_MESSAGE' in store).toBe(false);
+  });
 });

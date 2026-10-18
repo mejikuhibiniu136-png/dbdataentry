@@ -5,7 +5,7 @@ import { errorResponse, json, readJson } from '@/lib/http';
 import { KEYS } from '@/lib/keys';
 import { getRedis } from '@/lib/redis';
 import type { RedisLike } from '@/lib/redis';
-import { inspectSecrets, readSettings, writeSecretSetting, writeSetting } from '@/lib/settings';
+import { cleanMaintenanceMessage, clearSetting, inspectSecrets, readSettings, writeSecretSetting, writeSetting } from '@/lib/settings';
 import { settingsUpdateSchema } from '@/schemas/admin';
 
 export const dynamic = 'force-dynamic';
@@ -43,10 +43,17 @@ export async function PUT(request: Request) {
     if (!parsed.success) return json({ success: false, message: parsed.error.issues[0]?.message ?? 'Data tidak valid' }, 400);
 
     const redis = getRedis();
-    const { maintenanceMode, rateLimitPerMin, luaObfuscationEnabled, apiKeyRequired, logRetentionDays, ingestQueueEnabled, webhookSecret } = parsed.data;
+    const { maintenanceMode, maintenanceMessage, rateLimitPerMin, luaObfuscationEnabled, apiKeyRequired, logRetentionDays, ingestQueueEnabled, webhookSecret } = parsed.data;
     const changes: string[] = [];
 
     if (maintenanceMode !== undefined) { await writeSetting(redis, 'MAINTENANCE_MODE', maintenanceMode); changes.push(`maintenanceMode=${maintenanceMode}`); }
+    if (maintenanceMessage !== undefined) {
+      // Kosong = hapus, sehingga server kembali memakai teks bawaan. Isinya tidak dicatat di audit.
+      const cleaned = cleanMaintenanceMessage(maintenanceMessage);
+      if (cleaned) await writeSetting(redis, 'MAINTENANCE_MESSAGE', cleaned);
+      else await clearSetting(redis, 'MAINTENANCE_MESSAGE');
+      changes.push(cleaned ? 'maintenanceMessage=diubah' : 'maintenanceMessage=dihapus');
+    }
     if (rateLimitPerMin !== undefined) { await writeSetting(redis, 'RATE_LIMIT_PER_MIN', rateLimitPerMin); changes.push(`rateLimitPerMin=${rateLimitPerMin}`); }
     if (luaObfuscationEnabled !== undefined) { await writeSetting(redis, 'LUA_OBFUSCATION_ENABLED', luaObfuscationEnabled); changes.push(`luaObfuscationEnabled=${luaObfuscationEnabled}`); }
     if (apiKeyRequired !== undefined) { await writeSetting(redis, 'API_KEY_REQUIRED', apiKeyRequired); changes.push(`apiKeyRequired=${apiKeyRequired}`); }

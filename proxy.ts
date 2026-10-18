@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifySession } from '@/lib/auth/jwt';
 import { tryGetJwtSecret } from '@/lib/env';
+import { checkMaintenance, isIngestPath } from '@/lib/maintenance';
 
 // API yang boleh diakses tanpa sesi, per metode HTTP. Selain ini, semua /api/* wajib login
 // (default tertutup); route handler memeriksa sesi + role sekali lagi di dalamnya.
@@ -28,6 +29,13 @@ export async function proxy(request: NextRequest) {
   const method = request.method.toUpperCase();
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+
+  // Mode maintenance: tolak pengirim data di pintu depan (503), sebelum urusan sesi. Preflight CORS
+  // tetap lolos. Dashboard, login, API admin, dan /scripts/* tidak terpengaruh.
+  if (method !== 'OPTIONS' && isIngestPath(pathname)) {
+    const blocked = await checkMaintenance();
+    if (blocked) return blocked;
+  }
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const secret = tryGetJwtSecret();

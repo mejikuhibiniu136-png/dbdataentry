@@ -99,6 +99,8 @@ export interface UserSummary {
 // (WEBHOOK_SECRET, API_KEY) dienkripsi AES-256-GCM di Redis; endpoint hanya melaporkan "sudah diisi".
 export interface SystemSettings {
   maintenanceMode: boolean;
+  /** Teks maintenance kustom yang tampil di panel skrip Lua (kosong = teks bawaan server). */
+  maintenanceMessage: string;
   rateLimitPerMin: number;
   luaObfuscationEnabled: boolean;
   webhookSecretSet: boolean;

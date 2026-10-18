@@ -71,6 +71,8 @@ local startedClock = os.time()
 
 -- Statistik untuk panel UI
 local stats = { state = "MENGIRIM", ok = 0, fail = 0, err = "-", history = {} }
+-- Teks maintenance dari server (HTTP 503 + maintenance = true). nil = server normal.
+local maintenanceText = nil
 
 local function recordLatency(value)
 	table.insert(stats.history, value)
@@ -173,6 +175,24 @@ local function shouldRetry(status)
 	return status == nil or status == 408 or status == 429 or status >= 500
 end
 
+-- Server maintenance menjawab 503 dengan body JSON { maintenance = true, message = "..." }.
+-- Mengembalikan teksnya, atau nil bila ini bukan maintenance (503 biasa tetap di-retry).
+local function readMaintenance(status, res)
+	if status ~= 503 or type(res) ~= "table" or type(res.Body) ~= "string" then
+		return nil
+	end
+	local okJson, decoded = pcall(function()
+		return HttpService:JSONDecode(res.Body)
+	end)
+	if not okJson or type(decoded) ~= "table" or decoded.maintenance ~= true then
+		return nil
+	end
+	if type(decoded.message) == "string" and decoded.message ~= "" then
+		return decoded.message
+	end
+	return "Server sedang maintenance."
+end
+
 local function buildPayload(eventType)
 	local payload = {
 		type = "account_status",
@@ -226,12 +246,25 @@ local function send(eventType, maxAttempts)
 		local status = (ok and type(res) == "table" and type(res.StatusCode) == "number") and res.StatusCode or nil
 
 		if status and status >= 200 and status < 300 then
+			maintenanceText = nil
 			lastLatencyMs = rtt
 			recordLatency(rtt)
 			stats.ok = stats.ok + 1
 			stats.err = "-"
 			stats.state = (eventType == "Offline") and "OFFLINE" or "ONLINE"
 			return true
+		end
+
+		local maintenanceNow = readMaintenance(status, res)
+		if maintenanceNow then
+			-- Bukan kegagalan: tidak di-retry, tidak dihitung gagal. Skrip mencoba lagi di siklus berikutnya.
+			if maintenanceNow ~= maintenanceText then
+				warn("[dbdataentry] Maintenance: " .. maintenanceNow)
+			end
+			maintenanceText = maintenanceNow
+			stats.err = "-"
+			stats.state = "MAINTENANCE"
+			return false
 		end
 
 		stats.err = status and ("HTTP " .. tostring(status)) or "tanpa respons"
@@ -276,7 +309,7 @@ local function sendActive()
 	if paused then
 		return
 	end
-	stats.state = "MENGIRIM"
+	stats.state = maintenanceText and "MAINTENANCE" or "MENGIRIM"
 	local eventType = firstSent and "Heartbeat" or "Online"
 	if send(eventType, CONFIG.MAX_ATTEMPTS) then
 		firstSent = true
@@ -331,13 +364,14 @@ local STATE_STYLE = {
 	GAGAL = { color = S.danger, label = "Gagal" },
 	DIJEDA = { color = S.warning, label = "Dijeda" },
 	OFFLINE = { color = S.neutral, label = "Offline" },
+	MAINTENANCE = { color = S.warning, label = "Maintenance" },
 }
 
 local COMPONENT = {
 	panel = { width = 264, headerH = 48, pad = P.space[3], radius = P.radius.md, minW = 232, maxW = 480, minH = 198, maxH = 720 },
 	card = { bg = S.surface, radius = P.radius.sm, h = 40 },
 	button = { h = 28, bg = S.raised, hover = S.border, active = S.borderStrong, radius = P.radius.sm },
-	badge = { w = 92, h = 22, tint = 0.82 },
+	badge = { w = 112, h = 22, tint = 0.82 },
 	spark = { bars = 24, minH = 52 },
 }
 local K = COMPONENT
@@ -423,6 +457,8 @@ local function buildUI()
 	local GRID_Y = TOP + K.badge.h + GAP
 	local SPARK_Y = GRID_Y + 3 * CARD_H + 3 * GAP
 	local ERR_H = 28
+	local ERR_MAINT_H = 64 -- tinggi baris error saat menampilkan teks maintenance (beberapa baris)
+	local errH = ERR_H
 	local BTN_H = K.button.h
 
 	local panelW = K.panel.width
@@ -688,14 +724,14 @@ local function buildUI()
 			c.frame.Position = UDim2.fromOffset(PAD + col * (cardW + GAP), GRID_Y + row * (CARD_H + GAP))
 			c.frame.Size = UDim2.fromOffset(cardW, CARD_H)
 		end
-		local tail = GAP + ERR_H + PAD + BTN_H + PAD
+		local tail = GAP + errH + PAD + BTN_H + PAD
 		local sparkH = math.max(K.spark.minH, panelH - HH - SPARK_Y - tail)
 		sparkCard.Position = UDim2.fromOffset(PAD, SPARK_Y)
 		sparkCard.Size = UDim2.fromOffset(inner, sparkH)
 		local errY = SPARK_Y + sparkH + GAP
 		errCard.Position = UDim2.fromOffset(PAD, errY)
-		errCard.Size = UDim2.fromOffset(inner, ERR_H)
-		local ctrlY = errY + ERR_H + PAD
+		errCard.Size = UDim2.fromOffset(inner, errH)
+		local ctrlY = errY + errH + PAD
 		pauseBtn.Position = UDim2.fromOffset(PAD, ctrlY)
 		pauseBtn.Size = UDim2.fromOffset(math.min(120, inner - 110), BTN_H)
 		minusBtn.Position = UDim2.fromOffset(PAD + inner - 100, ctrlY)
@@ -952,7 +988,19 @@ local function buildUI()
 			end
 		end
 
-		if stats.err == "-" then
+		local wantErrH = maintenanceText and ERR_MAINT_H or ERR_H
+		if wantErrH ~= errH then
+			errH = wantErrH
+			errText.TextWrapped = maintenanceText ~= nil
+			layout()
+		end
+
+		if maintenanceText then
+			errText.Text = maintenanceText
+			errText.TextColor3 = S.warning
+			errDot.BackgroundColor3 = S.warning
+			errStroke.Color = S.warning
+		elseif stats.err == "-" then
 			errText.Text = "Tidak ada error"
 			errText.TextColor3 = S.textMuted
 			errDot.BackgroundColor3 = S.success

@@ -11,7 +11,7 @@ import { inspectSealedHash, rotateSealedHash, sealString, sumReports, tryOpenAny
 import type { EncryptionStatus, SystemSettings } from '@/types';
 
 export const SENSITIVE_SETTINGS = ['WEBHOOK_SECRET', 'API_KEY'] as const;
-export const PLAIN_SETTINGS = ['MAINTENANCE_MODE', 'RATE_LIMIT_PER_MIN', 'LUA_OBFUSCATION_ENABLED', 'API_KEY_REQUIRED', 'LOG_RETENTION_DAYS', 'INGEST_QUEUE_ENABLED'] as const;
+export const PLAIN_SETTINGS = ['MAINTENANCE_MODE', 'MAINTENANCE_MESSAGE', 'RATE_LIMIT_PER_MIN', 'LUA_OBFUSCATION_ENABLED', 'API_KEY_REQUIRED', 'LOG_RETENTION_DAYS', 'INGEST_QUEUE_ENABLED'] as const;
 export type SensitiveSettingKey = (typeof SENSITIVE_SETTINGS)[number];
 export type PlainSettingKey = (typeof PLAIN_SETTINGS)[number];
 export type SettingKey = SensitiveSettingKey | PlainSettingKey;
@@ -23,6 +23,19 @@ const isSensitive = (key: SettingKey): key is SensitiveSettingKey => (SENSITIVE_
 
 const DEFAULT_RATE_LIMIT = 600;
 export const MAX_RETENTION_DAYS = 3650;
+export const MAX_MAINTENANCE_MESSAGE = 200;
+export const DEFAULT_MAINTENANCE_MESSAGE = 'Server sedang maintenance. Coba lagi beberapa saat lagi.';
+
+// Teks maintenance tampil di panel skrip Lua milik pemain: buang karakter kontrol (termasuk
+// baris baru), rapikan spasi, dan batasi panjangnya. Kosong -> teks bawaan.
+export function cleanMaintenanceMessage(value: unknown): string {
+  return String(value ?? '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_MAINTENANCE_MESSAGE);
+}
 
 type PlainSettings = Omit<SystemSettings, 'webhookSecretSet'>;
 
@@ -33,6 +46,7 @@ function parsePlain(raw: Record<string, unknown>): PlainSettings {
   const retention = Number.parseInt(String(raw.LOG_RETENTION_DAYS ?? ''), 10);
   return {
     maintenanceMode: truthy(raw.MAINTENANCE_MODE),
+    maintenanceMessage: cleanMaintenanceMessage(raw.MAINTENANCE_MESSAGE),
     rateLimitPerMin: Number.isFinite(rateLimit) && rateLimit > 0 ? Math.min(rateLimit, 100_000) : DEFAULT_RATE_LIMIT,
     luaObfuscationEnabled: truthy(raw.LUA_OBFUSCATION_ENABLED),
     apiKeyRequired: truthy(raw.API_KEY_REQUIRED),
@@ -52,6 +66,9 @@ export async function readSettings(redis: RedisLike): Promise<SystemSettings> {
 // Pengaturan yang dibaca di jalur ingest panas. Di-cache 5 dtk per instance supaya tiap webhook
 // tidak menambah command Redis; gagal baca -> pakai cache terakhir, atau bawaan (terbuka, 600/mnt).
 export interface RuntimeSettings {
+  maintenanceMode: boolean;
+  /** Teks yang akan ditampilkan; sudah memakai teks bawaan bila Superadmin tidak mengisinya. */
+  maintenanceMessage: string;
   apiKeyRequired: boolean;
   rateLimitPerMin: number;
   ingestQueueEnabled: boolean;
@@ -62,12 +79,16 @@ let runtimeCache: { value: RuntimeSettings; at: number } | null = null;
 export async function readRuntimeSettings(redis: RedisLike, nowMs = Date.now()): Promise<RuntimeSettings> {
   if (runtimeCache && nowMs - runtimeCache.at < RUNTIME_CACHE_MS) return runtimeCache.value;
   try {
-    const { apiKeyRequired, rateLimitPerMin, ingestQueueEnabled } = parsePlain((await redis.hgetall(KEYS.settings)) ?? {});
-    runtimeCache = { value: { apiKeyRequired, rateLimitPerMin, ingestQueueEnabled }, at: nowMs };
+    const { maintenanceMode, maintenanceMessage, apiKeyRequired, rateLimitPerMin, ingestQueueEnabled } = parsePlain((await redis.hgetall(KEYS.settings)) ?? {});
+    runtimeCache = {
+      value: { maintenanceMode, maintenanceMessage: maintenanceMessage || DEFAULT_MAINTENANCE_MESSAGE, apiKeyRequired, rateLimitPerMin, ingestQueueEnabled },
+      at: nowMs,
+    };
     return runtimeCache.value;
   } catch (err) {
     console.error('[settings] gagal membaca pengaturan runtime:', err);
-    return runtimeCache?.value ?? { apiKeyRequired: false, rateLimitPerMin: DEFAULT_RATE_LIMIT, ingestQueueEnabled: false };
+    // Gagal baca tanpa cache -> terbuka (maintenance mati), sama seperti perilaku bawaan lainnya.
+    return runtimeCache?.value ?? { maintenanceMode: false, maintenanceMessage: DEFAULT_MAINTENANCE_MESSAGE, apiKeyRequired: false, rateLimitPerMin: DEFAULT_RATE_LIMIT, ingestQueueEnabled: false };
   }
 }
 
@@ -90,6 +111,7 @@ export async function writeSetting(redis: RedisLike, key: SettingKey, value: str
 
 export async function clearSetting(redis: RedisLike, key: SettingKey): Promise<void> {
   await redis.hdel(KEYS.settings, key);
+  runtimeCache = null; // sama seperti writeSetting: perubahan berlaku segera di instance ini
 }
 
 // Hanya dipakai server-side (mis. verifikasi HMAC webhook / tampilan Superadmin setelah klik "lihat").

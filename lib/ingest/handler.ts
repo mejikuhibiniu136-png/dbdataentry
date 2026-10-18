@@ -1,5 +1,5 @@
 // Penerima webhook universal. Alur satu request:
-//   token opsional -> rate limit -> saklar receiver -> baca body (batas ukuran) ->
+//   maintenance -> token opsional -> rate limit -> saklar receiver -> baca body (batas ukuran) ->
 //   STAGING (/tmp, verifikasi utuh) -> parse JSON / URL-encoded / form-data / teks ->
 //   deteksi game -> tulis atomik ke Upstash -> hapus file staging (selalu).
 import { timingSafeEqual, createHash } from 'node:crypto';
@@ -12,6 +12,7 @@ import { scheduleBackground } from '@/lib/background';
 import { emitAlert } from '@/lib/notify/emit';
 import { HttpError, errorResponse, getClientIp, json } from '@/lib/http';
 import { KEYS, verifyHmacSignature } from '@/lib/keys';
+import { maintenanceResponse } from '@/lib/maintenance';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis, type RedisLike } from '@/lib/redis';
 import { authenticateApiKey } from '@/lib/apikeys';
@@ -154,6 +155,10 @@ export async function handleIngest(
   try {
     const redis = deps.redis ?? getRedis();
     const settings = await readRuntimeSettings(redis);
+
+    // Maintenance menolak semua pengirim, termasuk yang membawa API Key valid. Dicek sebelum
+    // autentikasi dan rate limit supaya tidak ada request yang menyentuh Redis atau menulis data.
+    if (settings.maintenanceMode) return withCors(maintenanceResponse(settings.maintenanceMessage));
 
     const { denied, keyId } = await authenticate(request, redis, settings.apiKeyRequired);
     if (denied) return withCors(denied);

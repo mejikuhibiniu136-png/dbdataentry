@@ -8,10 +8,12 @@ export const userUpdateSchema = z
   })
   .refine((v) => v.status !== undefined || v.role !== undefined, 'Isi minimal status atau role');
 
-// Superadmin: Pengaturan Dinamis Redis (MAINTENANCE_MODE, RATE_LIMIT_PER_MIN, proteksi Lua,
+// Superadmin: Pengaturan Dinamis Redis (MAINTENANCE_MODE, MAINTENANCE_MESSAGE, RATE_LIMIT_PER_MIN, proteksi Lua,
 // Webhook Secret, API Key). Semua field opsional: hanya field yang dikirim yang diperbarui.
 export const settingsUpdateSchema = z.object({
   maintenanceMode: z.boolean().optional(),
+  // String kosong = kembali ke teks bawaan. Karakter kontrol dibersihkan server saat disimpan.
+  maintenanceMessage: z.string().max(200, 'Teks maintenance maksimal 200 karakter').optional(),
   rateLimitPerMin: z.number().int().min(10).max(100_000).optional(),
   luaObfuscationEnabled: z.boolean().optional(),
   apiKeyRequired: z.boolean().optional(),

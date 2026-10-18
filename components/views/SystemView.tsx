@@ -37,7 +37,7 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
     try { await apiJson('/api/system/receiver', 'POST', { enabled: !info.receiverEnabled }); toast(`Penerima webhook ${info.receiverEnabled ? 'dimatikan' : 'dinyalakan'}`, 'success'); void load(); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal', 'error'); }
   };
 
-  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; rateLimitPerMin: number; luaObfuscationEnabled: boolean; apiKeyRequired: boolean; logRetentionDays: number; ingestQueueEnabled: boolean; webhookSecret: string }>) => {
+  const patchSettings = async (patch: Partial<{ maintenanceMode: boolean; maintenanceMessage: string; rateLimitPerMin: number; luaObfuscationEnabled: boolean; apiKeyRequired: boolean; logRetentionDays: number; ingestQueueEnabled: boolean; webhookSecret: string }>) => {
     setBusy(true);
     try { setSettings(await apiJson<SettingsInfo>('/api/admin/settings', 'PUT', patch)); toast('Pengaturan disimpan', 'success'); } catch (e) { toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'error'); } finally { setBusy(false); }
   };
@@ -113,6 +113,15 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
               <span className="text-sm text-slate-200">Mode Maintenance</span>
               <input type="checkbox" disabled={busy} checked={settings.data.maintenanceMode} onChange={(e) => void patchSettings({ maintenanceMode: e.target.checked })} className="size-4 accent-cyan-400" />
             </label>
+            <div className="sm:col-span-2">
+              <label htmlFor="maintenance-message" className="mb-1.5 block text-sm text-slate-200">Teks Maintenance (tampil di panel skrip Lua)</label>
+              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const v = String(new FormData(e.currentTarget).get('message') ?? '').trim(); if (v !== settings.data.maintenanceMessage) void patchSettings({ maintenanceMessage: v }); }}>
+                <input id="maintenance-message" key={settings.data.maintenanceMessage} name="message" type="text" maxLength={200} disabled={busy} defaultValue={settings.data.maintenanceMessage}
+                  placeholder="Server sedang maintenance. Coba lagi beberapa saat lagi." className="field flex-1 text-sm" />
+                <Button type="submit" disabled={busy}>Simpan</Button>
+              </form>
+              <p className="mt-1.5 text-xs text-slate-500">Maksimal 200 karakter. Kosongkan lalu simpan untuk memakai teks bawaan. Teks bisa diubah kapan saja, termasuk saat maintenance sedang nyala.</p>
+            </div>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
               <span className="flex items-center gap-1.5 text-sm text-slate-200"><ShieldOff className="size-3.5" />Proteksi Skrip Lua (Obfuscation)</span>
               <input type="checkbox" disabled={busy} checked={settings.data.luaObfuscationEnabled} onChange={(e) => void patchSettings({ luaObfuscationEnabled: e.target.checked })} className="size-4 accent-cyan-400" />
@@ -139,7 +148,7 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
         )}
         <Explainer className="mt-4" title="Cara kerja pengaturan ini" items={[
           'Semua pengaturan tersimpan di Redis dan berlaku tanpa redeploy. Hanya Superadmin yang bisa mengubahnya, dan setiap perubahan tercatat di Audit log.',
-          'Mode Maintenance adalah penanda status yang disimpan di Redis.',
+          'Mode Maintenance: saat nyala, semua kiriman ke penerima webhook (/api/receiver/* dan /api/webhook) ditolak dengan HTTP 503, termasuk yang memakai API Key. Dashboard, login, dan /scripts/* tetap terbuka. Skrip Lua menampilkan status Maintenance beserta teks di atas di panelnya, berhenti mengirim data, lalu lanjut sendiri begitu maintenance dimatikan. Perubahan mode dan teks sampai ke skrip dalam sekitar 30 detik.',
           'Proteksi Skrip Lua: saat nyala, /scripts/account_status.lua disajikan dalam versi ter-obfuscate dengan kunci dan nama variabel acak di setiap permintaan. Saat mati, disajikan source aslinya. Perubahan terlihat dalam sekitar 30 detik karena cache.',
           'Rate Limit adalah batas request per menit di receiver. Kiriman yang memakai API Key dihitung per key, selain itu per IP. Request berlebih dijawab 429. Isi 10 sampai 100.000; nilai tersimpan saat kolom ditinggalkan.',
           'Secret Token HMAC: jika terpasang, kiriman harus membawa tanda tangan HMAC-SHA256 di header X-Webhook-Signature atau X-Hub-Signature-256. Secret disimpan terenkripsi dan tidak ditampilkan lagi. Butuh ENCRYPTION_KEY yang valid.',

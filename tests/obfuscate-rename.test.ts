@@ -22,6 +22,13 @@ describe('renameLocalIdentifiers', () => {
     expect(renameLocalIdentifiers(src)).toContain('for _, v in ipairs({}) do print(v) end');
   });
 
+  it('ikut me-rename variabel yang dipakai sesudah operator .. (concat)', () => {
+    const out = renameLocalIdentifiers('local counter = 1\nprint("n: " .. counter .. "!" .. counter)');
+    expect(out).not.toContain('counter');
+    // field dengan nama yang sama tetap utuh
+    expect(renameLocalIdentifiers('local counter = 1\nprint(obj.counter, "x" .. obj.counter)')).toContain('obj.counter, "x" .. obj.counter');
+  });
+
   it('tetap me-rename local biasa', () => {
     const out = renameLocalIdentifiers('local counter = 1\nprint(counter)');
     expect(out).not.toContain('counter');
@@ -33,5 +40,22 @@ describe('renameLocalIdentifiers', () => {
     expect(out).toMatch(/local function \w+\(inst, props, duration\)/);
     expect(out).toMatch(/local function \w+\(status, body\)/);
     expect(out).toMatch(/local function \w+\(r, g, b\)/);
+  });
+});
+
+describe('account_status.lua: status maintenance', () => {
+  it('template memuat pembaca 503 maintenance dan gaya panelnya', () => {
+    expect(ACCOUNT_STATUS_LUA).toContain('local function readMaintenance(status, res)');
+    expect(ACCOUNT_STATUS_LUA).toContain('decoded.maintenance ~= true');
+    expect(ACCOUNT_STATUS_LUA).toContain('MAINTENANCE = { color = S.warning, label = "Maintenance" }');
+  });
+  it('rename tidak menyentuh field JSON maintenance/message dan nama state', () => {
+    const out = renameLocalIdentifiers(ACCOUNT_STATUS_LUA);
+    // `decoded` boleh di-rename, tapi nama field JSON dari server harus utuh.
+    expect(out).toMatch(/\.maintenance ~= true/);
+    expect(out).toMatch(/\.message ~= ""/);
+    expect(out).not.toMatch(/\bdecoded\b/);
+    expect(out).toMatch(/\.state = "MAINTENANCE"/);
+    expect(out).not.toMatch(/\bmaintenanceText\b/);
   });
 });

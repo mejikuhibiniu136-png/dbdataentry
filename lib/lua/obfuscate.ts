@@ -281,10 +281,19 @@ function nextNonSpace(tokens: Token[], from: number): Token | undefined {
   return tokens[j];
 }
 
-function prevNonSpace(tokens: Token[], from: number): Token | undefined {
-  let j = from;
+// true bila identifier di indeks `i` adalah nama field (`a.nama`) atau method (`a:nama`).
+// Operator `..` (concat) dan `...` (vararg) juga tersusun dari token '.', tetapi identifier
+// sesudahnya adalah variabel biasa (`"x" .. nama`) dan WAJIB ikut di-rename; kalau tidak,
+// deklarasinya berganti nama sementara pemakaiannya tidak, dan skrip error saat dijalankan.
+function isFieldOrMethodName(tokens: Token[], i: number): boolean {
+  let j = i - 1;
   while (j >= 0 && tokens[j].kind === 'other' && /\s/.test(tokens[j].text)) j -= 1;
-  return j >= 0 ? tokens[j] : undefined;
+  const prev = j >= 0 ? tokens[j] : undefined;
+  if (prev?.kind !== 'other') return false;
+  if (prev.text === ':') return true;
+  if (prev.text !== '.') return false;
+  const beforeDot = j > 0 ? tokens[j - 1] : undefined;
+  return !(beforeDot?.kind === 'other' && beforeDot.text === '.');
 }
 
 // Rename identifier lokal dengan aman:
@@ -327,8 +336,7 @@ export function renameLocalIdentifiers(source: string): string {
       out += t.text;
       continue;
     }
-    const prev = prevNonSpace(tokens, i - 1);
-    if (prev?.kind === 'other' && (prev.text === '.' || prev.text === ':')) {
+    if (isFieldOrMethodName(tokens, i)) {
       // akses field/method dengan nama yang kebetulan sama — bukan variabel lokal kita, jangan ubah
       out += t.text;
       continue;
