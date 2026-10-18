@@ -2,7 +2,7 @@
 //  - Setiap jenis event (judul embed / event / type / baris pertama content) menjadi satu "kategori" -> satu tabel otomatis.
 //  - Pasangan "Kunci: nilai" (field embed Discord, baris deskripsi/content, field JSON datar) menjadi kolom tabel dan metrik angka.
 // Event baru dari game baru muncul sebagai tabel baru begitu log pertamanya tiba (fungsi murni, dihitung ulang tiap data live masuk).
-import { RARITY, eventLabel, isHeartbeat, str, userOfLog } from '@/lib/logStats';
+import { RARITY, eventLabel, isHeartbeat, str } from '@/lib/logStats';
 import type { LogEntry } from '@/types';
 
 export interface Ranked { name: string; count: number }
@@ -35,7 +35,7 @@ export const MAX_ROWS = 50;
 const MAX_COLUMNS = 4;
 const MAX_FACTS_PER_LOG = 30;
 
-// Event siklus hidup skrip status akun: bukan kejadian game, jadi tidak dibuatkan tabel otomatis.
+// Event siklus hidup skrip status akun: bukan kejadian game, jadi dikeluarkan dari analitik.
 const SYSTEM_EVENTS = new Set(['heartbeat', 'aktif', 'online', 'offline', 'account status', 'account-status', 'account_status']);
 const GENERIC_TITLES = new Set(['webhook', 'event', 'message', 'notification', 'log', '']);
 // Kunci metadata pengirim/skrip: bukan data game.
@@ -137,7 +137,28 @@ function titleOf(log: LogEntry): string {
   return stabilize(str(log.eventType)) || 'Webhook';
 }
 
-export const isSystemEvent = (log: LogEntry): boolean => isHeartbeat(log) || SYSTEM_EVENTS.has(norm(eventLabel(log))) || SYSTEM_EVENTS.has(norm(titleOf(log)));
+// Payload dari skrip status akun (type = "account_status"): data akun, bukan kejadian game. Tidak masuk analitik sama sekali.
+export function isAccountStatusLog(log: LogEntry): boolean {
+  const p = (log.payload ?? {}) as Record<string, unknown>;
+  const kind = str(p.type ?? p.kind).trim().toLowerCase();
+  return kind === 'account_status' || kind === 'account-status';
+}
+
+// Pemain dari payload universal: field/baris bernama player/user/username (atau gaya Discord "||nama||"). `username` di webhook
+// bergaya chat (embeds/content/avatar_url) adalah nama PENGIRIM (biasanya nama game), jadi tidak dianggap pemain.
+export function playerOf(log: LogEntry, facts: Fact[]): string {
+  const p = (log.payload ?? {}) as Record<string, unknown>;
+  const content = clean(str(p.content));
+  const spoiler = str(p.content).trim().match(/^\|\|\s*(.+?)\s*\|\|$/);
+  if (spoiler) return clean(spoiler[1]).slice(0, 64);
+  const fact = facts.find((f) => PLAYER_KEYS.has(f.key.toLowerCase()));
+  if (fact) return fact.value.slice(0, 64);
+  if (content && /^username\s*:/i.test(content)) return content.replace(/^username\s*:\s*/i, '').slice(0, 64);
+  const chatStyle = Array.isArray(p.embeds) || typeof p.content === 'string' || typeof p.avatar_url === 'string';
+  return !chatStyle && typeof p.username === 'string' ? clean(p.username).slice(0, 64) : '';
+}
+
+export const isSystemEvent = (log: LogEntry): boolean => isAccountStatusLog(log) || isHeartbeat(log) || SYSTEM_EVENTS.has(norm(eventLabel(log))) || SYSTEM_EVENTS.has(norm(titleOf(log)));
 
 const top = (map: Map<string, number>, n?: number): Ranked[] => {
   const rows = [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
@@ -155,11 +176,12 @@ export function computeInsights(logs: LogEntry[]): Insights {
 
   for (const log of logs) {
     try {
-      const user = userOfLog(log);
-      bump(events, eventLabel(log));
+      // Hasil skrip status akun (online/offline/heartbeat) tidak dihitung di analitik: tidak di event, pemain, metrik, maupun tabel.
       if (isSystemEvent(log)) { systemEvents += 1; continue; }
-      if (user) bump(players, user);
       const facts = extractFacts(log.payload);
+      const user = playerOf(log, facts);
+      bump(events, eventLabel(log));
+      if (user) bump(players, user);
       for (const f of facts) {
         if (f.num === undefined || PLAYER_KEYS.has(f.key.toLowerCase())) continue;
         const acc = metricAcc.get(f.key) ?? { max: -Infinity, sum: 0, n: 0 };

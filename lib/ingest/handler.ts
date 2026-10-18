@@ -51,7 +51,7 @@ export interface IngestDeps {
 }
 
 export interface IngestOptions {
-  /** Game bila payload tidak memuat identitas (mis. alias lama /api/webhook -> Anime Dice). */
+  /** Game bila payload tidak memuat identitas (opsional; alias lama tidak memakainya lagi). */
   defaultGame?: string;
   /** Perlakukan payload sebagai status akun (alias lama /api/receiver/account). */
   forceAccount?: boolean;

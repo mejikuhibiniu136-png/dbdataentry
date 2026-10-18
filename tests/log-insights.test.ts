@@ -62,6 +62,21 @@ describe('computeInsights', () => {
     expect(s.categories[0].count).toBe(2);
   });
 
+  it('log account_status (event apa pun) dikecualikan total dari event, pemain, metrik, dan tabel', () => {
+    const s = computeInsights([
+      log({ type: 'account_status', username: 'a', event: 'Heartbeat', fps: 60, memoryMb: 900 }),
+      log({ type: 'account_status', username: 'a', event: 'Custom Status', fps: 30 }),
+      log({ username: 'budi', event: 'Egg Hatched', pet: 'Dragon' }),
+      log({ content: '||sari||', embeds: [{ title: 'Egg Hatched', description: 'Pet: Phoenix' }] }),
+    ]);
+    expect(s.systemEvents).toBe(2);
+    expect(s.players.map((p) => p.name).sort()).toEqual(['budi', 'sari']);
+    expect(s.events.map((e) => e.name)).not.toContain('Heartbeat');
+    expect(s.events.map((e) => e.name)).not.toContain('Custom Status');
+    expect(s.metrics).toEqual([]);
+    expect(s.categories.map((c) => c.label)).toEqual(['Egg Hatched']);
+  });
+
   it('tanpa log game: kosong, tidak melempar', () => {
     const s = computeInsights([log({ type: 'account_status', username: 'a', event: 'Offline' })]);
     expect(s.categories).toEqual([]);

@@ -36,7 +36,7 @@ export function AnalyticsView({ loading, logs, gameLabel }: { loading: boolean; 
     <div className="space-y-6">
       <p className="text-sm text-slate-400">Dihitung dari {logs.length.toLocaleString('id-ID')} log yang dimuat · {gameLabel}</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard index={0} label="Event game" value={s.gameEvents} hint={s.systemEvents ? `${s.systemEvents.toLocaleString('id-ID')} event status akun tidak dihitung` : undefined} icon={<Activity className="size-4" />} />
+        <StatCard index={0} label="Event game" value={s.gameEvents} hint={s.systemEvents ? `${s.systemEvents.toLocaleString('id-ID')} log status akun dikecualikan` : undefined} icon={<Activity className="size-4" />} />
         <StatCard index={1} label="Tabel otomatis" value={s.categories.length + s.hiddenCategories} hint="Jenis event terdeteksi" icon={<Layers className="size-4" />} tone="violet" />
         <StatCard index={2} label="Pemain teratas" value={s.players[0]?.count ?? 0} hint={s.players[0]?.name ?? '-'} icon={<Trophy className="size-4" />} tone="amber" />
       </div>
@@ -72,7 +72,7 @@ export function AnalyticsView({ loading, logs, gameLabel }: { loading: boolean; 
           <p className="text-xs text-slate-500">Tabel baru dibuat sendiri begitu webhook mengirim jenis event baru, real-time tanpa konfigurasi.</p>
         </div>
         {s.categories.length === 0
-          ? <section className="glass p-5 text-sm text-slate-500">Belum ada event game. Tabel muncul otomatis saat webhook mengirim event selain heartbeat / online / offline.</section>
+          ? <section className="glass p-5 text-sm text-slate-500">Belum ada event game. Tabel muncul otomatis saat webhook mengirim payload di luar status akun (heartbeat / online / offline).</section>
           : <div className="grid gap-4 lg:grid-cols-2">{s.categories.map((c) => <AutoTable key={c.key} cat={c} fresh={c.key in fresh} nowMs={nowMs} />)}</div>}
         {s.hiddenCategories > 0 && <p className="text-xs text-slate-500">+{s.hiddenCategories} jenis event lain dengan jumlah lebih sedikit tidak ditampilkan.</p>}
       </div>

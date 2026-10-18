@@ -73,7 +73,7 @@ Pendaftar baru berstatus **pending** dan diarahkan ke `/pending-approval` sampai
 Sakelar "Proteksi Skrip Lua" di tab **Sistem** (Superadmin) mengaktifkan enkripsi string (endpoint webhook) + control-flow obfuscation sebelum skrip disajikan ke `/scripts/account_status.lua`. Skema ini berjalan sepenuhnya di server (tanpa API key pihak ketiga); titik integrasi untuk layanan eksternal (WeAreDevs API dsb.) tersedia di `lib/lua/obfuscate.ts` bila suatu saat dibutuhkan.
 | `/api/system`, `/api/system/receiver`, `/api/admin/users[/…/devices]` | admin | Status sistem, saklar receiver, pengguna + riwayat perangkat |
 
-Alias lama tetap hidup supaya script dan webhook yang sudah terpasang tidak putus: `/api/webhook` dan `/api/receiver/dice` (masuk ke tabel Anime Dice jika payload tidak memuat identitas), `/api/receiver/account` dan `/api/receiver/game` (status akun). Hapus foldernya jika tidak dipakai.
+Alias lama tetap hidup supaya script dan webhook yang sudah terpasang tidak putus: `/api/webhook` dan `/api/receiver/dice` (tabel ditentukan dari payload; tanpa identitas masuk ke Uncategorized), `/api/receiver/account` dan `/api/receiver/game` (status akun). Hapus foldernya jika tidak dipakai.
 
 Status akun dikenali dari `"type": "account_status"` di payload. Webhook pihak ketiga yang kebetulan memuat field `username` tidak membuat akun palsu. Heartbeat rutin hanya memperbarui akun; log ditulis saat sesi mulai (`Online`), `Offline`, atau event lain.
 
@@ -139,4 +139,4 @@ proxy.ts        gerbang login (Next 16)
 
 ## Analitik universal
 
-Tab Analitik tidak mengasumsikan game tertentu. Setiap jenis event yang dikirim webhook (judul embed, `event`, `type`, atau baris pertama `content`) otomatis menjadi satu tabel baru, dan pasangan `Kunci: nilai` menjadi kolom serta metrik angka. Event status akun (heartbeat / online / offline) tidak dibuatkan tabel. Logika ada di `lib/logInsights.ts`.
+Tab Analitik tidak mengasumsikan game tertentu. Setiap jenis event yang dikirim webhook (judul embed, `event`, `type`, atau baris pertama `content`) otomatis menjadi satu tabel baru, dan pasangan `Kunci: nilai` menjadi kolom serta metrik angka. Log hasil skrip status akun (`type: account_status`, termasuk heartbeat / online / offline) dikecualikan dari analitik. Tidak ada tabel game bawaan: semua tabel lahir dari payload. Logika ada di `lib/logInsights.ts`.

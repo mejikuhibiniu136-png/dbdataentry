@@ -1,7 +1,8 @@
 // Nama game -> slug aman untuk dipakai di nama key Redis (hanya a-z, 0-9, strip).
 // Karena slug tidak pernah memuat ":" atau spasi, input pengguna tidak bisa menyusup ke key lain.
 
-export const BUILTIN_GAMES = [{ name: 'Anime Dice', slug: 'anime-dice' }] as const;
+// Tidak ada tabel bawaan: setiap tabel dibuat otomatis dari payload webhook yang masuk (atau manual oleh admin).
+export const BUILTIN_GAMES: readonly { name: string; slug: string }[] = [];
 export const FALLBACK_GAME_NAME = 'Uncategorized';
 export const MAX_SLUG_LENGTH = 48;
 

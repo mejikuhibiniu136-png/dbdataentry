@@ -59,9 +59,8 @@ d('ingest (Redis sungguhan)', () => {
     expect(log.game).toBe('blox-fruits');
 
     const games = await listGames(redis);
-    expect(games.map((g) => g.slug).sort()).toEqual(['anime-dice', 'blox-fruits']); // Anime Dice selalu ada
-    expect(games.find((g) => g.slug === 'blox-fruits')).toMatchObject({ source: 'auto', total: 1 });
-    expect(games.find((g) => g.slug === 'anime-dice')).toMatchObject({ builtin: true, source: 'builtin', total: 0 });
+    expect(games.map((g) => g.slug)).toEqual(['blox-fruits']); // tanpa tabel bawaan: hanya yang dibuat payload
+    expect(games.find((g) => g.slug === 'blox-fruits')).toMatchObject({ source: 'auto', builtin: false, total: 1 });
   });
 
   it('tabel yang sudah ada dipakai ulang, bukan dibuat lagi', async () => {
@@ -89,18 +88,17 @@ d('ingest (Redis sungguhan)', () => {
     expect(raw1.payload.text).toBe('baris log mentah tanpa struktur');
   });
 
-  it('payload dari sumber tanpa identitas masuk ke Uncategorized; alias lama dice masuk Anime Dice', async () => {
+  it('payload dari sumber tanpa identitas masuk ke Uncategorized; alias lama tidak punya tabel khusus', async () => {
     expect((await (await postJson({ foo: 'bar' })).json()).game).toBe('uncategorized');
-    const legacy = await (await postJson({ embeds: [{ title: 'New Unit! 1/1M' }] }, { defaultGame: 'Anime Dice' }, 'http://t/api/webhook?key=abc')).json();
-    expect(legacy).toMatchObject({ game: 'anime-dice' });
-    expect(await raw.hget('games:meta', 'anime-dice')).toContain('"source":"builtin"');
+    const legacy = await (await postJson({ embeds: [{ title: 'New Unit! 1/1M' }] }, {}, 'http://t/api/webhook?key=abc')).json();
+    expect(legacy).toMatchObject({ game: 'uncategorized' });
+    expect(await raw.hexists('games:meta', 'anime-dice')).toBe(0);
   });
 
   it('batas jumlah tabel: sumber baru berikutnya masuk Uncategorized', async () => {
     process.env.MAX_GAME_TABLES = '5';
-    for (const g of ['Game One', 'Game Two', 'Game Three', 'Game Four']) await postJson({ game_name: g }); // + Anime Dice dibuat saat list
-    await listGames(redis); // seed Anime Dice => 5 tabel
-    const over = await (await postJson({ game_name: 'Game Five' })).json();
+    for (const g of ['Game One', 'Game Two', 'Game Three', 'Game Four', 'Game Five']) await postJson({ game_name: g }); // 5 tabel
+    const over = await (await postJson({ game_name: 'Game Six' })).json();
     expect(over.game).toBe('uncategorized');
     delete process.env.MAX_GAME_TABLES;
   });
@@ -221,7 +219,6 @@ d('ingest (Redis sungguhan)', () => {
   // ----- kelola tabel (admin) -----
 
   it('buat / rename / hapus tabel manual, dengan alias setelah rename', async () => {
-    await expect(createGame(redis, 'Anime Dice', 'admin')).rejects.toMatchObject({ status: 409 });
     const made = await createGame(redis, 'Old Name', 'admin');
     expect(made).toMatchObject({ slug: 'old-name', source: 'manual', createdBy: 'admin' });
     await expect(createGame(redis, 'old name', 'admin')).rejects.toMatchObject({ status: 409 });
@@ -238,13 +235,10 @@ d('ingest (Redis sungguhan)', () => {
     expect(after.game).toBe('new-name');
     expect(await raw.hexists('games:meta', 'old-name')).toBe(0);
 
-    await expect(renameGame(redis, 'new-name', 'Anime Dice')).rejects.toMatchObject({ status: 409 });
-    await expect(renameGame(redis, 'anime-dice', 'Lain')).rejects.toMatchObject({ status: 400 }); // bawaan
-    await expect(deleteGame(redis, 'anime-dice')).rejects.toMatchObject({ status: 400 });
 
     await deleteGame(redis, 'new-name');
     expect(await raw.exists('game:new-name:logs')).toBe(0);
-    expect((await listGames(redis)).map((g) => g.slug)).toEqual(['anime-dice']);
+    expect(await listGames(redis)).toEqual([]);
     await expect(deleteGame(redis, 'new-name')).rejects.toMatchObject({ status: 404 });
   });
 
