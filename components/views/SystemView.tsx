@@ -2,6 +2,7 @@
 import { CheckCircle2, ShieldOff, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ApiKeysPanel } from '@/components/views/system/ApiKeysPanel';
@@ -56,6 +57,13 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
               ))}
             </ul>
           )}
+          <Explainer className="mt-4" title="Cara membaca daftar ini" items={[
+            'Centang hijau berarti variabel terisi dan formatnya benar. Tanda merah berarti belum diisi atau formatnya salah; alasannya tampil di bawah namanya. Nilainya tidak pernah ditampilkan.',
+            <><code className="text-slate-300">UPSTASH_REDIS_REST_URL</code> dan <code className="text-slate-300">UPSTASH_REDIS_REST_TOKEN</code> menghubungkan ke Redis. Variabel <code className="text-slate-300">KV_*</code> atau <code className="text-slate-300">STORAGE_*</code> dari integrasi Upstash di Vercel juga diterima.</>,
+            <><code className="text-slate-300">SUPERADMIN_USERNAME</code> dan <code className="text-slate-300">SUPERADMIN_PASSWORD_HASH</code> adalah akun Superadmin. Hash harus berformat Argon2id atau bcrypt, dan di file .env tanda $ ditulis \$.</>,
+            <><code className="text-slate-300">JWT_SECRET</code> menandatangani sesi login dan minimal 32 karakter. <code className="text-slate-300">ENCRYPTION_KEY</code> berupa hex 64 karakter dan dipakai mengenkripsi Webhook Secret dan API Key.</>,
+            'Semua variabel diatur di Vercel. Setelah mengubahnya, redeploy agar nilainya terbaca.',
+          ]} />
         </section>
 
         <section className="glass p-5">
@@ -68,6 +76,13 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
               <dt className="text-slate-500">Bandwidth</dt><dd className="text-slate-200">{info.redis.bandwidth}</dd>
             </dl>
           )}
+          <Explainer className="mt-4" title="Cara membaca angka ini" items={[
+            'Ping adalah waktu balasan Redis dari server dashboard, diukur setiap panel dimuat.',
+            'Memori adalah pemakaian dibanding batas paket Upstash Anda. Jika mendekati penuh, kurangi retensi log atau naikkan paket.',
+            'Command adalah jumlah perintah yang sudah diproses Redis sejak penghitungnya mulai, bukan per hari. Paket gratis Upstash membatasi jumlah command.',
+            'Bandwidth adalah total data yang keluar dari Redis.',
+            'Jika tertulis "Tidak terhubung", periksa variabel Redis di panel Environment Variables.',
+          ]} />
         </section>
 
         <section className="glass p-5">
@@ -79,6 +94,11 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
               <Button onClick={toggleReceiver} variant={info.receiverEnabled ? 'danger' : 'primary'}>{info.receiverEnabled ? 'Matikan' : 'Nyalakan'}</Button>
             </div>
           )}
+          <Explainer className="mt-4" title="Cara kerja penerima" items={[
+            'Penerima adalah pintu masuk semua kiriman dari skrip game dan webhook ke dashboard ini.',
+            'Saat dimatikan, kiriman tetap diperiksa API Key dan rate limit-nya, lalu dijawab 202 dan datanya tidak disimpan.',
+            'Karena pengirim menerima 202 dan bukan error, mereka tidak mematikan webhook-nya sendiri. Nyalakan lagi dan kiriman berikutnya langsung tersimpan.',
+          ]} />
         </section>
       </div>
 
@@ -117,6 +137,13 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
             </div>
           </div>
         )}
+        <Explainer className="mt-4" title="Cara kerja pengaturan ini" items={[
+          'Semua pengaturan tersimpan di Redis dan berlaku tanpa redeploy. Hanya Superadmin yang bisa mengubahnya, dan setiap perubahan tercatat di Audit log.',
+          'Mode Maintenance adalah penanda status yang disimpan di Redis.',
+          'Proteksi Skrip Lua: saat nyala, /scripts/account_status.lua disajikan dalam versi ter-obfuscate dengan kunci dan nama variabel acak di setiap permintaan. Saat mati, disajikan source aslinya. Perubahan terlihat dalam sekitar 30 detik karena cache.',
+          'Rate Limit adalah batas request per menit di receiver. Kiriman yang memakai API Key dihitung per key, selain itu per IP. Request berlebih dijawab 429. Isi 10 sampai 100.000; nilai tersimpan saat kolom ditinggalkan.',
+          'Secret Token HMAC: jika terpasang, kiriman harus membawa tanda tangan HMAC-SHA256 di header X-Webhook-Signature atau X-Hub-Signature-256. Secret disimpan terenkripsi dan tidak ditampilkan lagi. Butuh ENCRYPTION_KEY yang valid.',
+        ]} />
       </section>
 
       {settings && (
