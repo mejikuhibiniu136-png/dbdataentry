@@ -106,6 +106,57 @@ export function getPreviousEncryptionKeyState(env: Env = process.env): PreviousK
   return /^[0-9a-fA-F]{64}$/.test(key) ? 'valid' : 'invalid';
 }
 
+// Konfigurasi klien Lua (account_status.lua): angka/boolean non-rahasia, boleh punya default
+// sehingga TIDAK melempar ConfigError walau env belum diisi — beda dari secret di atas.
+// Diinjeksi ke skrip oleh lib/lua/accountStatus.ts SEBELUM melewati obfuscator.
+export interface LuaClientConfig {
+  interval: number;
+  maxAttempts: number;
+  offlineAttempts: number;
+  baseDelay: number;
+  maxDelay: number;
+  showUi: boolean;
+  opacity: number;
+}
+
+const DEFAULT_LUA_CONFIG: LuaClientConfig = {
+  interval: 20,
+  maxAttempts: 4,
+  offlineAttempts: 2,
+  baseDelay: 1.5,
+  maxDelay: 12,
+  showUi: true,
+  opacity: 0.65,
+};
+
+function numEnv(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Number.parseFloat(clean(raw));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function boolEnv(raw: string | undefined, fallback: boolean): boolean {
+  const v = clean(raw).toLowerCase();
+  if (v === 'true' || v === '1') return true;
+  if (v === 'false' || v === '0') return false;
+  return fallback;
+}
+
+// Di-clamp ke rentang yang sama dengan komentar asli skrip (mis. INTERVAL tidak boleh > 25 dtk
+// karena server menandai STALLED > 30 dtk) — env rusak/iseng tidak bisa membuat klien kirim
+// spam atau berhenti mengirim sama sekali.
+export function getLuaClientConfig(env: Env = process.env): LuaClientConfig {
+  return {
+    interval: numEnv(env.LUA_INTERVAL, DEFAULT_LUA_CONFIG.interval, 5, 25),
+    maxAttempts: numEnv(env.LUA_MAX_ATTEMPTS, DEFAULT_LUA_CONFIG.maxAttempts, 1, 10),
+    offlineAttempts: numEnv(env.LUA_OFFLINE_ATTEMPTS, DEFAULT_LUA_CONFIG.offlineAttempts, 1, 5),
+    baseDelay: numEnv(env.LUA_BASE_DELAY, DEFAULT_LUA_CONFIG.baseDelay, 0.5, 5),
+    maxDelay: numEnv(env.LUA_MAX_DELAY, DEFAULT_LUA_CONFIG.maxDelay, 1, 30),
+    showUi: boolEnv(env.LUA_SHOW_UI, DEFAULT_LUA_CONFIG.showUi),
+    opacity: numEnv(env.LUA_OPACITY, DEFAULT_LUA_CONFIG.opacity, 0.2, 1),
+  };
+}
+
 export interface EnvReport {
   ok: boolean;
   required: { name: string; set: boolean; note?: string }[];
