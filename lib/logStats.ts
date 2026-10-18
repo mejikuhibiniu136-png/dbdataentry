@@ -13,7 +13,7 @@ export function userOfLog(log: LogEntry): string {
 
 export const eventLabel = (log: LogEntry) => str(log.payload?.event) || str(log.eventType) || 'Event';
 
-const RARITY: Record<string, number> = {
+export const RARITY: Record<string, number> = {
   '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, qd: 1e15, qi: 1e18, sx: 1e21, sp: 1e24, oc: 1e27,
   no: 1e30, dc: 1e33, udc: 1e36, ddc: 1e39, tdc: 1e42, qdc: 1e45, qidc: 1e48, sxdc: 1e51,
   spdc: 1e54, ocdc: 1e57, nodc: 1e60, vg: 1e63, googol: 1e100,

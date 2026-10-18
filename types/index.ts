@@ -73,6 +73,8 @@ export interface TrackedAccount {
   maxHealth?: number;
   /** Nama tool di Backpack + yang sedang dipegang (maks 40). */
   inventory?: string[];
+  /** Kanal kontrol jarak jauh aktif di skrip akun ini (dilaporkan skrip). undefined = skrip versi lama. */
+  control?: boolean;
   rev: number;
 }
 

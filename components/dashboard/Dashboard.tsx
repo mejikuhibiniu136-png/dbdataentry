@@ -120,7 +120,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   // Kill-switch: KILL meminta konfirmasi (tidak bisa dibatalkan dari dashboard); PAUSE/RESUME langsung.
   const sendControl = useCallback((a: TrackedAccount, command: ControlCommand) => {
-    const go = () => run(() => apiJson('/api/receiver/control', 'POST', { accountId: a.username, command }), `${command} dikirim ke ${a.displayName || a.username}`);
+    const go = () => run(() => apiJson('/api/receiver/control', 'POST', { accountId: a.username, command }), `${command} diantrekan untuk ${a.displayName || a.username}, menunggu skrip mengambil`);
     if (command !== 'KILL') return void go();
     setConfirm({
       title: `Hentikan skrip ${a.username}?`, danger: true, confirmLabel: 'Kill skrip',

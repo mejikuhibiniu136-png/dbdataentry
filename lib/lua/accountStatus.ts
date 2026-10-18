@@ -268,6 +268,7 @@ local function buildPayload(eventType)
 		health = health,
 		maxHealth = maxHealth,
 		inventory = inventory,
+		control = sharedEnv.__dbdataentry_ctl == true, -- true bila kanal kontrol jarak jauh (control.lua) aktif di salinan ini
 		sessionStart = SESSION_START,
 		timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
 		avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId="

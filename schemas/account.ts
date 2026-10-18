@@ -54,6 +54,7 @@ export const accountPayloadSchema = z.object({
     .max(40)
     .optional()
     .catch(undefined),
+  control: z.boolean().optional().catch(undefined),
   sessionStart: isoLike.optional(),
   timestamp: isoLike.optional(),
   avatarUrl: httpsUrl.optional(),

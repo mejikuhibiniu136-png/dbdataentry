@@ -137,6 +137,7 @@ export function mergeAccount(
       health: payload.health !== undefined ? Math.round(payload.health) : prev?.health,
       maxHealth: payload.maxHealth !== undefined ? Math.round(payload.maxHealth) : prev?.maxHealth,
       inventory: payload.inventory ?? prev?.inventory,
+      control: payload.control !== undefined ? payload.control : prev?.control,
       rev: (Number(prev?.rev) || 0) + 1, // nomor revisi untuk compare-and-set
     },
   };

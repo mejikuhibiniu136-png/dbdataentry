@@ -48,7 +48,8 @@ export function LiveView({ loading, accounts, logs, controls, now, canControl, o
     [logs, selected]
   );
   const hpPct = sel?.account.health !== undefined && sel.account.maxHealth ? Math.min(1, Math.max(0, sel.account.health / sel.account.maxHealth)) : null;
-  const canAct = canControl && sel !== null && sel.state !== 'OFFLINE';
+  const noChannel = sel?.account.control === false;
+  const canAct = canControl && sel !== null && sel.state !== 'OFFLINE' && !noChannel;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
@@ -105,6 +106,8 @@ export function LiveView({ loading, accounts, logs, controls, now, canControl, o
                   <Button size="sm" disabled={!canAct} onClick={() => onControl(sel.account, 'RESUME')}><Play className="size-3.5" aria-hidden />Resume</Button>
                   <Button size="sm" variant="danger" disabled={!canAct} onClick={() => onControl(sel.account, 'KILL')}><OctagonX className="size-3.5" aria-hidden />Kill</Button>
                 </div>
+                {noChannel && <p className="text-xs text-amber-400/90">Skrip akun ini berjalan tanpa kanal kontrol. Eksekusi ulang skrip terbaru dari /scripts/account_status.lua.</p>}
+                {sel.account.control === undefined && sel.state !== 'OFFLINE' && <p className="text-xs text-slate-500">Kanal kontrol belum terkonfirmasi (skrip versi lama?). Jika perintah tidak diterima, eksekusi ulang skrip.</p>}
                 {!canControl && <p className="text-xs text-slate-600">Hanya Moderator / Super Admin yang boleh mengirim perintah.</p>}
               </div>
             </>

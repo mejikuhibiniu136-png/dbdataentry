@@ -1,8 +1,11 @@
 import { renderAccountStatusLua } from '@/lib/lua/accountStatus';
 import { getRedis } from '@/lib/redis';
+import { composePublicLua, readLuaModules, readPublicGuard } from '@/lib/scriptguard/compose';
+import { issuePublicToken, publicControlEnabled } from '@/lib/scriptguard/publicToken';
 import { readLuaObfuscationEnabled } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // membaca lua/*.lua lewat fs
 
 // Origin dari domain yang sedang melayani request (Vercel mengisi x-forwarded-host/proto).
 function originOf(request: Request): string {
@@ -28,7 +31,22 @@ export async function GET(request: Request) {
     console.error('[scripts/account_status.lua] gagal membaca LUA_OBFUSCATION_ENABLED, fallback ke skrip polos:', err);
   }
 
-  const lua = renderAccountStatusLua(endpoint, { obfuscate });
+  const main = renderAccountStatusLua(endpoint, { obfuscate });
+
+  // Kanal kontrol (Pause/Resume/Kill dari dashboard) ikut dirakit ke skrip publik. Tanpa ini, tombol kontrol di
+  // dashboard menerbitkan perintah yang tidak pernah diambil siapa pun. Gagal merakit (kunci enkripsi belum diset,
+  // berkas modul hilang) -> fail open ke skrip tanpa kontrol, supaya skrip tetap bisa diambil executor.
+  let lua = main;
+  let control = false;
+  if (publicControlEnabled()) {
+    try {
+      const [mods, guardPublic] = await Promise.all([readLuaModules(), readPublicGuard()]);
+      lua = composePublicLua({ guardPublic, control: mods.control }, { token: issuePublicToken().token, base: originOf(request) }, main);
+      control = true;
+    } catch (err) {
+      console.error('[scripts/account_status.lua] kanal kontrol tidak dirakit, melayani skrip tanpa kontrol:', err);
+    }
+  }
 
   return new Response(lua, {
     headers: {
@@ -42,6 +60,7 @@ export async function GET(request: Request) {
       'X-Content-Type-Options': 'nosniff',
       // Untuk diagnosis: curl -I menunjukkan versi mana yang disajikan.
       'X-Script-Protection': obfuscate ? 'on' : 'off',
+      'X-Script-Control': control ? 'on' : 'off',
     },
   });
 }

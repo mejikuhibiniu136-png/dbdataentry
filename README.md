@@ -33,7 +33,7 @@ Variabel yang belum diisi tidak membuat build gagal: login menjawab 503 generik,
 | Endpoint | Akses | Fungsi |
 |---|---|---|
 | `POST /api/receiver/universal` | terbuka | Terima JSON, URL-encoded, form-data, atau teks mentah. Game dikenali dari `game_name`, `gameName`, `game`, `game_id`, `source`, dan kunci serupa (juga bersarang, header `x-game-name`, atau `?game=`). Tabel baru dibuat otomatis |
-| `GET /scripts/account_status.lua` | terbuka | Script Lua, alamat endpoint diisi dari domain yang melayani. Tanpa API key |
+| `GET /scripts/account_status.lua` | terbuka | Script Lua, alamat endpoint diisi dari domain yang melayani. Tanpa API key. Sudah memuat kanal kontrol jarak jauh (Pause/Resume/Kill) dengan token publik per unduhan; header `X-Script-Control: on` menandakan terpasang. Matikan lewat env `SCRIPT_PUBLIC_CONTROL=off` |
 | `/api/auth/{login,register,logout,me}` | publik / sesi | JWT di cookie HttpOnly, Secure, SameSite=Strict |
 | `/api/games`, `/api/games/[slug]` | sesi; tulis = admin | Daftar, buat, ganti nama, hapus tabel |
 | `/api/logs?game=` | sesi; DELETE = admin | Baca / Clear Logs |
@@ -136,3 +136,7 @@ proxy.ts        gerbang login (Next 16)
 ## Pengujian
 
 `npm test`. Tes integrasi memakai Redis sungguhan (script Lua dijalankan di server Redis) dan otomatis dilewati jika tidak ada Redis di `TEST_REDIS_PORT` (default 6390): `redis-server --port 6390`.
+
+## Analitik universal
+
+Tab Analitik tidak mengasumsikan game tertentu. Setiap jenis event yang dikirim webhook (judul embed, `event`, `type`, atau baris pertama `content`) otomatis menjadi satu tabel baru, dan pasangan `Kunci: nilai` menjadi kolom serta metrik angka. Event status akun (heartbeat / online / offline) tidak dibuatkan tabel. Logika ada di `lib/logInsights.ts`.

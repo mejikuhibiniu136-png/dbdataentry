@@ -12,7 +12,7 @@ import { KEYS } from '@/lib/keys';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { requirePermission } from '@/lib/rbac/guard';
 import { getRedis } from '@/lib/redis';
-import { authenticateScript, scriptDenied } from '@/lib/scriptguard/auth';
+import { authenticateControl, scriptDenied } from '@/lib/scriptguard/auth';
 import { isSameOrigin } from '@/lib/scriptguard/origin';
 
 export const dynamic = 'force-dynamic';
@@ -51,11 +51,11 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const redis = getRedis();
-    const auth = await authenticateScript(request, redis);
+    const auth = await authenticateControl(request, redis);
     if (!auth.ok) return scriptDenied(auth);
 
-    // Per key, bukan per IP: banyak akun di satu mesin memolling ~12x/menit masing-masing.
-    const rate = await hitRateLimit(redis, KEYS.rateLimit('control-poll', auth.payload.uid), { limit: 600, windowSeconds: 60 });
+    // Per key / per salinan skrip publik, bukan per IP: banyak akun di satu mesin memolling ~12x/menit masing-masing.
+    const rate = await hitRateLimit(redis, KEYS.rateLimit('control-poll', auth.rateId), { limit: 600, windowSeconds: 60 });
     if (!rate.allowed) throw new HttpError(429, 'Terlalu banyak polling', { 'Retry-After': String(rate.retryAfterSeconds) });
 
     const account = normalizeUsername(new URL(request.url).searchParams.get('account'));
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const redis = getRedis();
-    const auth = await authenticateScript(request, redis);
+    const auth = await authenticateControl(request, redis);
     if (!auth.ok) return scriptDenied(auth);
 
     const body = await readJson(request, 1024);

@@ -12,7 +12,7 @@ local env = (getgenv and getgenv()) or _G
 
 local POLL_INTERVAL = 5 -- detik; server membatasi 600 poll/menit per key
 local MAX_BACKOFF = 6 -- pengali jeda maksimum saat server tak terjangkau (tidak pernah menghentikan skrip)
-local HOOKS = { "__dbdataentry_stop", "__dbdataentry_offline", "__dbdataentry_setpaused", "__dbdataentry_ready" }
+local HOOKS = { "__dbdataentry_stop", "__dbdataentry_offline", "__dbdataentry_setpaused", "__dbdataentry_ready", "__dbdataentry_ctl", "__dbdataentry_ctl_stop" }
 
 local M = { running = false, killed = false }
 local lastId = nil -- id perintah PAUSE/RESUME terakhir yang dijalankan (dedupe: server mengirim ulang sampai ack)
@@ -86,6 +86,14 @@ function M.start()
 	if M.running or M.killed then
 		return
 	end
+	-- Eksekusi ulang: hentikan pengendali lama agar tidak ada dua poller yang saling ack perintah yang sama.
+	if type(env.__dbdataentry_ctl_stop) == "function" then
+		pcall(env.__dbdataentry_ctl_stop)
+	end
+	env.__dbdataentry_ctl_stop = function()
+		M.running = false
+	end
+	env.__dbdataentry_ctl = true -- skrip utama melaporkan penanda ini di payload, dashboard menampilkan status kanal kontrol
 	M.running = true
 	task.spawn(function()
 		local failures = 0

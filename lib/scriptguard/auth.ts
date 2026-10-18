@@ -3,6 +3,7 @@
 // membuang pemeriksaan lokal di Lua, request-nya tetap membawa HWID perangkat nyata dan ditolak bila tidak terdaftar.
 import { isApiKeyActive } from '@/lib/apikeys';
 import { json } from '@/lib/http';
+import { openPublicToken, publicControlEnabled, publicTokenMaxAgeMs } from '@/lib/scriptguard/publicToken';
 import { isHwidBound, recordLeak } from '@/lib/scriptguard/binding';
 import { hwidDigest, normalizeHwid, safeEqualHex } from '@/lib/scriptguard/hwid';
 import { openWatermark, watermarkMaxAgeMs, type WatermarkPayload } from '@/lib/scriptguard/watermark';
@@ -44,3 +45,22 @@ const MESSAGES: Record<DenyReason, string> = {
 /** Penolakan yang dipahami Lua: `cmd: 'KILL'` membuat skrip menghentikan diri, apa pun status HTTP-nya. */
 export const scriptDenied = (auth: Extract<ScriptAuth, { ok: false }>): Response =>
   json({ success: false, cmd: 'KILL', reason: auth.reason, message: MESSAGES[auth.reason] }, auth.status);
+
+export type ControlAuth = { ok: true; rateId: string; mode: 'key' | 'public' } | Extract<ScriptAuth, { ok: false }>;
+
+/**
+ * Autentikasi kanal kontrol. Token publik (skrip /scripts/account_status.lua) dicoba dulu karena murah (tanpa Redis);
+ * bila bukan token publik, jatuh ke autentikasi berlisensi (watermark + API Key + HWID).
+ */
+export async function authenticateControl(request: Request, redis: RedisLike, nowMs = Date.now()): Promise<ControlAuth> {
+  const token = request.headers.get('x-wm');
+  if (!token) return { ok: false, status: 401, reason: 'missing' };
+  const pub = openPublicToken(token);
+  if (pub) {
+    if (!publicControlEnabled()) return { ok: false, status: 403, reason: 'revoked' };
+    if (nowMs - pub.ts > publicTokenMaxAgeMs()) return { ok: false, status: 403, reason: 'expired' };
+    return { ok: true, rateId: `pub:${pub.jti}`, mode: 'public' };
+  }
+  const auth = await authenticateScript(request, redis, nowMs);
+  return auth.ok ? { ok: true, rateId: auth.payload.uid, mode: 'key' } : auth;
+}
