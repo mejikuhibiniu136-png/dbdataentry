@@ -46,7 +46,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
     if (!open) return undefined;
     const h = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      else if (e.key === 'ArrowRight' || e.key === 'Enter') go(1);
+      else if (e.key === 'ArrowRight') go(1); // Enter ditangani tombol yang sedang fokus
       else if (e.key === 'ArrowLeft') go(-1);
     };
     window.addEventListener('keydown', h);
@@ -69,7 +69,8 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
       {open && vp.w > 0 && (
         <motion.div className="fixed inset-0 z-[70]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-label={c.tourLabel}>
           {/* Penahan klik + sorotan: bayangan raksasa menggelapkan sisanya */}
-          <div className="absolute inset-0" onClick={onClose} />
+          {/* penahan klik: klik di area gelap tidak menutup tur */}
+          <div className="absolute inset-0" />
           <motion.div aria-hidden className="pointer-events-none absolute rounded-2xl border border-cyan-300/60 shadow-[0_0_0_9999px_rgb(3_6_12/0.72),0_0_32px_rgb(34_211_238/0.35)]"
             initial={false} animate={rect ? { top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, opacity: 1 } : { top: vp.h / 2, left: vp.w / 2, width: 0, height: 0, opacity: 1 }} transition={SPRING} />
           <motion.div ref={cardRef} className="glass absolute p-5" style={{ width: w }} initial={false} animate={{ top, left }} transition={SPRING}>

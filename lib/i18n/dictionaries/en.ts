@@ -44,16 +44,6 @@ export const en = {
   'logs.searchPlaceholder': 'Search all stored logs…', 'logs.syntax': 'Tip: "exact phrase", -exclude, event:Win, user:alice, game:slug',
   'logs.results': '{count} matches', 'logs.scanned': '{count} logs scanned', 'logs.truncated': 'Only the newest 5,000 logs were searched.',
   'logs.exportCsv': 'Export CSV', 'logs.exportJson': 'Export JSON', 'logs.exportNdjson': 'Export NDJSON', 'logs.serverSearch': 'Server search', 'logs.noMatches': 'No logs match this search.',
-
-  'welcome.title': 'Welcome, {name}', 'welcome.subtitle': 'Your real-time game account monitoring dashboard is ready.', 'welcome.f1': 'Live monitoring',
-  'welcome.f2': 'Account management', 'welcome.f3': 'Secure by design', 'welcome.enter': 'Enter dashboard', 'welcome.hint': 'You can start a guided tour from the dashboard.',
-  'tour.step': 'Step {current} of {total}', 'tour.skip': 'Skip tour', 'tour.back': 'Back', 'tour.done': 'Finish', 'tour.next': 'Next',
-  'tour.s1.title': 'Welcome to your dashboard', 'tour.s1.body': 'This guided tour introduces the main areas of dbdataentry.',
-  'tour.s2.title': 'Navigate your workspace', 'tour.s2.body': 'Use the sidebar to move between monitoring, reports, and system settings.',
-  'tour.s3.title': 'Check live status', 'tour.s3.body': 'See the connection and service status at a glance.',
-  'tour.s4.title': 'Review your data', 'tour.s4.body': 'Browse account, game, and event tables from the dashboard.',
-  'tour.s5.title': 'Explore this section', 'tour.s5.body': 'The main area shows the content for the section you selected.',
-  'tour.s6.title': 'Control the live feed', 'tour.s6.body': 'Pause or resume incoming live updates whenever you need.',
 } as const;
 
 export type MessageKey = keyof typeof en;

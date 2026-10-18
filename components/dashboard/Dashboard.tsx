@@ -4,7 +4,7 @@ import { CircleHelp, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
-import { TOUR_EVENT } from '@/components/onboarding/constants';
+import { TOUR_EVENT, WELCOME_COOKIE } from '@/components/onboarding/constants';
 import { getCopy } from '@/components/onboarding/copy';
 import { Sidebar, VIEWS, type ViewId } from '@/components/dashboard/Sidebar';
 import { PageTransition } from '@/components/motion/Stagger';
@@ -121,7 +121,10 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   }, [toast]);
   const copyJob = useCallback(async (a: TrackedAccount) => copyResult(await copyText(a.jobId), 'Job ID'), [copyResult]);
 
-  const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; };
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    document.cookie = `${WELCOME_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; // pengguna berikutnya melihat Welcome lagi
+    window.location.href = '/login'; };
 
   const clearLogs = () => setConfirm({
     title: 'Hapus log?', danger: true, confirmLabel: 'Hapus log',

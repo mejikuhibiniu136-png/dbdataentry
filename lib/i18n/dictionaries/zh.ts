@@ -45,14 +45,4 @@ export const zh: Dictionary = {
   'logs.searchPlaceholder': '搜索所有已存储的日志…', 'logs.syntax': '提示："精确短语"、-排除、event:Win、user:alice、game:slug',
   'logs.results': '匹配 {count} 条', 'logs.scanned': '已扫描 {count} 条日志', 'logs.truncated': '仅搜索了最新的 5,000 条日志。',
   'logs.exportCsv': '导出 CSV', 'logs.exportJson': '导出 JSON', 'logs.exportNdjson': '导出 NDJSON', 'logs.serverSearch': '服务器搜索', 'logs.noMatches': '没有匹配的日志。',
-
-  'welcome.title': '欢迎，{name}', 'welcome.subtitle': '您的实时游戏账号监控仪表板已准备就绪。', 'welcome.f1': '实时监控',
-  'welcome.f2': '账号管理', 'welcome.f3': '安全设计', 'welcome.enter': '进入仪表板', 'welcome.hint': '您可以从仪表板开始引导教程。',
-  'tour.step': '第 {current} 步，共 {total} 步', 'tour.skip': '跳过教程', 'tour.back': '上一步', 'tour.done': '完成', 'tour.next': '下一步',
-  'tour.s1.title': '欢迎使用仪表板', 'tour.s1.body': '本引导将介绍 dbdataentry 的主要区域。',
-  'tour.s2.title': '浏览工作区', 'tour.s2.body': '使用侧边栏切换监控、报告和系统设置。',
-  'tour.s3.title': '查看实时状态', 'tour.s3.body': '一目了然地查看连接和服务状态。',
-  'tour.s4.title': '查看您的数据', 'tour.s4.body': '从仪表板浏览账号、游戏和事件表。',
-  'tour.s5.title': '探索此区域', 'tour.s5.body': '主区域显示您所选部分的内容。',
-  'tour.s6.title': '控制实时动态', 'tour.s6.body': '需要时可暂停或恢复实时更新。',
 };

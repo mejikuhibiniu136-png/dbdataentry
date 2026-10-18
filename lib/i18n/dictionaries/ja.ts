@@ -45,14 +45,4 @@ export const ja: Dictionary = {
   'logs.searchPlaceholder': '保存済みの全ログを検索…', 'logs.syntax': 'ヒント: "完全一致", -除外, event:Win, user:alice, game:slug',
   'logs.results': '{count}件ヒット', 'logs.scanned': '{count}件のログをスキャン', 'logs.truncated': '検索対象は最新の5,000件のみです。',
   'logs.exportCsv': 'CSVでエクスポート', 'logs.exportJson': 'JSONでエクスポート', 'logs.exportNdjson': 'NDJSONでエクスポート', 'logs.serverSearch': 'サーバー検索', 'logs.noMatches': '一致するログはありません。',
-
-  'welcome.title': 'ようこそ、{name}さん', 'welcome.subtitle': 'リアルタイムのゲームアカウント監視ダッシュボードをご利用いただけます。', 'welcome.f1': 'ライブ監視',
-  'welcome.f2': 'アカウント管理', 'welcome.f3': '安全な設計', 'welcome.enter': 'ダッシュボードへ', 'welcome.hint': 'ダッシュボードからガイドツアーを開始できます。',
-  'tour.step': '{total}ステップ中 {current}ステップ', 'tour.skip': 'ツアーをスキップ', 'tour.back': '戻る', 'tour.done': '完了', 'tour.next': '次へ',
-  'tour.s1.title': 'ダッシュボードへようこそ', 'tour.s1.body': 'このガイドツアーではdbdataentryの主な機能をご紹介します。',
-  'tour.s2.title': 'ワークスペースを移動', 'tour.s2.body': 'サイドバーから監視、レポート、システム設定に移動できます。',
-  'tour.s3.title': 'ライブ状態を確認', 'tour.s3.body': '接続とサービスの状態をひと目で確認できます。',
-  'tour.s4.title': 'データを確認', 'tour.s4.body': 'ダッシュボードからアカウント、ゲーム、イベントのテーブルを閲覧できます。',
-  'tour.s5.title': 'このセクションを見る', 'tour.s5.body': 'メインエリアには選択したセクションの内容が表示されます。',
-  'tour.s6.title': 'ライブフィードを操作', 'tour.s6.body': '必要に応じてライブ更新を一時停止または再開できます。',
 };

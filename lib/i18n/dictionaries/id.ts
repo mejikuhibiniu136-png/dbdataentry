@@ -45,14 +45,4 @@ export const id: Dictionary = {
   'logs.searchPlaceholder': 'Cari di semua log tersimpan…', 'logs.syntax': 'Tips: "frasa persis", -kecualikan, event:Win, user:alice, game:slug',
   'logs.results': '{count} cocok', 'logs.scanned': '{count} log dipindai', 'logs.truncated': 'Hanya 5.000 log terbaru yang dicari.',
   'logs.exportCsv': 'Ekspor CSV', 'logs.exportJson': 'Ekspor JSON', 'logs.exportNdjson': 'Ekspor NDJSON', 'logs.serverSearch': 'Cari di server', 'logs.noMatches': 'Tidak ada log yang cocok.',
-
-  'welcome.title': 'Selamat datang, {name}', 'welcome.subtitle': 'Dasbor pemantauan akun game real-time Anda siap digunakan.', 'welcome.f1': 'Pemantauan langsung',
-  'welcome.f2': 'Pengelolaan akun', 'welcome.f3': 'Dirancang aman', 'welcome.enter': 'Masuk ke dasbor', 'welcome.hint': 'Tur panduan dapat dimulai dari dasbor.',
-  'tour.step': 'Langkah {current} dari {total}', 'tour.skip': 'Lewati tur', 'tour.back': 'Kembali', 'tour.done': 'Selesai', 'tour.next': 'Lanjut',
-  'tour.s1.title': 'Selamat datang di dasbor', 'tour.s1.body': 'Tur singkat ini memperkenalkan bagian utama dbdataentry.',
-  'tour.s2.title': 'Navigasikan ruang kerja', 'tour.s2.body': 'Gunakan bilah samping untuk berpindah antara pemantauan, laporan, dan pengaturan sistem.',
-  'tour.s3.title': 'Periksa status langsung', 'tour.s3.body': 'Lihat status koneksi dan layanan secara sekilas.',
-  'tour.s4.title': 'Tinjau data Anda', 'tour.s4.body': 'Jelajahi tabel akun, game, dan peristiwa dari dasbor.',
-  'tour.s5.title': 'Jelajahi bagian ini', 'tour.s5.body': 'Area utama menampilkan konten bagian yang Anda pilih.',
-  'tour.s6.title': 'Atur umpan langsung', 'tour.s6.body': 'Jeda atau lanjutkan pembaruan langsung kapan pun diperlukan.',
 };
