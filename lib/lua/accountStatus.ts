@@ -35,13 +35,13 @@ end
 -- ===== KONFIGURASI =====
 local CONFIG = {
 	URL = "__DBDATAENTRY_ENDPOINT__",
-	INTERVAL = __DBDATAENTRY_INTERVAL__, -- detik. Server: STALLED > 30 dtk, OFFLINE > 45 dtk. Jangan lebih dari 25.
-	MAX_ATTEMPTS = __DBDATAENTRY_MAX_ATTEMPTS__, -- percobaan per pengiriman
-	OFFLINE_ATTEMPTS = __DBDATAENTRY_OFFLINE_ATTEMPTS__, -- Offline dikirim saat game menutup, waktunya sempit
-	BASE_DELAY = __DBDATAENTRY_BASE_DELAY__, -- jeda retry awal (detik), dikali 2 tiap gagal
-	MAX_DELAY = __DBDATAENTRY_MAX_DELAY__,
-	SHOW_UI = __DBDATAENTRY_SHOW_UI__, -- false = tanpa panel
-	OPACITY = __DBDATAENTRY_OPACITY__, -- keburaman panel (0.2 sampai 1)
+	INTERVAL = 20, -- detik. Server: STALLED > 30 dtk, OFFLINE > 45 dtk. Jangan lebih dari 25.
+	MAX_ATTEMPTS = 4, -- percobaan per pengiriman
+	OFFLINE_ATTEMPTS = 2, -- Offline dikirim saat game menutup, waktunya sempit
+	BASE_DELAY = 1.5, -- jeda retry awal (detik), dikali 2 tiap gagal
+	MAX_DELAY = 12,
+	SHOW_UI = true, -- false = tanpa panel
+	OPACITY = 0.65, -- keburaman panel (0.2 sampai 1)
 }
 -- =======================
 
@@ -1015,34 +1015,13 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 `;
 
-import { getLuaClientConfig, type LuaClientConfig } from '@/lib/env';
-import { obfuscateLuaSource, type ObfuscateOptions } from '@/lib/lua/obfuscate';
-
-// Placeholder CONFIG lain (selain endpoint) yang diisi dari env server (lib/env.ts ->
-// getLuaClientConfig) SEBELUM masuk ke obfuscator. Angka Lua ditulis apa adanya (tanpa kutip);
-// boolean sebagai `true`/`false`. Bukan rahasia -> aman ikut diproses obfuscator sama seperti
-// bagian skrip lainnya (bukan dienkripsi khusus seperti URL).
-function injectRuntimeConfig(lua: string, cfg: LuaClientConfig): string {
-  return lua
-    .replace('__DBDATAENTRY_INTERVAL__', String(cfg.interval))
-    .replace('__DBDATAENTRY_MAX_ATTEMPTS__', String(cfg.maxAttempts))
-    .replace('__DBDATAENTRY_OFFLINE_ATTEMPTS__', String(cfg.offlineAttempts))
-    .replace('__DBDATAENTRY_BASE_DELAY__', String(cfg.baseDelay))
-    .replace('__DBDATAENTRY_MAX_DELAY__', String(cfg.maxDelay))
-    .replace('__DBDATAENTRY_SHOW_UI__', cfg.showUi ? 'true' : 'false')
-    .replace('__DBDATAENTRY_OPACITY__', String(cfg.opacity));
-}
+import { obfuscateLuaSource } from '@/lib/lua/obfuscate';
 
 // `obfuscate` dikontrol sakelar LUA_OBFUSCATION_ENABLED (Pengaturan Sistem, khusus Superadmin).
-// Saat aktif: endpoint webhook dienkripsi (XOR runtime-decrypt), nama variabel lokal diacak,
-// seluruh skrip dibungkus control-flow + loadstring/pcall — lihat lib/lua/obfuscate.ts.
-export function renderAccountStatusLua(
-  endpoint: string,
-  options: { obfuscate?: boolean } & ObfuscateOptions = {},
-): string {
-  const cfg = getLuaClientConfig();
-  const rendered = injectRuntimeConfig(ACCOUNT_STATUS_LUA.replace(ENDPOINT_PLACEHOLDER, endpoint), cfg);
+// Saat aktif: URL endpoint webhook dienkripsi (XOR runtime-decrypt) + seluruh skrip dibungkus
+// control-flow obfuscation, sehingga endpoint tidak langsung terbaca dari hasil dekompilasi.
+export function renderAccountStatusLua(endpoint: string, options: { obfuscate?: boolean } = {}): string {
+  const rendered = ACCOUNT_STATUS_LUA.replace(ENDPOINT_PLACEHOLDER, endpoint);
   if (!options.obfuscate) return rendered;
-  const { obfuscate: _obfuscate, ...obfOptions } = options;
-  return obfuscateLuaSource(rendered, [{ configField: 'URL', value: endpoint }], obfOptions).source;
+  return obfuscateLuaSource(rendered, [{ configField: 'URL', value: endpoint }]).source;
 }
