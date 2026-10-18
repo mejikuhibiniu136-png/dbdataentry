@@ -34,7 +34,7 @@ function decoderStub(fnName: string, key: number[]): string {
     '\tlocal out = {}',
     '\tfor i = 1, #bytes do',
     `\t\tlocal k = ${fnName}_KEY[((i - 1) % #${fnName}_KEY) + 1]`,
-    '\t\tout[i] = string.char((bytes[i] - k) % 256)',
+    '\t\tout[i] = string.char(bit32.bxor(bytes[i], k))',
     '\tend',
     '\treturn table.concat(out)',
     'end',

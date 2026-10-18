@@ -1,6 +1,4 @@
 import { renderAccountStatusLua } from '@/lib/lua/accountStatus';
-import { getRedis } from '@/lib/redis';
-import { readLuaObfuscationEnabled } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,17 +12,10 @@ function originOf(request: Request): string {
   return new URL(request.url).origin;
 }
 
-// Disajikan sebagai teks biasa untuk game:HttpGet. Tanpa cookie, tanpa rahasia.
-// Proteksi/obfuscation (fitur 1) dikontrol sakelar Superadmin (config:settings di Redis);
-// bila Redis tidak terjangkau, gagal aman ke skrip tanpa obfuscation agar executor tetap jalan.
+// Disajikan sebagai teks biasa untuk game:HttpGet. Tanpa cookie, tanpa rahasia, tanpa Redis:
+// skrip selalu dikirim polos (proteksi/obfuscation dibatalkan) sehingga tidak ada yang bisa merusaknya.
 export async function GET(request: Request) {
-  let obfuscate = false;
-  try {
-    obfuscate = await readLuaObfuscationEnabled(getRedis());
-  } catch {
-    obfuscate = false;
-  }
-  const lua = renderAccountStatusLua(`${originOf(request)}/api/receiver/universal`, { obfuscate });
+  const lua = renderAccountStatusLua(`${originOf(request)}/api/receiver/universal`);
   return new Response(lua, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
