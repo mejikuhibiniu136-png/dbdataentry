@@ -45,4 +45,13 @@ export const ja: Dictionary = {
   'logs.searchPlaceholder': '保存済みの全ログを検索…', 'logs.syntax': 'ヒント: "完全一致", -除外, event:Win, user:alice, game:slug',
   'logs.results': '{count}件ヒット', 'logs.scanned': '{count}件のログをスキャン', 'logs.truncated': '検索対象は最新の5,000件のみです。',
   'logs.exportCsv': 'CSVでエクスポート', 'logs.exportJson': 'JSONでエクスポート', 'logs.exportNdjson': 'NDJSONでエクスポート', 'logs.serverSearch': 'サーバー検索', 'logs.noMatches': '一致するログはありません。',
+  'welcome.title': 'ようこそ、{name}さん', 'welcome.subtitle': 'Webhookとアカウント状態をリアルタイムで管理するコントロールセンター。ライブで安全、ワンクリックで開始。', 'welcome.enter': 'ダッシュボードへ', 'welcome.hint': '初回訪問時に簡単なツアーが始まります。',
+  'welcome.f1': 'ライブストリーム', 'welcome.f2': 'アカウント追跡', 'welcome.f3': '安全なアクセス',
+  'tour.replay': 'ツアー', 'tour.next': '次へ', 'tour.back': '戻る', 'tour.skip': 'スキップ', 'tour.done': '完了', 'tour.step': '{current} / {total}',
+  'tour.s1.title': 'ようこそ', 'tour.s1.body': 'ダッシュボードの使い方を数ステップで紹介します。「ツアー」ボタンでいつでも再開できます。',
+  'tour.s2.title': 'ナビゲーション', 'tour.s2.body': '概要、ログ、ゲームテーブル、アカウントなどをここから切り替えます。',
+  'tour.s3.title': '接続状態', 'tour.s3.body': 'ライブはデータがリアルタイムで流れている状態です。切断されると黄色になります。',
+  'tour.s4.title': 'ゲームテーブル', 'tour.s4.body': 'ゲームやソースごとに絞り込みます。「すべて」で統合ストリームを表示します。',
+  'tour.s5.title': 'メインコンテンツ', 'tour.s5.body': '選択中のページの統計・グラフ・ログがここに表示され、自動更新されます。',
+  'tour.s6.title': 'コントロール', 'tour.s6.body': 'データを動かさずに確認したいときは、ライブストリームを一時停止します。',
 };

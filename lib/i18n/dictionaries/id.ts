@@ -45,4 +45,13 @@ export const id: Dictionary = {
   'logs.searchPlaceholder': 'Cari di semua log tersimpan…', 'logs.syntax': 'Tips: "frasa persis", -kecualikan, event:Win, user:alice, game:slug',
   'logs.results': '{count} cocok', 'logs.scanned': '{count} log dipindai', 'logs.truncated': 'Hanya 5.000 log terbaru yang dicari.',
   'logs.exportCsv': 'Ekspor CSV', 'logs.exportJson': 'Ekspor JSON', 'logs.exportNdjson': 'Ekspor NDJSON', 'logs.serverSearch': 'Cari di server', 'logs.noMatches': 'Tidak ada log yang cocok.',
+  'welcome.title': 'Selamat datang, {name}', 'welcome.subtitle': 'Pusat kendali real-time untuk webhook dan status akun. Langsung, aman, dan hanya satu klik.', 'welcome.enter': 'Masuk ke Dashboard', 'welcome.hint': 'Tur singkat akan berjalan saat kunjungan pertama.',
+  'welcome.f1': 'Stream langsung', 'welcome.f2': 'Pelacakan akun', 'welcome.f3': 'Akses aman',
+  'tour.replay': 'Tur', 'tour.next': 'Lanjut', 'tour.back': 'Kembali', 'tour.skip': 'Lewati', 'tour.done': 'Selesai', 'tour.step': '{current} / {total}',
+  'tour.s1.title': 'Selamat bergabung', 'tour.s1.body': 'Beberapa langkah singkat untuk mengenal dashboard. Tur bisa diulang kapan saja lewat tombol Tur.',
+  'tour.s2.title': 'Navigasi', 'tour.s2.body': 'Pindah antara Ringkasan, Log, Tabel game, Akun, dan menu lain dari sini.',
+  'tour.s3.title': 'Status koneksi', 'tour.s3.body': 'LIVE berarti data mengalir real-time. Berubah kuning bila koneksi terputus.',
+  'tour.s4.title': 'Tabel game', 'tour.s4.body': 'Saring semua data per game atau sumber. Pilih "Semua" untuk stream gabungan.',
+  'tour.s5.title': 'Konten utama', 'tour.s5.body': 'Statistik, grafik, dan log halaman terpilih tampil di sini dan diperbarui otomatis.',
+  'tour.s6.title': 'Kontrol', 'tour.s6.body': 'Jeda stream langsung saat Anda ingin memeriksa data tanpa bergerak.',
 };
