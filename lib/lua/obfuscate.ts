@@ -202,7 +202,7 @@ const NEVER_RENAME = new Set([
 // `local <nama>` dan `local function <nama>` (bukan `for`, bukan parameter fungsi) — supaya tidak
 // perlu melacak scope/shadowing sama sekali: tiap nama kandidat diganti satu nama baru yang sama
 // di SELURUH skrip, dan itu aman persis karena skrip ini tidak men-shadow nama lokal top-level-nya
-// sendiri (diverifikasi manual terhadap account_status.lua).
+// sendiri. Parameter fungsi & variabel `for` dikecualikan (lihat collectNonLocalBindings).
 function collectLocalDeclarations(tokens: Token[]): Set<string> {
   const found = new Set<string>();
   for (let i = 0; i < tokens.length; i += 1) {
@@ -229,9 +229,50 @@ function collectLocalDeclarations(tokens: Token[]): Set<string> {
       }
     }
   }
+  // Parameter fungsi dan variabel `for` TIDAK ikut di-rename karena deklarasinya bukan `local`.
+  // Kalau namanya kebetulan sama dengan sebuah `local` di tempat lain (mis. `pushHist(list, v)`
+  // dan `local list = ...`), pemakaian di badan fungsi ikut diganti sementara parameternya tidak,
+  // sehingga variabel menjadi nil saat runtime. Nama seperti itu dikeluarkan dari daftar rename.
+  for (const name of collectNonLocalBindings(tokens)) found.delete(name);
   for (const name of NEVER_RENAME) found.delete(name);
   for (const name of LUA_KEYWORDS) found.delete(name);
   return found;
+}
+
+function collectNonLocalBindings(tokens: Token[]): Set<string> {
+  const bound = new Set<string>();
+  const isSpace = (t?: Token) => t?.kind === 'other' && /\s/.test(t.text);
+  const skipSpace = (from: number) => {
+    let j = from;
+    while (j < tokens.length && isSpace(tokens[j])) j += 1;
+    return j;
+  };
+  for (let i = 0; i < tokens.length; i += 1) {
+    const t = tokens[i];
+    if (t.kind !== 'ident') continue;
+
+    if (t.text === 'function') {
+      // lewati nama opsional (`a.b:c`), lalu baca daftar parameter di dalam ( ... )
+      let j = skipSpace(i + 1);
+      while (j < tokens.length && !(tokens[j].kind === 'other' && tokens[j].text === '(')) j += 1;
+      j += 1;
+      while (j < tokens.length && !(tokens[j].kind === 'other' && tokens[j].text === ')')) {
+        if (tokens[j].kind === 'ident') bound.add(tokens[j].text);
+        j += 1;
+      }
+    } else if (t.text === 'for') {
+      // `for a, b in ...` / `for i = ...`: ambil semua identifier sampai `in` atau '='
+      let j = i + 1;
+      while (j < tokens.length) {
+        const tk = tokens[j];
+        if (tk.kind === 'ident' && tk.text !== 'in') bound.add(tk.text);
+        else if (tk.kind === 'ident' && tk.text === 'in') break;
+        else if (tk.kind === 'other' && tk.text === '=') break;
+        j += 1;
+      }
+    }
+  }
+  return bound;
 }
 
 function nextNonSpace(tokens: Token[], from: number): Token | undefined {
