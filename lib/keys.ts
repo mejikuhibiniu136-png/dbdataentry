@@ -42,6 +42,15 @@ export const KEYS = {
   userAccount: (usernameKey: string) => `users:account:${usernameKey}`,
   userDevices: (usernameKey: string) => `users:devices:${usernameKey}`,
 
+  // ----- Kill-switch jarak jauh -----
+  controlCmd: (account: string) => `ctl:cmd:${account.toLowerCase()}`, // string JSON + TTL: perintah yang menunggu diambil skrip
+  controlState: 'ctl:state', // hash: akun (huruf kecil) -> JSON ControlState terakhir; hanya untuk tampilan dashboard
+
+  // ----- HWID & watermark skrip -----
+  hwidBinds: (keyId: string) => `hwid:bind:${keyId}`, // hash: HMAC(HWID) -> JSON {first, last, ip}; HWID mentah TIDAK disimpan
+  leakLog: 'leak:log', // list kejadian kebocoran, terbaru di depan
+  leakStats: 'leak:stats', // hash: jenis -> jumlah
+
   // ----- Pembatas laju -----
   rateLimit: (scope: string, id: string) => `rl:${scope}:${id}`,
 } as const;

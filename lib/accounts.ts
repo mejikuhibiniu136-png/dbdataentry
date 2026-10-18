@@ -132,6 +132,11 @@ export function mergeAccount(
       fps: telemetry(payload.fps, 1000),
       pingMs: telemetry(payload.pingMs, MAX_LATENCY_MS),
       memoryMb: telemetry(payload.memoryMb, 65_536),
+      // Live Canvas: nilai terakhir dipertahankan bila payload (mis. Offline) tidak membawanya.
+      pos: payload.pos ? { x: Math.round(payload.pos.x * 10) / 10, y: Math.round(payload.pos.y * 10) / 10 } : prev?.pos,
+      health: payload.health !== undefined ? Math.round(payload.health) : prev?.health,
+      maxHealth: payload.maxHealth !== undefined ? Math.round(payload.maxHealth) : prev?.maxHealth,
+      inventory: payload.inventory ?? prev?.inventory,
       rev: (Number(prev?.rev) || 0) + 1, // nomor revisi untuk compare-and-set
     },
   };

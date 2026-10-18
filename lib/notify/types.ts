@@ -6,7 +6,7 @@ export const SEVERITY_RANK: Readonly<Record<Severity, number>> = { info: 0, warn
 
 export const ALERT_KINDS = [
   'auth.new_ip', 'security.spike', 'ingest.error_spike', 'user.pending_approval',
-  'queue.backlog', 'queue.dead_letter', 'crypto.rotation', 'session.revoked', 'system.test',
+  'queue.backlog', 'queue.dead_letter', 'crypto.rotation', 'session.revoked', 'system.test', 'script.leak',
 ] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
@@ -27,7 +27,7 @@ export interface AlertEvent {
 
 export const DEFAULT_DEDUPE_SECONDS: Readonly<Record<AlertKind, number>> = {
   'auth.new_ip': 3600, 'security.spike': 900, 'ingest.error_spike': 900, 'user.pending_approval': 60,
-  'queue.backlog': 900, 'queue.dead_letter': 900, 'crypto.rotation': 3600, 'session.revoked': 0, 'system.test': 0,
+  'queue.backlog': 900, 'queue.dead_letter': 900, 'crypto.rotation': 3600, 'session.revoked': 0, 'system.test': 0, 'script.leak': 600,
 };
 
 export type Platform = 'discord' | 'telegram';

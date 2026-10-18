@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Argon2 adalah modul native (Rust): jangan di-bundle oleh webpack/turbopack.
   serverExternalPackages: ['@node-rs/argon2'],
+  // Modul Lua mentah (lua/*.lua) dibaca lewat fs saat runtime; tanpa ini Vercel tidak menyertakannya di fungsi.
+  outputFileTracingIncludes: { '/api/scripts/download': ['./lua/**/*'] },
   async headers() {
     return [
       {

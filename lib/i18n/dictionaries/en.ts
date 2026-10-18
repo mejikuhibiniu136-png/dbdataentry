@@ -1,6 +1,6 @@
 // Kamus sumber (en). Semua bahasa lain bertipe Record<MessageKey, string>: kunci yang hilang = galat kompilasi.
 export const en = {
-  'nav.main': 'Main navigation', 'nav.overview': 'Overview', 'nav.logs': 'Logs', 'nav.games': 'Game tables', 'nav.accounts': 'Accounts',
+  'nav.main': 'Main navigation', 'nav.overview': 'Overview', 'nav.logs': 'Logs', 'nav.games': 'Game tables', 'nav.accounts': 'Accounts', 'nav.live': 'Live map',
   'nav.analytics': 'Analytics', 'nav.users': 'Users', 'nav.sessions': 'Sessions', 'nav.system': 'System', 'nav.logout': 'Sign out',
 
   'header.greeting': 'Hello, {name}', 'header.live': 'LIVE', 'header.connecting': 'Connecting…', 'header.reconnecting': 'Reconnecting…', 'header.paused': 'Paused',

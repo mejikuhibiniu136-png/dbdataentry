@@ -1,7 +1,7 @@
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export const ja: Dictionary = {
-  'nav.main': 'メインナビゲーション', 'nav.overview': '概要', 'nav.logs': 'ログ', 'nav.games': 'ゲームテーブル', 'nav.accounts': 'アカウント',
+  'nav.main': 'メインナビゲーション', 'nav.overview': '概要', 'nav.logs': 'ログ', 'nav.games': 'ゲームテーブル', 'nav.accounts': 'アカウント', 'nav.live': 'ライブマップ',
   'nav.analytics': '分析', 'nav.users': 'ユーザー', 'nav.sessions': 'セッション', 'nav.system': 'システム', 'nav.logout': 'ログアウト',
 
   'header.greeting': 'こんにちは、{name}さん', 'header.live': 'ライブ', 'header.connecting': '接続中…', 'header.reconnecting': '再接続中…', 'header.paused': '一時停止中',

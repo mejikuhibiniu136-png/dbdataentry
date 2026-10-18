@@ -1,5 +1,6 @@
 import { requireSession } from '@/lib/auth/session';
 import { applyOfflineTimeout } from '@/lib/accounts';
+import { readControlStates } from '@/lib/control/commands';
 import { envInt } from '@/lib/env';
 import { listGames, readSeq } from '@/lib/games';
 import { readAccounts, readLogs } from '@/lib/ingest/store';
@@ -77,7 +78,7 @@ export async function GET(request: Request) {
             send(': keepalive\n\n');
             return;
           }
-          const [logs, accounts, games] = await Promise.all([readLogs(redis, game, limit), readAccounts(redis), listGames(redis)]);
+          const [logs, accounts, games, controls] = await Promise.all([readLogs(redis, game, limit), readAccounts(redis), listGames(redis), readControlStates(redis)]);
           lastSeq = seq;
           const now = Date.now();
           const payload: StreamPayload = {
@@ -87,6 +88,7 @@ export async function GET(request: Request) {
             game,
             seq,
             timestamp: now,
+            controls,
           };
           send(`data: ${JSON.stringify(payload)}\n\n`);
         } catch (err) {

@@ -43,7 +43,17 @@ local CONFIG = {
 	SHOW_UI = true, -- false = tanpa panel
 	OPACITY = 0.65, -- keburaman panel (0.2 sampai 1)
 	POLL_INTERVAL = 5, -- detik. Cek status maintenance server (ON/OFF + teks), terpisah dari pengiriman data.
+	LIVE_TELEMETRY = true, -- true = kirim lebih sering agar Live Canvas (posisi/health/inventaris) terasa langsung
+	LIVE_INTERVAL = 5, -- detik. Dipakai bila LIVE_TELEMETRY; lebih sering = lebih banyak command Redis per akun.
 }
+
+-- Interval pengiriman efektif (tetap di bawah batas STALLED 30 dtk server).
+local function activeInterval()
+	if CONFIG.LIVE_TELEMETRY then
+		return math.min(CONFIG.INTERVAL, CONFIG.LIVE_INTERVAL)
+	end
+	return CONFIG.INTERVAL
+end
 -- =======================
 
 local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request
@@ -137,6 +147,7 @@ end
 
 sharedEnv.__dbdataentry_stop = function()
 	stopped = true
+	sharedEnv.__dbdataentry_ready = nil
 	pcall(function()
 		frameConn:Disconnect()
 	end)
@@ -200,7 +211,45 @@ local function readMaintenance(status, res)
 	return "Server sedang maintenance."
 end
 
+-- Posisi top-down (X dan Z Roblox -> x dan y di dashboard), kesehatan, dan nama tool untuk Live Canvas.
+local function readCharacter()
+	local pos, health, maxHealth
+	local inventory = {}
+	pcall(function()
+		local char = LocalPlayer.Character
+		if char then
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if root then
+				local x = math.floor(root.Position.X * 10 + 0.5) / 10
+				local y = math.floor(root.Position.Z * 10 + 0.5) / 10
+				if x == x and y == y then
+					pos = { x = x, y = y }
+				end
+			end
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				health, maxHealth = math.floor(humanoid.Health + 0.5), math.floor(humanoid.MaxHealth + 0.5)
+			end
+			for _, child in ipairs(char:GetChildren()) do
+				if child:IsA("Tool") and #inventory < 40 then
+					inventory[#inventory + 1] = child.Name
+				end
+			end
+		end
+		local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+		if backpack then
+			for _, tool in ipairs(backpack:GetChildren()) do
+				if tool:IsA("Tool") and #inventory < 40 then
+					inventory[#inventory + 1] = tool.Name
+				end
+			end
+		end
+	end)
+	return pos, health, maxHealth, inventory
+end
+
 local function buildPayload(eventType)
+	local pos, health, maxHealth, inventory = readCharacter()
 	local payload = {
 		type = "account_status",
 		username = LocalPlayer.Name,
@@ -215,6 +264,10 @@ local function buildPayload(eventType)
 		fps = telemetry.fps, -- nil jika belum terukur: field dilewati
 		pingMs = telemetry.ping,
 		memoryMb = telemetry.mem,
+		pos = pos, -- nil bila karakter belum ada: field dilewati
+		health = health,
+		maxHealth = maxHealth,
+		inventory = inventory,
 		sessionStart = SESSION_START,
 		timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
 		avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId="
@@ -357,6 +410,17 @@ local function pollMaintenance()
 		-- Maintenance selesai: langsung kirim status, tidak menunggu interval berikutnya.
 		maintenanceText = nil
 		stats.state = paused and "DIJEDA" or "MENGIRIM"
+		task.spawn(sendActive)
+	end
+end
+
+-- Hook kendali jarak jauh untuk lua/control.lua (KILL / PAUSE / RESUME). Didefinisikan setelah sendActive agar
+-- bisa memanggilnya; dihapus oleh control.lua saat KILL.
+sharedEnv.__dbdataentry_offline = sendOffline
+sharedEnv.__dbdataentry_setpaused = function(value)
+	paused = value == true
+	stats.state = paused and "DIJEDA" or "MENGIRIM"
+	if not paused then
 		task.spawn(sendActive)
 	end
 end
@@ -1131,7 +1195,7 @@ end)
 task.spawn(function()
 	while not offlineSent and not stopped do
 		-- jitter kecil agar banyak akun tidak mengirim serentak
-		task.wait(CONFIG.INTERVAL + math.random() * 2)
+		task.wait(activeInterval() + math.random())
 		if not offlineSent and not stopped then
 			sendActive()
 		end
@@ -1147,6 +1211,10 @@ Players.PlayerRemoving:Connect(function(player)
 		sendOffline()
 	end
 end)
+
+-- Penanda "inisialisasi selesai": control.lua menunggu ini sebelum menjalankan KILL, supaya perintah yang tiba saat
+-- skrip masih booting tidak melewatkan UI / loop yang baru dibuat.
+sharedEnv.__dbdataentry_ready = true
 `;
 
 import { obfuscateLuaSource } from '@/lib/lua/obfuscate';

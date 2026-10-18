@@ -45,6 +45,15 @@ export const accountPayloadSchema = z.object({
   fps: z.number().finite().min(0).max(1000).optional().catch(undefined),
   pingMs: z.number().finite().min(0).max(60_000).optional().catch(undefined),
   memoryMb: z.number().finite().min(0).max(65_536).optional().catch(undefined),
+  // Posisi top-down (X, Z Roblox), kesehatan, dan inventaris untuk Live Canvas. Semua opsional: nilai rusak diabaikan.
+  pos: z.object({ x: z.number().finite().min(-1e6).max(1e6), y: z.number().finite().min(-1e6).max(1e6) }).optional().catch(undefined),
+  health: z.number().finite().min(0).max(1e6).optional().catch(undefined),
+  maxHealth: z.number().finite().min(0).max(1e6).optional().catch(undefined),
+  inventory: z
+    .array(z.string().transform((s) => s.replace(CONTROL_CHARS, '').trim().slice(0, 48)).pipe(z.string().min(1)))
+    .max(40)
+    .optional()
+    .catch(undefined),
   sessionStart: isoLike.optional(),
   timestamp: isoLike.optional(),
   avatarUrl: httpsUrl.optional(),

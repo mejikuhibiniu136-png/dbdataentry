@@ -12,7 +12,10 @@ const PUBLIC_API: Record<string, string[]> = {
   '/api/maintenance': ['GET'], // status maintenance untuk skrip Lua yang sedang berjalan (tanpa data akun)
 };
 // Penerima webhook terbuka untuk semua sumber (token opsional dicek di handler-nya).
-const PUBLIC_API_PREFIXES = ['/api/receiver/', '/api/cron/']; // /api/cron/* dijaga CRON_SECRET di route-nya
+// /api/scripts/* dipanggil executor tanpa cookie: handler-nya memverifikasi API Key / token watermark sendiri.
+// PERHATIAN: POST /api/receiver/control (perintah dari dashboard) lolos proxy karena prefix ini, tetapi handler-nya
+// mewajibkan sesi + izin accounts:write + Origin yang sama.
+const PUBLIC_API_PREFIXES = ['/api/receiver/', '/api/cron/', '/api/scripts/']; // /api/cron/* dijaga CRON_SECRET di route-nya
 const PUBLIC_API_EXACT_ANY_METHOD = ['/api/webhook'];
 
 const AUTH_PAGES = ['/login', '/register'];

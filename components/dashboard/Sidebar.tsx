@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'motion/react';
-import { Boxes, ChartColumn, LayoutDashboard, LogOut, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
+import { Boxes, ChartColumn, LayoutDashboard, LogOut, MapPinned, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Pill } from '@/components/ui/Pill';
@@ -8,7 +8,7 @@ import { ROLE_LABEL_KEY } from '@/lib/rbac/permissions';
 import type { MessageKey } from '@/lib/i18n/dictionaries/en';
 import type { Role } from '@/types';
 
-export type ViewId = 'overview' | 'logs' | 'games' | 'accounts' | 'analytics' | 'users' | 'sessions' | 'system';
+export type ViewId = 'overview' | 'logs' | 'games' | 'accounts' | 'live' | 'analytics' | 'users' | 'sessions' | 'system';
 
 const ROLE_TONE: Record<Role, 'violet' | 'accent' | 'neutral'> = { superadmin: 'violet', admin: 'accent', viewer: 'neutral' };
 
@@ -18,6 +18,7 @@ export const VIEWS: { id: ViewId; labelKey: MessageKey; icon: typeof Radar; staf
   { id: 'logs', labelKey: 'nav.logs', icon: ScrollText },
   { id: 'games', labelKey: 'nav.games', icon: Boxes },
   { id: 'accounts', labelKey: 'nav.accounts', icon: Users },
+  { id: 'live', labelKey: 'nav.live', icon: MapPinned },
   { id: 'analytics', labelKey: 'nav.analytics', icon: ChartColumn },
   { id: 'users', labelKey: 'nav.users', icon: Users, staffOnly: true },
   { id: 'sessions', labelKey: 'nav.sessions', icon: MonitorSmartphone },

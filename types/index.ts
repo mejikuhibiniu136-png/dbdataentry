@@ -67,6 +67,12 @@ export interface TrackedAccount {
   fps?: number; // telemetri klien Roblox (opsional)
   pingMs?: number;
   memoryMb?: number;
+  /** Posisi top-down di dunia game (Roblox: X dan Z), satuan studs. Terakhir diketahui. */
+  pos?: { x: number; y: number };
+  health?: number;
+  maxHealth?: number;
+  /** Nama tool di Backpack + yang sedang dipegang (maks 40). */
+  inventory?: string[];
   rev: number;
 }
 
@@ -151,7 +157,9 @@ export type AuditAction =
   | 'session.revoke'
   | 'queue.drain'
   | 'queue.setting'
-  | 'crypto.sweep';
+  | 'crypto.sweep'
+  | 'control.issue'
+  | 'hwid.reset';
 
 export interface AuditEntry {
   id: string;
@@ -172,6 +180,20 @@ export interface SecurityStats {
   rateLimited: number;
 }
 
+// Kill-switch jarak jauh. KILL = hentikan & hapus skrip; PAUSE/RESUME = jeda/lanjutkan pengiriman.
+export type ControlCommand = 'KILL' | 'PAUSE' | 'RESUME';
+
+export interface ControlState {
+  cmd: ControlCommand;
+  id: string;
+  issuedAt: string;
+  issuedBy: string;
+  /** Batas pengambilan perintah oleh skrip (TTL). Lewat batas tanpa ack = perintah hangus. */
+  expiresAt: string;
+  /** Terisi saat skrip mengonfirmasi sudah menjalankan perintah. */
+  ackedAt: string | null;
+}
+
 export interface StreamPayload {
   logs: LogEntry[];
   accounts: TrackedAccount[];
@@ -179,4 +201,6 @@ export interface StreamPayload {
   game: string; // slug yang sedang dilihat ('all' = stream gabungan)
   seq: number;
   timestamp: number;
+  /** Perintah kontrol aktif / baru terkirim, kunci = username huruf kecil. */
+  controls?: Record<string, ControlState>;
 }

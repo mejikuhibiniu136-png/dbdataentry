@@ -10,6 +10,8 @@ export const MAINTENANCE_RETRY_SECONDS = 60;
 
 // Jalur pengirim data: penerima webhook dan alias lamanya.
 export function isIngestPath(pathname: string): boolean {
+  // Kontrol jarak jauh sengaja dikecualikan: justru saat maintenance operator perlu bisa menghentikan skrip.
+  if (pathname === '/api/receiver/control') return false;
   return pathname === '/api/webhook' || pathname === '/api/receiver' || pathname.startsWith('/api/receiver/');
 }
 

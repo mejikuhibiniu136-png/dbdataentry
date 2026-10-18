@@ -16,6 +16,7 @@ import { Toasts } from '@/components/ui/Toasts';
 import { AccountsView } from '@/components/views/AccountsView';
 import { AnalyticsView } from '@/components/views/AnalyticsView';
 import { GamesView } from '@/components/views/GamesView';
+import { LiveView } from '@/components/views/LiveView';
 import { LogsView } from '@/components/views/LogsView';
 import { OverviewView } from '@/components/views/OverviewView';
 import { SessionsView } from '@/components/views/SessionsView';
@@ -23,7 +24,7 @@ import { SystemView } from '@/components/views/SystemView';
 import { UsersView } from '@/components/views/UsersView';
 import { apiJson, copyText, downloadText, useLiveStream, useToasts, type Connection } from '@/lib/client';
 import type { MessageKey } from '@/lib/i18n/dictionaries/en';
-import type { GameTable, LogEntry, Role, StreamPayload, TrackedAccount } from '@/types';
+import type { ControlCommand, ControlState, GameTable, LogEntry, Role, StreamPayload, TrackedAccount } from '@/types';
 
 const LIMITS = [50, 100, 200, 500];
 const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; key: MessageKey }> = {
@@ -42,6 +43,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const [games, setGames] = useState<GameTable[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [accounts, setAccounts] = useState<TrackedAccount[]>([]);
+  const [controls, setControls] = useState<Record<string, ControlState>>({});
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
   const [limit, setLimit] = useState(100);
@@ -74,6 +76,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
     clockOffset.current = d.timestamp - Date.now();
     setGames(d.games);
     setAccounts(d.accounts);
+    setControls(d.controls ?? {});
 
     // Tandai log baru (kecuali muatan pertama atau setelah pindah tabel).
     if (seen.current === null || seenGame.current !== d.game) {
@@ -115,6 +118,17 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
     try { await fn(); toast(ok, 'success'); } catch (e) { toast(e instanceof Error ? e.message : 'Aksi gagal', 'error'); }
   }, [toast]);
 
+  // Kill-switch: KILL meminta konfirmasi (tidak bisa dibatalkan dari dashboard); PAUSE/RESUME langsung.
+  const sendControl = useCallback((a: TrackedAccount, command: ControlCommand) => {
+    const go = () => run(() => apiJson('/api/receiver/control', 'POST', { accountId: a.username, command }), `${command} dikirim ke ${a.displayName || a.username}`);
+    if (command !== 'KILL') return void go();
+    setConfirm({
+      title: `Hentikan skrip ${a.username}?`, danger: true, confirmLabel: 'Kill skrip',
+      message: 'Skrip di akun ini berhenti total, UI-nya dihancurkan, dan akun ditandai offline. Perintah menunggu diambil skrip maksimal 2 menit; untuk menjalankan lagi, eksekusi ulang loader di executor.',
+      onConfirm: go,
+    });
+  }, [run]);
+
   const copyResult = useCallback((ok: boolean, label: string) => toast(ok ? `${label} disalin` : 'Gagal menyalin; salin manual dari kotak', ok ? 'success' : 'error'), [toast]);
   const copyLog = useCallback(async (l: LogEntry) => {
     if (await copyText(JSON.stringify(l.payload, null, 2))) { setCopiedId(l.id); setTimeout(() => setCopiedId((c) => (c === l.id ? null : c)), 1500); } else toast('Gagal menyalin', 'error');
@@ -151,13 +165,14 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
         onDelete={(g) => setConfirm({ title: `Hapus tabel "${g.name}"?`, danger: true, confirmLabel: 'Hapus tabel', message: 'Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.', onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), 'Tabel dihapus') })} />;
       case 'accounts': return <AccountsView loading={loading} accounts={accounts} logs={logs} now={now} isAdmin={isStaff} onCopyJob={copyJob}
         onDelete={(a) => setConfirm({ title: `Hapus akun ${a.username}?`, danger: true, confirmLabel: 'Hapus akun', message: 'Akun dihapus dari daftar tracker. Akan muncul lagi jika script masih mengirim heartbeat.', onConfirm: () => run(() => apiJson(`/api/accounts?username=${encodeURIComponent(a.username)}`, 'DELETE'), 'Akun dihapus') })} />;
+      case 'live': return <LiveView loading={loading} accounts={accounts} logs={logs} controls={controls} now={now} canControl={isStaff} onControl={sendControl} />;
       case 'analytics': return <AnalyticsView loading={loading} logs={logs} gameLabel={gameLabel} />;
       case 'sessions': return <SessionsView role={role} toast={toast} />;
       case 'users': return isStaff ? <UsersView role={role} toast={toast} onPendingCount={setPendingCount} /> : null;
       case 'system': return isSuperadmin ? <SystemView toast={toast} /> : null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isStaff, isSuperadmin, role, copyResult, copyLog, copyJob, toast]);
+  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isStaff, isSuperadmin, role, copyResult, copyLog, copyJob, toast, controls, sendControl]);
 
   const showSwitcher = view === 'overview' || view === 'logs' || view === 'analytics';
   const current = VIEWS.find((v) => v.id === view);

@@ -60,6 +60,15 @@ export async function listApiKeys(redis: RedisLike, nowMs = Date.now()): Promise
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+// Token watermark hanya membawa id key (bukan nilainya). Dipakai untuk menolak skrip milik key yang sudah dicabut / kedaluwarsa.
+export async function isApiKeyActive(redis: RedisLike, id: string, nowMs = Date.now()): Promise<boolean> {
+  const raw = (await redis.hgetall(KEYS.apiKeys)) ?? {};
+  return Object.values(raw).some((v) => {
+    const m = parseStored<StoredKey>(v);
+    return m !== null && m.id === id && !isExpired(m.expiresAt ?? null, nowMs);
+  });
+}
+
 export async function revokeApiKey(redis: RedisLike, id: string): Promise<boolean> {
   const raw = (await redis.hgetall(KEYS.apiKeys)) ?? {};
   const hash = Object.keys(raw).find((h) => parseStored<StoredKey>(raw[h])?.id === id);
