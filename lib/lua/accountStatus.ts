@@ -42,6 +42,7 @@ local CONFIG = {
 	MAX_DELAY = 12,
 	SHOW_UI = true, -- false = tanpa panel
 	OPACITY = 0.65, -- keburaman panel (0.2 sampai 1)
+	POLL_INTERVAL = 5, -- detik. Cek status maintenance server (ON/OFF + teks), terpisah dari pengiriman data.
 }
 -- =======================
 
@@ -73,6 +74,12 @@ local startedClock = os.time()
 local stats = { state = "MENGIRIM", ok = 0, fail = 0, err = "-", history = {} }
 -- Teks maintenance dari server (HTTP 503 + maintenance = true). nil = server normal.
 local maintenanceText = nil
+-- Alamat cek status maintenance diturunkan dari CONFIG.URL (domain yang sama dengan penerima).
+local STATUS_URL = (string.gsub(CONFIG.URL, "/api/receiver/universal$", "/api/maintenance"))
+if STATUS_URL == CONFIG.URL then
+	STATUS_URL = nil
+end
+local lastPollOk = -math.huge -- os.clock() terakhir cek status berhasil
 
 local function recordLatency(value)
 	table.insert(stats.history, value)
@@ -309,10 +316,48 @@ local function sendActive()
 	if paused then
 		return
 	end
+	-- Maintenance yang terkonfirmasi cek status: jangan kirim data (pasti ditolak). Bila cek status
+	-- gagal lebih dari 6 siklus, tetap coba kirim agar skrip tidak macet di status maintenance.
+	if maintenanceText and os.clock() - lastPollOk < CONFIG.POLL_INTERVAL * 6 then
+		stats.state = "MAINTENANCE"
+		return
+	end
 	stats.state = maintenanceText and "MAINTENANCE" or "MENGIRIM"
 	local eventType = firstSent and "Heartbeat" or "Online"
 	if send(eventType, CONFIG.MAX_ATTEMPTS) then
 		firstSent = true
+	end
+end
+
+-- Cek status maintenance ke server (ringan, tanpa data akun). Teks yang diubah Superadmin di
+-- dashboard sampai ke panel dalam hitungan detik, tanpa menunggu pengiriman data berikutnya.
+local function pollMaintenance()
+	if not STATUS_URL then
+		return
+	end
+	local okReq, res = pcall(httpRequest, { Url = STATUS_URL, Method = "GET" })
+	if not okReq or type(res) ~= "table" or res.StatusCode ~= 200 or type(res.Body) ~= "string" then
+		return
+	end
+	local okJson, decoded = pcall(function()
+		return HttpService:JSONDecode(res.Body)
+	end)
+	if not okJson or type(decoded) ~= "table" then
+		return
+	end
+	lastPollOk = os.clock()
+	if decoded.maintenance == true then
+		local message = (type(decoded.message) == "string" and decoded.message ~= "") and decoded.message or "Server sedang maintenance."
+		if message ~= maintenanceText then
+			warn("[dbdataentry] Maintenance: " .. message)
+		end
+		maintenanceText = message
+		stats.state = "MAINTENANCE"
+	elseif maintenanceText then
+		-- Maintenance selesai: langsung kirim status, tidak menunggu interval berikutnya.
+		maintenanceText = nil
+		stats.state = paused and "DIJEDA" or "MENGIRIM"
+		task.spawn(sendActive)
 	end
 end
 
@@ -373,6 +418,7 @@ local COMPONENT = {
 	button = { h = 28, bg = S.raised, hover = S.border, active = S.borderStrong, radius = P.radius.sm },
 	badge = { w = 112, h = 22, tint = 0.82 },
 	spark = { bars = 24, minH = 52 },
+	maint = { bg = S.surface, radius = P.radius.sm, minH = 112 },
 }
 local K = COMPONENT
 
@@ -457,13 +503,12 @@ local function buildUI()
 	local GRID_Y = TOP + K.badge.h + GAP
 	local SPARK_Y = GRID_Y + 3 * CARD_H + 3 * GAP
 	local ERR_H = 28
-	local ERR_MAINT_H = 64 -- tinggi baris error saat menampilkan teks maintenance (beberapa baris)
-	local errH = ERR_H
 	local BTN_H = K.button.h
 
 	local panelW = K.panel.width
 	local panelH = HH + SPARK_Y + K.spark.minH + GAP + ERR_H + PAD + BTN_H + PAD
 	local minimized = false
+	local maintShown = false -- true = panel menampilkan kartu maintenance, fitur lain disembunyikan
 	local selected = "fps"
 
 	local conns = {}
@@ -691,6 +736,21 @@ local function buildUI()
 	new("UICorner", { CornerRadius = UDim.new(1, 0) }, errDot)
 	local errText = text(errCard, "Tidak ada error", P.text.xs, S.textMuted, UDim2.fromOffset(26, 0), UDim2.new(1, -36, 1, 0))
 
+	-- Kartu maintenance: menggantikan semua fitur panel selama server maintenance.
+	local maintCard = new("Frame", {
+		BackgroundColor3 = K.maint.bg,
+		BackgroundTransparency = ALPHA,
+		BorderSizePixel = 0,
+		Visible = false,
+	}, body)
+	new("UICorner", { CornerRadius = UDim.new(0, K.maint.radius) }, maintCard)
+	new("UIStroke", { Color = S.warning, Thickness = 1, Transparency = ALPHA }, maintCard)
+	text(maintCard, "Sedang maintenance", P.text.sm, S.warning, UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 16), nil, true)
+	local maintText = text(maintCard, "", P.text.xs, S.textSecondary, UDim2.fromOffset(10, 30), UDim2.new(1, -20, 1, -56))
+	maintText.TextWrapped = true
+	maintText.TextYAlignment = Enum.TextYAlignment.Top
+	text(maintCard, "Pengiriman data dijeda, lanjut otomatis.", P.text.xs, S.textMuted, UDim2.new(0, 10, 1, -22), UDim2.new(1, -20, 0, 14))
+
 	-- Kontrol: Jeda + atur interval
 	local function button(label)
 		local b = new("TextButton", {
@@ -724,20 +784,23 @@ local function buildUI()
 			c.frame.Position = UDim2.fromOffset(PAD + col * (cardW + GAP), GRID_Y + row * (CARD_H + GAP))
 			c.frame.Size = UDim2.fromOffset(cardW, CARD_H)
 		end
-		local tail = GAP + errH + PAD + BTN_H + PAD
+		local tail = GAP + ERR_H + PAD + BTN_H + PAD
 		local sparkH = math.max(K.spark.minH, panelH - HH - SPARK_Y - tail)
 		sparkCard.Position = UDim2.fromOffset(PAD, SPARK_Y)
 		sparkCard.Size = UDim2.fromOffset(inner, sparkH)
 		local errY = SPARK_Y + sparkH + GAP
 		errCard.Position = UDim2.fromOffset(PAD, errY)
-		errCard.Size = UDim2.fromOffset(inner, errH)
-		local ctrlY = errY + errH + PAD
+		errCard.Size = UDim2.fromOffset(inner, ERR_H)
+		local maintH = math.max(K.maint.minH, panelH - HH - GRID_Y - PAD)
+		maintCard.Position = UDim2.fromOffset(PAD, GRID_Y)
+		maintCard.Size = UDim2.fromOffset(inner, maintH)
+		local ctrlY = errY + ERR_H + PAD
 		pauseBtn.Position = UDim2.fromOffset(PAD, ctrlY)
 		pauseBtn.Size = UDim2.fromOffset(math.min(120, inner - 110), BTN_H)
 		minusBtn.Position = UDim2.fromOffset(PAD + inner - 100, ctrlY)
 		intervalLabel.Position = UDim2.fromOffset(PAD + inner - 68, ctrlY)
 		plusBtn.Position = UDim2.fromOffset(PAD + inner - 28, ctrlY)
-		body.CanvasSize = UDim2.fromOffset(0, ctrlY + BTN_H + PAD)
+		body.CanvasSize = UDim2.fromOffset(0, maintShown and (GRID_Y + maintH + PAD) or (ctrlY + BTN_H + PAD))
 	end
 
 	local function applySize()
@@ -909,6 +972,22 @@ local function buildUI()
 	gui.Parent = getGuiParent()
 	tween(main, { Position = UDim2.new(0, 16, 0, 80) }, P.motion.slow)
 
+	-- ===== Tampilan maintenance: sembunyikan semua fitur, tampilkan kartu teks =====
+	local function setMaintenanceView(on)
+		maintShown = on
+		for _, c in ipairs(cards) do
+			c.frame.Visible = not on
+		end
+		sparkCard.Visible = not on
+		errCard.Visible = not on
+		pauseBtn.Visible = not on
+		minusBtn.Visible = not on
+		plusBtn.Visible = not on
+		intervalLabel.Visible = not on
+		maintCard.Visible = on
+		layout()
+	end
+
 	-- ===== Segarkan tampilan =====
 	local function applyState(state)
 		local style = STATE_STYLE[state] or STATE_STYLE.OFFLINE
@@ -937,6 +1016,15 @@ local function buildUI()
 		end
 
 		gameValue.Text = cachedGameName or "-"
+
+		local inMaintenance = maintenanceText ~= nil
+		if inMaintenance ~= maintShown then
+			setMaintenanceView(inMaintenance)
+		end
+		if inMaintenance then
+			maintText.Text = maintenanceText
+			return
+		end
 
 		if telemetry.fps then
 			cFps.value.Text = tostring(telemetry.fps)
@@ -988,19 +1076,7 @@ local function buildUI()
 			end
 		end
 
-		local wantErrH = maintenanceText and ERR_MAINT_H or ERR_H
-		if wantErrH ~= errH then
-			errH = wantErrH
-			errText.TextWrapped = maintenanceText ~= nil
-			layout()
-		end
-
-		if maintenanceText then
-			errText.Text = maintenanceText
-			errText.TextColor3 = S.warning
-			errDot.BackgroundColor3 = S.warning
-			errStroke.Color = S.warning
-		elseif stats.err == "-" then
+		if stats.err == "-" then
 			errText.Text = "Tidak ada error"
 			errText.TextColor3 = S.textMuted
 			errDot.BackgroundColor3 = S.success
@@ -1040,7 +1116,17 @@ task.spawn(function()
 	end
 end)
 
+pollMaintenance()
 sendActive()
+
+task.spawn(function()
+	while not offlineSent and not stopped do
+		task.wait(CONFIG.POLL_INTERVAL)
+		if not offlineSent and not stopped then
+			pollMaintenance()
+		end
+	end
+end)
 
 task.spawn(function()
 	while not offlineSent and not stopped do

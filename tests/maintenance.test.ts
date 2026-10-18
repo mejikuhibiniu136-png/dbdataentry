@@ -33,6 +33,7 @@ vi.mock('@/lib/redis', () => ({ getRedis: () => fakeRedis }));
 
 const { handleIngest, preflight } = await import('@/lib/ingest/handler');
 const { proxy } = await import('@/proxy');
+const { GET: statusGET } = await import('@/app/api/maintenance/route');
 
 const setMaintenance = (on: boolean, message?: string) => {
   for (const k of Object.keys(hash)) delete hash[k];
@@ -186,5 +187,43 @@ describe('proxy.ts saat maintenance', () => {
   it('Redis gagal dibaca: pengirim data tetap lolos (terbuka)', async () => {
     hashFails = true;
     expect(passed(await call('/api/receiver/universal'))).toBe(true);
+  });
+});
+
+describe('GET /api/maintenance (dipoll skrip Lua yang sedang berjalan)', () => {
+  it('mati: maintenance=false dan teks kosong; tanpa cache', async () => {
+    const res = await statusGET();
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toEqual({ success: true, maintenance: false, message: '' });
+  });
+  it('nyala: dijawab 200 (bukan 503) dengan teks terbaru; perubahan teks langsung terbaca', async () => {
+    setMaintenance(true, 'Teks lama');
+    expect(await (await statusGET()).json()).toEqual({ success: true, maintenance: true, message: 'Teks lama' });
+    setMaintenance(true, 'Teks baru');
+    __resetRuntimeSettingsCache(); // cache runtime 5 dtk dikosongkan seperti saat PUT pengaturan di instance yang sama
+    const res = await statusGET();
+    expect(res.status).toBe(200);
+    expect((await res.json()).message).toBe('Teks baru');
+  });
+  it('nyala tanpa teks kustom: memakai teks bawaan', async () => {
+    setMaintenance(true);
+    expect((await (await statusGET()).json()).message).toBe(DEFAULT_MAINTENANCE_MESSAGE);
+  });
+  it('Redis gagal: ikut fail-open seperti penerima (maintenance=false), atau nilai cache terakhir bila ada', async () => {
+    hashFails = true;
+    expect(await (await statusGET()).json()).toEqual({ success: true, maintenance: false, message: '' });
+    __resetRuntimeSettingsCache();
+    hashFails = false;
+    setMaintenance(true, 'Masih update');
+    await statusGET(); // mengisi cache
+    hashFails = true;
+    // cache masih segar (5 dtk): tetap melaporkan maintenance walau Redis baru saja gagal
+    expect(await (await statusGET()).json()).toEqual({ success: true, maintenance: true, message: 'Masih update' });
+  });
+  it('proxy: terbuka tanpa sesi, juga saat maintenance nyala', async () => {
+    setMaintenance(true);
+    const res = await proxy(new NextRequest('http://t/api/maintenance', { method: 'GET' }));
+    expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 });

@@ -33,11 +33,15 @@ export async function GET(request: Request) {
   return new Response(lua, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      // Obfuscation aktif -> kunci XOR & nama variabel acak dibangkitkan ulang tiap render, jadi
-      // cache dipersingkat (30 dtk) supaya bentuk skrip yang beredar publik ikut berotasi dan
-      // perubahan toggle Superadmin cepat terlihat. Nonaktif -> cache seperti semula (60 dtk).
-      'Cache-Control': obfuscate ? 'public, max-age=30, s-maxage=30' : 'public, max-age=60, s-maxage=60',
+      // Tanpa cache di mana pun (CDN, browser, proxy): perubahan toggle Proteksi Skrip Lua harus
+      // langsung terlihat di pemuatan berikutnya, dan kunci XOR + nama variabel acak harus baru
+      // di setiap permintaan. Header CDN-spesifik memastikan Vercel tidak menyimpannya.
+      'Cache-Control': 'no-store, max-age=0',
+      'CDN-Cache-Control': 'no-store',
+      'Vercel-CDN-Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
+      // Untuk diagnosis: curl -I menunjukkan versi mana yang disajikan.
+      'X-Script-Protection': obfuscate ? 'on' : 'off',
     },
   });
 }

@@ -9,6 +9,7 @@ const PUBLIC_API: Record<string, string[]> = {
   '/api/auth/login': ['POST'],
   '/api/auth/register': ['POST'],
   '/api/auth/logout': ['POST'],
+  '/api/maintenance': ['GET'], // status maintenance untuk skrip Lua yang sedang berjalan (tanpa data akun)
 };
 // Penerima webhook terbuka untuk semua sumber (token opsional dicek di handler-nya).
 const PUBLIC_API_PREFIXES = ['/api/receiver/', '/api/cron/']; // /api/cron/* dijaga CRON_SECRET di route-nya
