@@ -178,6 +178,18 @@ d('ingest (Redis sungguhan)', () => {
     expect((await readAccounts(redis))[0].state).toBe('OFFLINE');
   });
 
+  it('telemetri klien (fps, pingMs, memoryMb) disimpan; nilai buruk diabaikan tanpa menggagalkan payload', async () => {
+    await postJson(hb('Online', { fps: 59.6, pingMs: 42, memoryMb: 812.4 }));
+    let [acc] = await readAccounts(redis);
+    expect(acc).toMatchObject({ fps: 60, pingMs: 42, memoryMb: 812 });
+
+    await postJson(hb('Heartbeat', { fps: 'abc', pingMs: -5 }));
+    [acc] = await readAccounts(redis);
+    expect(acc.state).toBe('ONLINE');
+    expect(acc.fps).toBeUndefined();
+    expect(acc.pingMs).toBeUndefined();
+  });
+
   it('webhook pihak ketiga dengan field username TIDAK membuat akun palsu', async () => {
     await postJson({ game_name: 'Some Game', username: 'bot-pengirim', event: 'Roll' });
     expect(await readAccounts(redis)).toEqual([]);

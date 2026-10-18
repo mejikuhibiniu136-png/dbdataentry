@@ -6,6 +6,12 @@ import type { TrackedAccount } from '@/types';
 export const STALLED_AFTER_SECONDS = 30;
 export const OFFLINE_AFTER_SECONDS = 45;
 export const MAX_LATENCY_MS = 60_000;
+
+// Telemetri klien: angka valid dibulatkan, selain itu dibuang (field tidak ikut disimpan).
+function telemetry(value: unknown, max: number): number | undefined {
+  const n = typeof value === 'number' ? value : NaN;
+  return Number.isFinite(n) && n >= 0 && n <= max ? Math.round(n) : undefined;
+}
 const MAX_USERNAME_LENGTH = 64;
 const FORBIDDEN_FIELDS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -123,6 +129,9 @@ export function mergeAccount(
       sessionStart: timestamp,
       lastUpdate: nowIso,
       latencyMs: Math.max(0, Math.round(Number(finalLatency) || 0)),
+      fps: telemetry(payload.fps, 1000),
+      pingMs: telemetry(payload.pingMs, MAX_LATENCY_MS),
+      memoryMb: telemetry(payload.memoryMb, 65_536),
       rev: (Number(prev?.rev) || 0) + 1, // nomor revisi untuk compare-and-set
     },
   };

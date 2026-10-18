@@ -187,8 +187,8 @@ export const logsToCsv = (logs: LogEntry[]) => toCsv(LOG_CSV_HEADERS, logs.map(l
 
 export const accountsToCsv = (accounts: TrackedAccount[], stateOf: (a: TrackedAccount) => string) =>
   toCsv(
-    ['username', 'displayName', 'state', 'gameName', 'userId', 'placeId', 'jobId', 'event', 'latencyMs', 'sessionStart', 'lastUpdate'],
-    accounts.map((a) => [a.username, a.displayName, stateOf(a), a.gameName, a.userId, a.placeId, a.jobId, a.event, a.latencyMs, a.timestamp, a.lastUpdate])
+    ['username', 'displayName', 'state', 'gameName', 'userId', 'placeId', 'jobId', 'event', 'latencyMs', 'fps', 'pingMs', 'memoryMb', 'sessionStart', 'lastUpdate'],
+    accounts.map((a) => [a.username, a.displayName, stateOf(a), a.gameName, a.userId, a.placeId, a.jobId, a.event, a.latencyMs, a.fps ?? '', a.pingMs ?? '', a.memoryMb ?? '', a.timestamp, a.lastUpdate])
   );
 
 export const gamesToCsv = (games: GameTable[]) =>

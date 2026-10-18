@@ -12,6 +12,17 @@ import type { TrackedAccount } from '@/types';
 
 interface Props { acc: TrackedAccount; state: AccountState; uptime: string; syncText: string; latency: number[]; isAdmin: boolean; onDelete: (a: TrackedAccount) => void; onCopyJob: (a: TrackedAccount) => void }
 
+function Metric({ label, value, unit, tone }: { label: string; value: number | undefined; unit: string; tone?: string }) {
+  return (
+    <div className="rounded-lg bg-white/5 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="tabular text-sm font-semibold text-white" style={tone ? { color: tone } : undefined}>
+        {value == null ? '-' : <AnimatedNumber value={value} suffix={unit} />}
+      </div>
+    </div>
+  );
+}
+
 function AccountCardInner({ acc, state, uptime, syncText, latency, isAdmin, onDelete, onCopyJob }: Props) {
   const name = acc.displayName || acc.username;
   const avatar = safeImageUrl(acc.avatarUrl);
@@ -36,6 +47,14 @@ function AccountCardInner({ acc, state, uptime, syncText, latency, isAdmin, onDe
         <div className="truncate font-mono text-xs text-slate-500">Job ID: {acc.jobId || 'Local/Private'}</div>
         <div className="flex items-center justify-between text-xs text-slate-400"><span>User ID: {acc.userId || '-'}</span><span>Latensi: <AnimatedNumber value={acc.latencyMs} suffix="ms" /></span></div>
       </div>
+
+      {state !== 'OFFLINE' && (acc.fps != null || acc.pingMs != null || acc.memoryMb != null) && (
+        <div className="grid grid-cols-3 gap-2 text-center" aria-label="Telemetri klien">
+          <Metric label="FPS" value={acc.fps} unit="" tone={acc.fps == null ? undefined : acc.fps >= 50 ? '#34d399' : acc.fps >= 30 ? '#fbbf24' : '#f87171'} />
+          <Metric label="Ping" value={acc.pingMs} unit="ms" tone={acc.pingMs == null ? undefined : acc.pingMs < 150 ? '#34d399' : acc.pingMs < 400 ? '#fbbf24' : '#f87171'} />
+          <Metric label="Memori" value={acc.memoryMb} unit="MB" />
+        </div>
+      )}
 
       <div><div className="mb-0.5 text-[11px] text-slate-500">Tren latensi</div><Sparkline values={latency} color={color} label={`Latensi ${acc.username}`} /></div>
 

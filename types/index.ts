@@ -64,6 +64,9 @@ export interface TrackedAccount {
   sessionStart: string;
   lastUpdate: string;
   latencyMs: number;
+  fps?: number; // telemetri klien Roblox (opsional)
+  pingMs?: number;
+  memoryMb?: number;
   rev: number;
 }
 

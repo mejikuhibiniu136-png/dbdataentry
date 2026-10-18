@@ -41,6 +41,10 @@ export const accountPayloadSchema = z.object({
   jobId: text(128).optional(),
   event: text(64).optional(),
   latencyMs: z.number().finite().min(0).max(60_000).optional(),
+  // Telemetri klien: opsional, dan nilai yang tidak valid diabaikan (tidak menggagalkan seluruh payload).
+  fps: z.number().finite().min(0).max(1000).optional().catch(undefined),
+  pingMs: z.number().finite().min(0).max(60_000).optional().catch(undefined),
+  memoryMb: z.number().finite().min(0).max(65_536).optional().catch(undefined),
   sessionStart: isoLike.optional(),
   timestamp: isoLike.optional(),
   avatarUrl: httpsUrl.optional(),
