@@ -6,6 +6,7 @@ import { useI18n } from '@/components/i18n/I18nProvider';
 import { LogBoundary, LogCard } from '@/components/tables/LogList';
 import { ServerLogSearch } from '@/components/views/logs/ServerLogSearch';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { downloadText } from '@/lib/client';
 import { RANGE_OPTIONS, computeLogStats, filterLogs, logsToCsv } from '@/lib/logStats';
@@ -74,6 +75,13 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
           {isAdmin && <Button size="sm" variant="danger" onClick={onClear}><Trash2 className="size-3.5" />Clear Logs</Button>}
         </div>
       </div>
+
+      <Explainer title="Cara membaca log" items={[
+        'Setiap kartu adalah satu log dari tabel yang dipilih. Kolom cari dan filter di atas hanya bekerja pada log yang sudah dimuat. Untuk mencari di semua log tersimpan, pakai "Cari di server".',
+        'Sembunyikan heartbeat menyembunyikan log berevent Heartbeat atau aktif. Heartbeat rutin tidak ditulis ke log. Yang tercatat hanya heartbeat penanda sesi baru atau akun yang kembali dari offline.',
+        'JSON dan CSV mengunduh log yang sedang tampil setelah difilter. JSON penuh dan CSV penuh mengunduh semua log tabel ini dari server, tanpa filter.',
+        'Tombol Detail membuka isi lengkap log. Tombol JSON pada kartu menyalin log tersebut.',
+      ]} />
 
       {loading ? <SkeletonRows /> : filtered.length === 0 ? (
         <div className="glass p-10 text-center text-sm text-slate-500">{logs.length === 0 ? 'Belum ada log pada tabel ini.' : 'Tidak ada log yang cocok dengan filter.'}</div>

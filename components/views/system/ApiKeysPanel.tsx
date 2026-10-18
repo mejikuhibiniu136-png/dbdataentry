@@ -2,6 +2,7 @@
 import { Copy, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { apiJson, copyText } from '@/lib/client';
@@ -130,6 +131,12 @@ export function ApiKeysPanel({ toast, required, busy, onToggleRequired }: Props)
           ))}
         </ul>
       )}
+      <Explainer className="mt-4" title="Cara memakai API Key" ordered items={[
+        'Isi label, pilih masa berlaku, lalu klik "Buat key". Key hanya tampil sekali, jadi salin sebelum ditutup.',
+        <>Pasang key di klien lewat header <code className="text-slate-300">x-api-key</code>, <code className="text-slate-300">Authorization: Bearer</code>, atau <code className="text-slate-300">?key=</code>.</>,
+        'Saklar "Wajibkan API Key" membuat request tanpa key valid ditolak (401). Skrip Lua bawaan tidak membawa key, jadi nyalakan hanya setelah semua pengirim memakai key. Saklar baru bisa dinyalakan jika ada key aktif.',
+        'Cabut memutus klien yang memakai key itu. Klik pertama meminta konfirmasi, klik kedua mencabut.',
+      ]} />
     </section>
   );
 }

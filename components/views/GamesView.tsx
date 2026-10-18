@@ -2,6 +2,7 @@
 import { Download, Plus } from 'lucide-react';
 import { GamesTable } from '@/components/tables/GamesTable';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { downloadText } from '@/lib/client';
 import { gamesToCsv } from '@/lib/logStats';
@@ -19,6 +20,12 @@ export function GamesView({ loading, games, isAdmin, onCreate, onOpen, onRename,
         </div>
       </div>
       {loading ? <SkeletonRows count={4} /> : <GamesTable games={games} isAdmin={isAdmin} onOpen={onOpen} onRename={onRename} onDelete={onDelete} />}
+      <Explainer title="Cara membaca tabel ini" items={[
+        <>Satu baris adalah satu tabel log milik satu game atau sumber webhook. Kunci Redis-nya tampil di bawah nama, misalnya <code className="text-slate-300">game:&lt;slug&gt;:logs</code>.</>,
+        'Asal: Bawaan adalah tabel sistem. Otomatis dibuat saat webhook pertama dari sumber baru masuk. Manual dibuat admin lewat tombol "Tabel baru".',
+        'Log diterima adalah jumlah log yang tercatat di tabel itu. Tombol "Buka" menampilkan log tabel tersebut.',
+        'Ganti nama dan Hapus hanya untuk admin dan tidak tersedia untuk tabel bawaan. Menghapus tabel juga menghapus semua log di dalamnya dan tidak bisa dibatalkan.',
+      ]} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { SPRING_SNAPPY } from '@/components/motion/variants';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { apiJson } from '@/lib/client';
@@ -187,6 +188,7 @@ export function NotificationsPanel({ toast }: { toast: Notify }) {
           </div>
         </div>
       )}
+      <Explainer className="mt-4" title={t('notify.help.title')} items={[t('notify.help.i1'), t('notify.help.i2'), t('notify.help.i3'), t('notify.help.i4')]} />
     </section>
   );
 }

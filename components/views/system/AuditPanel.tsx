@@ -2,6 +2,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { apiJson } from '@/lib/client';
 import { formatWhen, type Notify } from '@/components/views/system/format';
@@ -61,6 +62,11 @@ export function AuditPanel({ toast }: { toast: Notify }) {
           ))}
         </ul>
       )}
+      <Explainer className="mt-4" title="Cara membaca audit log" items={[
+        'Setiap baris memuat waktu, aksi, target, lalu pelaku beserta role, IP, dan detail.',
+        'Panel menampilkan 50 aksi terbaru. Yang tersimpan maksimal 1.000 entri dan nilai rahasia tidak pernah dicatat.',
+        'Pakai untuk menelusuri siapa mengubah pengaturan, mencabut key, atau menghapus tabel.',
+      ]} />
     </section>
   );
 }

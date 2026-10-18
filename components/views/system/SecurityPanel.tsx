@@ -1,5 +1,6 @@
 'use client';
 import { ShieldAlert } from 'lucide-react';
+import { Explainer } from '@/components/ui/Explainer';
 import type { SecurityStats } from '@/types';
 
 const TILES: { key: 'hmacFail' | 'authFail' | 'rateLimited'; label: string; hint: string }[] = [
@@ -25,6 +26,10 @@ export function SecurityPanel({ stats }: { stats: SecurityStats }) {
           );
         })}
       </dl>
+      <Explainer className="mt-4" title="Cara membaca angka ini" items={[
+        `Angka menghitung request yang ditolak receiver dalam ${stats.windowHours} jam terakhir. Angka 0 berarti tenang, angka yang naik berarti ada yang mencoba.`,
+        'Signature HMAC gagal: payload ditolak karena tanda tangan salah atau tidak ada. Kredensial ditolak: API Key atau token tidak valid atau tidak dikirim. Kena rate limit: request melebihi batas per menit.',
+      ]} />
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { apiJson } from '@/lib/client';
@@ -71,6 +72,7 @@ export function QueuePanel({ toast, enabled, busy, onToggle }: { toast: Notify; 
           </div>
         </>
       )}
+      <Explainer className="mt-4" title={t('queue.help.title')} items={[t('queue.help.i1'), t('queue.help.i2'), t('queue.help.i3'), t('queue.help.i4'), t('queue.help.i5')]} />
     </section>
   );
 }

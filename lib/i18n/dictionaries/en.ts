@@ -53,6 +53,23 @@ export const en = {
   'tour.s4.title': 'Game tables', 'tour.s4.body': 'Filter everything by game or source. Pick "All" for the combined stream.',
   'tour.s5.title': 'Main content', 'tour.s5.body': 'Stats, charts and logs for the selected page appear here and update automatically.',
   'tour.s6.title': 'Controls', 'tour.s6.body': 'Pause the live stream when you want to inspect data without it moving.',
+  // Penjelasan lipat di bawah tabel/panel.
+  'sessions.help.title': 'How to read this table',
+  'sessions.help.i1': 'Each row is one active login. The row marked "This device" is the session you are using and cannot be revoked.',
+  'sessions.help.i2': 'Revoke signs that device out; the session stops working within a few seconds. "Sign out other devices" revokes all your sessions except this one.',
+  'sessions.help.i3': 'If your role allows it, the "All users" switch appears so you can view and revoke other users\' sessions.',
+  'sessions.help.i4': 'The table refreshes every 15 seconds. "Last active" is when that session was last used.',
+  'queue.help.title': 'How the queue works',
+  'queue.help.i1': 'When queue mode is on, submissions from game scripts are accepted immediately (202) and written to the log in the background. When off, they are written directly.',
+  'queue.help.i2': '"Waiting" items are not processed yet, "In progress" items are being handled, and "Done" items have been written.',
+  'queue.help.i3': '"Dead-letter" items kept failing after the maximum number of retries. The number turns red when above 0.',
+  'queue.help.i4': '"Retried" counts retry attempts, "Rejected (full)" counts submissions refused because the queue was full, and "Oldest item" is the age of the longest-waiting item. Numbers refresh every 5 seconds.',
+  'queue.help.i5': '"Drain now" processes the queue immediately. "Retry dead-letter" puts those items back in the queue; "Clear dead-letter" discards them.',
+  'notify.help.title': 'How alerts work',
+  'notify.help.i1': 'Choose a destination (Discord or Telegram), fill in its credentials, then save the channel.',
+  'notify.help.i2': 'Alert types decide which events are sent; "All types" sends everything.',
+  'notify.help.i3': 'Use the test button to send a trial message. Credentials are sealed with layered encryption and are never shown again after saving.',
+  'notify.help.i4': '"Recent deliveries" shows up to 8 latest sends: OK or error code, severity (Info, Warning, Critical), title, and time.',
 } as const;
 
 export type MessageKey = keyof typeof en;

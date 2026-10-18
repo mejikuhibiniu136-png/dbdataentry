@@ -2,6 +2,7 @@
 import { Eraser } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { apiJson } from '@/lib/client';
 import type { Notify } from '@/components/views/system/format';
 
@@ -41,6 +42,11 @@ export function RetentionPanel({ days, busy, onSave, toast }: { days: number; bu
         <Button disabled={busy || purging || dirty || days <= 0} onClick={purge}><Eraser className="size-3.5" />{purging ? 'Membersihkan…' : 'Bersihkan sekarang'}</Button>
       </div>
       {!valid && <p className="mt-2 text-xs text-rose-300">Isi bilangan bulat 0–3650.</p>}
+      <Explainer className="mt-4" title="Cara kerja retensi" items={[
+        'Log yang lebih tua dari jumlah hari yang diisi akan dihapus. Isi 0 untuk menonaktifkan. Batas maksimal 3650 hari.',
+        'Tombol Simpan menyimpan pengaturan. "Bersihkan sekarang" menjalankan pembersihan saat itu juga dan hanya aktif jika pengaturan sudah disimpan dan lebih dari 0.',
+        'Pembersihan otomatis berjalan harian pukul 03:00 UTC lewat Vercel Cron.',
+      ]} />
     </section>
   );
 }

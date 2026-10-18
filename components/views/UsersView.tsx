@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { BellRing } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UsersTable } from '@/components/tables/UsersTable';
+import { Explainer } from '@/components/ui/Explainer';
 import { apiJson } from '@/lib/client';
 import type { Role, UserStatus, UserSummary } from '@/types';
 
@@ -69,6 +70,12 @@ export function UsersView({ role, toast, onPendingCount }: { role: Role; toast: 
 
       {!canManage && <p className="text-xs text-slate-500">Mode baca-saja: hanya Superadmin yang dapat menyetujui, menolak, atau mengubah role pengguna.</p>}
       <UsersTable users={filtered} canManage={canManage} onChanged={onChanged} />
+      <Explainer title="Cara membaca tabel ini" items={[
+        'Pendaftar baru berstatus Menunggu sampai Superadmin menyetujui (Setuju) atau menolak (Tolak).',
+        'Tangguhkan membekukan akun yang aktif. Akun Ditangguhkan atau Ditolak bisa dipulihkan dengan tombol Aktifkan.',
+        'Role: viewer berarti User/Client, admin berarti Moderator/Analyst. Superadmin dan akun bertanda (env) berasal dari environment variable dan tidak bisa diubah di sini.',
+        'Tombol Perangkat membuka riwayat login: perangkat, browser, IP, dan lokasi. Hanya Superadmin yang bisa mengubah status dan role.',
+      ]} />
     </div>
   );
 }

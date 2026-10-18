@@ -6,6 +6,7 @@ import { useI18n } from '@/components/i18n/I18nProvider';
 import { AnimatedRow } from '@/components/motion/AnimatedRow';
 import { StaggerItem } from '@/components/motion/Stagger';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { ConfirmDialog, type ConfirmState } from '@/components/ui/Modal';
 import { Pill } from '@/components/ui/Pill';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -114,6 +115,7 @@ export function SessionsView({ role, toast }: { role: Role; toast: Notify }) {
           </div>
         )}
       </StaggerItem>
+      <Explainer title={t('sessions.help.title')} items={[t('sessions.help.i1'), t('sessions.help.i2'), t('sessions.help.i3'), t('sessions.help.i4')]} />
       <ConfirmDialog dialog={confirm} onClose={() => setConfirm(null)} />
     </div>
   );

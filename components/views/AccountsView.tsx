@@ -4,8 +4,9 @@ import { Download, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AccountCard } from '@/components/tables/AccountGrid';
 import { Button } from '@/components/ui/Button';
+import { Explainer } from '@/components/ui/Explainer';
 import { SkeletonGrid } from '@/components/ui/Skeleton';
-import { getAccountState, type AccountState } from '@/lib/accounts';
+import { OFFLINE_AFTER_SECONDS, STALLED_AFTER_SECONDS, getAccountState, type AccountState } from '@/lib/accounts';
 import { downloadText } from '@/lib/client';
 import { accountsToCsv, formatDuration, latencySeries, timeAgo } from '@/lib/logStats';
 import type { LogEntry, TrackedAccount } from '@/types';
@@ -41,6 +42,13 @@ export function AccountsView({ loading, accounts, logs, now, isAdmin, onDelete, 
         <Button size="sm" disabled={!rows.length} onClick={() => downloadText('accounts.csv', accountsToCsv(rows.map((r) => r.a), (a) => getAccountState(a, now)), 'text/csv')}><Download className="size-3.5" />CSV</Button>
         <Button size="sm" disabled={!rows.length} onClick={() => downloadText('accounts.json', JSON.stringify(rows.map((r) => ({ ...r.a, state: r.s })), null, 2), 'application/json')}><Download className="size-3.5" />JSON</Button>
       </div>
+
+      <Explainer title="Cara membaca kartu akun" items={[
+        `Setiap kartu adalah satu akun Roblox yang dikirim skrip. Online berarti data terakhir masuk kurang dari ${STALLED_AFTER_SECONDS} detik lalu, Stalled ${STALLED_AFTER_SECONDS} sampai ${OFFLINE_AFTER_SECONDS} detik, dan Offline lebih dari ${OFFLINE_AFTER_SECONDS} detik.`,
+        'FPS hijau mulai 50, kuning mulai 30, di bawahnya merah. Ping hijau di bawah 150 ms, kuning di bawah 400 ms, di atasnya merah.',
+        'Latensi adalah waktu pengiriman data ke server. Tren latensi diambil dari log terbaru akun itu. Sync adalah kapan data terakhir diterima.',
+        'Menghapus akun hanya menghapusnya dari daftar. Akun muncul lagi jika skripnya masih mengirim data. Tombol Job ID menyalin Job ID.',
+      ]} />
 
       {loading ? <SkeletonGrid count={6} className="h-60" /> : rows.length === 0 ? (
         <div className="glass p-10 text-center text-sm text-slate-500">{accounts.length === 0 ? 'Belum ada akun. Jalankan loadstring di executor untuk mulai melacak.' : 'Tidak ada akun yang cocok.'}</div>
