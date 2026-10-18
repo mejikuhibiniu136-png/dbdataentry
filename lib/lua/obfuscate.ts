@@ -58,8 +58,12 @@ function bytesToHexLuaLiteral(bytes: number[]): string {
   return `"${bytes.map((b) => `\\x${b.toString(16).padStart(2, '0')}`).join('')}"`;
 }
 
-// Decoder Lua murni (tanpa dependensi library luar), memakai string.byte/string.char — bukan
-// bit32 (yang sudah dihapus di beberapa runtime Luau terbaru), jadi lebih portabel antar executor.
+// PENTING: Luau (dialek Lua milik Roblox) TIDAK mendukung operator bitwise native dari Lua 5.3+
+// (`~`, `&`, `|`, `<<`, `>>`) sama sekali — itu keputusan desain Roblox, bukan sesuatu yang hilang
+// di versi tertentu. Satu-satunya cara bitwise XOR di Luau adalah lewat library `bit32`, yang
+// SELALU tersedia sebagai global bawaan di setiap lingkungan Roblox/Luau (termasuk executor pihak
+// ketiga). Jangan pernah pakai token `~` di skrip yang dikirim ke Roblox — itu bikin loadstring()
+// gagal compile sejak baris pertama (nil + pesan error), dan skrip jadi tidak jalan sama sekali.
 function decoderStub(fnName: string, keyName: string, key: number[]): string {
   return [
     `local ${keyName} = {${key.join(',')}}`,
@@ -67,7 +71,7 @@ function decoderStub(fnName: string, keyName: string, key: number[]): string {
     '\tlocal out = {}',
     '\tfor i = 1, #s do',
     `\t\tlocal k = ${keyName}[((i - 1) % #${keyName}) + 1]`,
-    '\t\tout[i] = string.char(bit32 and bit32.bxor(string.byte(s, i), k) or (string.byte(s, i) ~ k))',
+    '\t\tout[i] = string.char(bit32.bxor(string.byte(s, i), k))',
     '\tend',
     '\treturn table.concat(out)',
     'end',
@@ -373,7 +377,7 @@ function wrapInLoadstring(fullSource: string): string {
     '\tlocal out = {}',
     '\tfor i = 1, #s do',
     `\t\tlocal k = ${keyName}[((i - 1) % #${keyName}) + 1]`,
-    '\t\tout[i] = string.char(bit32 and bit32.bxor(string.byte(s, i), k) or (string.byte(s, i) ~ k))',
+    '\t\tout[i] = string.char(bit32.bxor(string.byte(s, i), k))',
     '\tend',
     '\treturn table.concat(out)',
     'end',
