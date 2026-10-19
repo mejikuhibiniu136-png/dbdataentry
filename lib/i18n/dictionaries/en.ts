@@ -40,6 +40,7 @@ export const en = {
   'queue.mode': 'Queue mode', 'queue.modeHint': 'On: requests are accepted instantly (202) and processed in the background. Off: written directly (default).',
   'queue.depth': 'Waiting', 'queue.inflight': 'Processing', 'queue.dead': 'Dead-letter', 'queue.processed': 'Processed', 'queue.retried': 'Retried', 'queue.rejected': 'Rejected (full)',
   'queue.oldest': 'Oldest item', 'queue.drain': 'Drain now', 'queue.retryDead': 'Retry dead-letter', 'queue.purgeDead': 'Purge dead-letter',
+  'queue.pause': 'Pause queue', 'queue.resume': 'Resume queue', 'queue.retry': 'Retry', 'queue.statusActive': 'Active: queue is being processed', 'queue.statusPaused': 'Pending: queue paused, new items are still accepted and wait', 'queue.working': 'Working…',
 
   'logs.searchPlaceholder': 'Search all stored logs…', 'logs.syntax': 'Tip: "exact phrase", -exclude, event:Win, user:alice, game:slug',
   'logs.results': '{count} matches', 'logs.scanned': '{count} logs scanned', 'logs.truncated': 'Only the newest 5,000 logs were searched.',

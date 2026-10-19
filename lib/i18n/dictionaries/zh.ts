@@ -41,6 +41,7 @@ export const zh: Dictionary = {
   'queue.mode': '队列模式', 'queue.modeHint': '开启：请求立即被接受(202)并在后台处理。关闭：直接写入(默认)。',
   'queue.depth': '等待中', 'queue.inflight': '处理中', 'queue.dead': '死信', 'queue.processed': '已处理', 'queue.retried': '已重试', 'queue.rejected': '已拒绝(已满)',
   'queue.oldest': '最早的条目', 'queue.drain': '立即处理', 'queue.retryDead': '重试死信', 'queue.purgeDead': '清空死信',
+  'queue.pause': '暂停队列', 'queue.resume': '恢复队列', 'queue.retry': '重试', 'queue.statusActive': '运行中：队列正在处理', 'queue.statusPaused': '待处理：队列已暂停，新条目仍会接收并等待', 'queue.working': '处理中…',
 
   'logs.searchPlaceholder': '搜索所有已存储的日志…', 'logs.syntax': '提示："精确短语"、-排除、event:Win、user:alice、game:slug',
   'logs.results': '匹配 {count} 条', 'logs.scanned': '已扫描 {count} 条日志', 'logs.truncated': '仅搜索了最新的 5,000 条日志。',

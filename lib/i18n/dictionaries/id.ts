@@ -41,6 +41,7 @@ export const id: Dictionary = {
   'queue.mode': 'Mode antrean', 'queue.modeHint': 'Nyala: request diterima seketika (202) dan diproses di latar. Mati: ditulis langsung (bawaan).',
   'queue.depth': 'Menunggu', 'queue.inflight': 'Diproses', 'queue.dead': 'Dead-letter', 'queue.processed': 'Selesai', 'queue.retried': 'Diulang', 'queue.rejected': 'Ditolak (penuh)',
   'queue.oldest': 'Item tertua', 'queue.drain': 'Kuras sekarang', 'queue.retryDead': 'Ulangi dead-letter', 'queue.purgeDead': 'Kosongkan dead-letter',
+  'queue.pause': 'Jeda antrean', 'queue.resume': 'Lanjutkan antrean', 'queue.retry': 'Ulang', 'queue.statusActive': 'Aktif: antrean diproses', 'queue.statusPaused': 'Tertunda: antrean dijeda, item baru tetap diterima dan menunggu', 'queue.working': 'Memproses…',
 
   'logs.searchPlaceholder': 'Cari di semua log tersimpan…', 'logs.syntax': 'Tips: "frasa persis", -kecualikan, event:Win, user:alice, game:slug',
   'logs.results': '{count} cocok', 'logs.scanned': '{count} log dipindai', 'logs.truncated': 'Hanya 5.000 log terbaru yang dicari.',

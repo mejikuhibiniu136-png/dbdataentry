@@ -44,9 +44,13 @@ export async function recordAudit(redis: RedisLike, input: AuditInput, nowMs = D
   }
 }
 
-export async function readAudit(redis: RedisLike, limit: number): Promise<AuditEntry[]> {
-  const raw = await redis.lrange(KEYS.auditLog, 0, Math.max(1, limit) - 1);
-  return (raw ?? [])
+export interface AuditRange { fromMs?: number; toMs?: number }
+
+/** Tanpa rentang: ambil `limit` terbaru. Dengan rentang: pindai seluruh jejak (maks AUDIT_MAX) lalu saring waktu, kemudian batasi. */
+export async function readAudit(redis: RedisLike, limit: number, range: AuditRange = {}): Promise<AuditEntry[]> {
+  const ranged = range.fromMs !== undefined || range.toMs !== undefined;
+  const raw = await redis.lrange(KEYS.auditLog, 0, ranged ? AUDIT_MAX - 1 : Math.max(1, limit) - 1);
+  const rows = (raw ?? [])
     .map((r) => {
       if (typeof r === 'string') {
         try { return JSON.parse(r) as AuditEntry; } catch { return null; }
@@ -54,4 +58,11 @@ export async function readAudit(redis: RedisLike, limit: number): Promise<AuditE
       return r && typeof r === 'object' ? (r as AuditEntry) : null;
     })
     .filter((e): e is AuditEntry => e !== null && typeof e.action === 'string');
+  if (!ranged) return rows;
+  return rows
+    .filter((e) => {
+      const t = Date.parse(e.at);
+      return Number.isFinite(t) && (range.fromMs === undefined || t >= range.fromMs) && (range.toMs === undefined || t <= range.toMs);
+    })
+    .slice(0, Math.max(1, limit));
 }

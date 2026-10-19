@@ -1,5 +1,5 @@
 'use client';
-import { Layers } from 'lucide-react';
+import { Layers, Loader2, Pause, Play, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
@@ -11,7 +11,7 @@ import { apiJson } from '@/lib/client';
 import { formatRelative } from '@/lib/i18n/format';
 import type { QueueStats } from '@/lib/ingest/queue';
 
-interface Payload { enabled: boolean; stats: QueueStats; limits: { maxDepth: number; maxItemBytes: number; maxAttempts: number; leaseSeconds: number } }
+interface Payload { enabled: boolean; paused: boolean; stats: QueueStats; limits: { maxDepth: number; maxItemBytes: number; maxAttempts: number; leaseSeconds: number } }
 type Notify = (m: string, t?: 'success' | 'error' | 'info') => void;
 
 export function QueuePanel({ toast, enabled, busy, onToggle }: { toast: Notify; enabled: boolean; busy: boolean; onToggle: (v: boolean) => void }) {
@@ -28,10 +28,13 @@ export function QueuePanel({ toast, enabled, busy, onToggle }: { toast: Notify; 
     return () => clearInterval(id);
   }, [load]);
 
-  const act = async (action: 'drain' | 'retry-dead' | 'purge-dead') => {
+  // Status langsung tanpa muat ulang halaman: jeda/lanjut memperbarui tampilan seketika (optimistis) lalu disinkronkan dari respons server.
+  const act = async (action: 'drain' | 'retry-dead' | 'purge-dead' | 'pause' | 'resume') => {
     setWorking(true);
-    try { const r = await apiJson<Payload & { message?: string }>('/api/admin/queue', 'POST', { action }); setData(r); toast(r.message ?? 'OK', 'success'); } catch (e) { toast(e instanceof Error ? e.message : t('common.error'), 'error'); } finally { setWorking(false); }
+    if ((action === 'pause' || action === 'resume') && data) setData({ ...data, paused: action === 'pause' });
+    try { const r = await apiJson<Payload & { message?: string }>('/api/admin/queue', 'POST', { action }); setData(r); toast(r.message ?? 'OK', 'success'); } catch (e) { toast(e instanceof Error ? e.message : t('common.error'), 'error'); void load(); } finally { setWorking(false); }
   };
+  const paused = data?.paused ?? false;
 
   const s = data?.stats;
   const tile = (label: string, value: number, tone = 'text-white') => (
@@ -53,6 +56,13 @@ export function QueuePanel({ toast, enabled, busy, onToggle }: { toast: Notify; 
         <input type="checkbox" className="mt-1 size-4 flex-none accent-cyan-400" disabled={busy} checked={enabled} onChange={(e) => onToggle(e.target.checked)} />
       </label>
 
+      {data && (
+        <div role="status" aria-live="polite" className={`mb-4 flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs transition-colors ${paused ? 'border-amber-400/30 bg-amber-500/10 text-amber-200' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200'}`}>
+          {working ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : paused ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+          {paused ? t('queue.statusPaused') : t('queue.statusActive')}
+        </div>
+      )}
+
       {!s ? <Skeleton className="h-24" /> : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -66,8 +76,9 @@ export function QueuePanel({ toast, enabled, busy, onToggle }: { toast: Notify; 
             {s.oldestAgeMs !== null && ` · ${t('queue.oldest')}: ${formatRelative(locale, -Math.round(s.oldestAgeMs / 1000))}`}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="primary" disabled={working} onClick={() => void act('drain')}>{t('queue.drain')}</Button>
-            <Button disabled={working || s.dead === 0} onClick={() => void act('retry-dead')}>{t('queue.retryDead')}</Button>
+            <Button variant="primary" disabled={working || paused} onClick={() => void act('drain')}>{t('queue.drain')}</Button>
+            <Button disabled={working} aria-label={paused ? t('queue.resume') : t('queue.pause')} onClick={() => void act(paused ? 'resume' : 'pause')}>{paused ? <Play className="size-4 text-emerald-300" aria-hidden /> : <Pause className="size-4 text-amber-300" aria-hidden />}{paused ? t('queue.resume') : t('queue.pause')}</Button>
+            <Button disabled={working || s.dead === 0} aria-label={t('queue.retryDead')} onClick={() => void act('retry-dead')}><RotateCcw className="size-4" aria-hidden />{t('queue.retry')} ({s.dead})</Button>
             <Button variant="danger" disabled={working || s.dead === 0} onClick={() => void act('purge-dead')}>{t('queue.purgeDead')}</Button>
           </div>
         </>

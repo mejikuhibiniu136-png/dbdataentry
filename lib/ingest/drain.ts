@@ -2,7 +2,7 @@
 // item diproses paralel terbatas. Berhenti saat antrean kosong atau anggaran waktu habis, lalu
 // melepas kunci dengan compare-and-delete (tidak menghapus kunci milik pengurus lain).
 import { processIngest } from '@/lib/ingest/process';
-import { ack, acquireLock, claim, nack, queueLimits, reclaimExpired, releaseLock, type QueueItem } from '@/lib/ingest/queue';
+import { ack, acquireLock, claim, isQueuePaused, nack, queueLimits, reclaimExpired, releaseLock, type QueueItem } from '@/lib/ingest/queue';
 import { emitAlert } from '@/lib/notify/emit';
 import type { RedisLike } from '@/lib/redis';
 
@@ -22,6 +22,8 @@ export interface DrainReport {
   dead: number;
   reclaimed: number;
   batches: number;
+  /** true bila admin menjeda antrean: tidak ada yang diproses. */
+  paused?: boolean;
 }
 
 export async function processItem(redis: RedisLike, item: QueueItem): Promise<unknown> {
@@ -43,6 +45,7 @@ async function pool<T>(items: T[], limit: number, fn: (t: T) => Promise<void>): 
 export async function drainQueue(redis: RedisLike, opts: DrainOptions = {}): Promise<DrainReport> {
   const now = opts.nowMs ?? Date.now;
   const report: DrainReport = { locked: false, processed: 0, failed: 0, dead: 0, reclaimed: 0, batches: 0 };
+  if (await isQueuePaused(redis)) return { ...report, paused: true };
   const budget = opts.budgetMs ?? 8000;
   const lockTtl = Math.max(15, Math.ceil(budget / 1000) + 10);
   const token = await acquireLock(redis, lockTtl);

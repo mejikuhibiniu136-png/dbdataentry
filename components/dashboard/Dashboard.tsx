@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { CircleHelp, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { TOUR_EVENT, WELCOME_COOKIE } from '@/components/onboarding/constants';
 import { getCopy } from '@/components/onboarding/copy';
@@ -190,6 +191,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span data-tour="status"><Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill></span>
+            <NotificationBell username={username} />
             <LanguageSwitcher compact align="right" />
             <span data-tour="controls" className="flex items-center gap-2">
             <select className="field w-auto py-1.5 text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>

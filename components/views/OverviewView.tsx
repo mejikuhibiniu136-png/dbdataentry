@@ -1,10 +1,11 @@
 'use client';
-import { Activity, Boxes, Gauge, Radio, Users } from 'lucide-react';
+import { Activity, Boxes, Clock, Gauge, Radio, Users, Zap } from 'lucide-react';
 import { ActivityChart } from '@/components/charts/Charts';
 import { EndpointCards } from '@/components/dashboard/EndpointCards';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Pill, STATE_TONE } from '@/components/ui/Pill';
+import { computeLiveMetrics } from '@/lib/liveMetrics';
 import { getAccountState } from '@/lib/accounts';
 import { buildActivity, computeLogStats, eventLabel, timeAgo } from '@/lib/logStats';
 import type { GameTable, LogEntry, TrackedAccount } from '@/types';
@@ -16,6 +17,7 @@ export function OverviewView({ loading, logs, games, accounts, now, gameLabel, o
   const states = accounts.map((a) => getAccountState(a, now));
   const online = states.filter((s) => s === 'ONLINE').length;
   const stats = computeLogStats(logs);
+  const live = computeLiveMetrics(logs, now);
   const problems = accounts.map((a, i) => ({ a, s: states[i] })).filter((x) => x.s !== 'ONLINE').slice(0, 6);
 
   return (
@@ -32,6 +34,20 @@ export function OverviewView({ loading, logs, games, accounts, now, gameLabel, o
           </>
         )}
       </div>
+
+      <section aria-labelledby="live-title" className="space-y-3">
+        <h3 id="live-title" className="flex items-center gap-2 text-sm font-semibold text-white"><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400/70" /><span className="relative inline-flex size-2 rounded-full bg-emerald-400" /></span>Waktu nyata · 5 menit terakhir<span className="text-xs font-normal text-slate-500">· {gameLabel}</span></h3>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {loading ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-28" delay={i * 80} />) : (
+            <>
+              <StatCard index={0} label="Event masuk" value={live.events} hint={`${(live.events / 5).toFixed(1)} per menit`} icon={<Zap className="size-4" />} />
+              <StatCard index={1} label="Event game" value={live.gameEvents} hint="Tanpa status akun" icon={<Activity className="size-4" />} tone="violet" />
+              <StatCard index={2} label="Latensi proses p95" value={live.p95Ms} suffix="ms" hint="Dari event 5 menit" icon={<Gauge className="size-4" />} tone="amber" />
+              <StatCard index={3} label="Terakhir masuk" value={live.lastAgeSec ?? 0} suffix="dtk" hint={live.lastAgeSec === null ? 'Belum ada data' : 'yang lalu'} icon={<Clock className="size-4" />} tone="emerald" />
+            </>
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <section className="glass p-5 xl:col-span-2">

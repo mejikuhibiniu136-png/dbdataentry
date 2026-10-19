@@ -4,7 +4,7 @@
 import { isApiKeyActive } from '@/lib/apikeys';
 import { json } from '@/lib/http';
 import { openPublicToken, publicControlEnabled, publicTokenMaxAgeMs } from '@/lib/scriptguard/publicToken';
-import { isHwidBound, recordLeak } from '@/lib/scriptguard/binding';
+import { isHwidBound, isHwidRevoked, recordLeak } from '@/lib/scriptguard/binding';
 import { hwidDigest, normalizeHwid, safeEqualHex } from '@/lib/scriptguard/hwid';
 import { openWatermark, watermarkMaxAgeMs, type WatermarkPayload } from '@/lib/scriptguard/watermark';
 import type { RedisLike } from '@/lib/redis';
@@ -26,6 +26,7 @@ export async function authenticateScript(request: Request, redis: RedisLike, now
   const hwid = normalizeHwid(request.headers.get('x-hwid'));
   if (!hwid) return { ok: false, status: 403, reason: 'hwid' };
   const hwHash = hwidDigest(hwid);
+  if (await isHwidRevoked(redis, payload.uid, hwHash)) return { ok: false, status: 403, reason: 'hwid' }; // dicabut admin
   // Perangkat pembuat token, atau perangkat lain yang terdaftar untuk key yang sama (HWID_MAX_DEVICES > 1): sah.
   if (!safeEqualHex(hwHash, payload.hw) && !(await isHwidBound(redis, payload.uid, hwHash))) {
     await recordLeak(redis, { reason: 'hwid_mismatch', source: 'poll', uid: payload.uid, jti: payload.jti, ownerHw: payload.hw, observedHw: hwHash, headers: request.headers }, nowMs);

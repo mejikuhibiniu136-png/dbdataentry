@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/Button';
 import { Explainer } from '@/components/ui/Explainer';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AnnouncementsPanel } from '@/components/views/system/AnnouncementsPanel';
 import { ApiKeysPanel } from '@/components/views/system/ApiKeysPanel';
 import { AuditPanel } from '@/components/views/system/AuditPanel';
 import { NotificationsPanel } from '@/components/views/system/NotificationsPanel';
 import { QueuePanel } from '@/components/views/system/QueuePanel';
+import { HwidPanel } from '@/components/views/system/HwidPanel';
 import { EncryptionPanel } from '@/components/views/system/EncryptionPanel';
 import { RetentionPanel } from '@/components/views/system/RetentionPanel';
 import { SecurityPanel } from '@/components/views/system/SecurityPanel';
@@ -170,6 +172,10 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
       )}
 
       {settings && <ApiKeysPanel toast={toast} required={settings.data.apiKeyRequired} busy={busy} onToggleRequired={(v) => void patchSettings({ apiKeyRequired: v })} />}
+
+      <HwidPanel toast={toast} />
+
+      <AnnouncementsPanel toast={toast} />
 
       <AuditPanel toast={toast} />
     </div>

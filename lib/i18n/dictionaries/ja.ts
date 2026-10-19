@@ -41,6 +41,7 @@ export const ja: Dictionary = {
   'queue.mode': 'キューモード', 'queue.modeHint': 'オン：リクエストを即座に受理(202)しバックグラウンドで処理。オフ：直接書き込み(既定)。',
   'queue.depth': '待機中', 'queue.inflight': '処理中', 'queue.dead': 'デッドレター', 'queue.processed': '処理済み', 'queue.retried': '再試行', 'queue.rejected': '拒否(満杯)',
   'queue.oldest': '最も古い項目', 'queue.drain': '今すぐ処理', 'queue.retryDead': 'デッドレターを再試行', 'queue.purgeDead': 'デッドレターを消去',
+  'queue.pause': 'キューを一時停止', 'queue.resume': 'キューを再開', 'queue.retry': '再試行', 'queue.statusActive': '稼働中: キューを処理しています', 'queue.statusPaused': '保留中: キューは一時停止中。新しい項目は受信され待機します', 'queue.working': '処理中…',
 
   'logs.searchPlaceholder': '保存済みの全ログを検索…', 'logs.syntax': 'ヒント: "完全一致", -除外, event:Win, user:alice, game:slug',
   'logs.results': '{count}件ヒット', 'logs.scanned': '{count}件のログをスキャン', 'logs.truncated': '検索対象は最新の5,000件のみです。',

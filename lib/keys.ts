@@ -30,12 +30,17 @@ export const KEYS = {
   sessionsOf: (usernameKey: string) => `sess:u:${usernameKey}`, // hash: sid -> JSON SessionRecord
   sessionRevoked: (sid: string) => `sess:revoked:${sid}`, // penanda cabut, TTL = sisa umur JWT
 
+  // ----- Pengumuman (lonceng notifikasi) -----
+  announceList: 'announce:list', // list JSON pengumuman, terbaru di depan (maks ANNOUNCE_MAX)
+  announceRead: (usernameKey: string) => `announce:read:${usernameKey}`, // hash: id pengumuman -> ISO waktu dibaca
+
   // ----- Antrean ingest -----
   queuePending: 'q:ingest:pending', // list (LPUSH produser, RPOP konsumen = FIFO)
   queueInflight: 'q:ingest:inflight', // sorted set: item -> waktu lease habis
   queueDead: 'q:ingest:dead', // list item yang gagal berulang kali
   queueLock: 'q:ingest:lock', // kunci drainer tunggal (SET NX EX)
   queueStats: 'q:ingest:stats', // hash: enqueued, processed, failed, dead
+  queuePaused: 'q:ingest:paused', // string "1" bila pengurasan antrean dijeda admin (item tetap diterima & menunggu)
 
   // ----- Akun & pengguna dashboard -----
   usersList: 'users:list', // sorted set: username (lowercase) -> waktu daftar
@@ -48,6 +53,7 @@ export const KEYS = {
 
   // ----- HWID & watermark skrip -----
   hwidBinds: (keyId: string) => `hwid:bind:${keyId}`, // hash: HMAC(HWID) -> JSON {first, last, ip}; HWID mentah TIDAK disimpan
+  hwidRevoked: (keyId: string) => `hwid:revoked:${keyId}`, // hash: digest HWID perangkat yang dicabut -> ISO waktu cabut
   leakLog: 'leak:log', // list kejadian kebocoran, terbaru di depan
   leakStats: 'leak:stats', // hash: jenis -> jumlah
 

@@ -37,15 +37,39 @@ export async function bindHwid(redis: RedisLike, keyId: string, hwHash: string, 
 export const isHwidBound = async (redis: RedisLike, keyId: string, hwHash: string): Promise<boolean> =>
   Number(await redis.hexists(KEYS.hwidBinds(keyId), hwHash)) === 1;
 
-export const resetHwidBindings = async (redis: RedisLike, keyId: string): Promise<number> => Number(await redis.del(KEYS.hwidBinds(keyId)));
+// Reset total (pengguna ganti perangkat): hapus semua binding DAN daftar cabut, jadi perangkat baru bisa mendaftar lagi.
+export const resetHwidBindings = async (redis: RedisLike, keyId: string): Promise<number> => {
+  const n = Number(await redis.del(KEYS.hwidBinds(keyId)));
+  await redis.del(KEYS.hwidRevoked(keyId));
+  return n;
+};
 
-export interface BindingView { hw: string; first: string; last: string; ip: string }
+/** Perangkat yang dicabut admin: ditolak di unduhan dan di kanal kontrol walau tokennya milik perangkat itu. */
+export const isHwidRevoked = async (redis: RedisLike, keyId: string, hwHash: string): Promise<boolean> =>
+  Number(await redis.hexists(KEYS.hwidRevoked(keyId), hwHash)) === 1;
+
+/**
+ * Cabut SATU perangkat lewat awalan digest (8 hex, yang ditampilkan di UI). Awalan harus cocok tepat satu binding.
+ * Mengembalikan 'ok' | 'notfound' | 'ambiguous'.
+ */
+export async function revokeHwidDevice(redis: RedisLike, keyId: string, prefix: string, nowMs = Date.now()): Promise<'ok' | 'notfound' | 'ambiguous'> {
+  if (!/^[0-9a-f]{8}$/i.test(prefix)) return 'notfound';
+  const raw = (await redis.hgetall(KEYS.hwidBinds(keyId))) ?? {};
+  const hits = Object.keys(raw).filter((h) => h.toLowerCase().startsWith(prefix.toLowerCase()));
+  if (hits.length === 0) return 'notfound';
+  if (hits.length > 1) return 'ambiguous';
+  await redis.hset(KEYS.hwidRevoked(keyId), { [hits[0]]: new Date(nowMs).toISOString() });
+  await redis.hdel(KEYS.hwidBinds(keyId), hits[0]);
+  return 'ok';
+}
+
+export interface BindingView { /** Awalan digest 8 hex: pengenal perangkat untuk pencabutan. */ id: string; hw: string; first: string; last: string; ip: string }
 
 export async function listBindings(redis: RedisLike, keyId: string): Promise<BindingView[]> {
   const raw = (await redis.hgetall(KEYS.hwidBinds(keyId))) ?? {};
   return Object.entries(raw).map(([hw, v]) => {
     const o = parseStored<{ first?: string; last?: string; ip?: string }>(v) ?? {};
-    return { hw: `${hw.slice(0, 8)}…`, first: o.first ?? '', last: o.last ?? '', ip: o.ip ?? '' };
+    return { id: hw.slice(0, 8), hw: `${hw.slice(0, 8)}…`, first: o.first ?? '', last: o.last ?? '', ip: o.ip ?? '' };
   });
 }
 

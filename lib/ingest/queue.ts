@@ -192,5 +192,12 @@ for i = 1, tonumber(ARGV[1]) do
 end
 return n
 `;
+export const isQueuePaused = async (redis: RedisLike): Promise<boolean> => {
+  const v = await redis.get(KEYS.queuePaused);
+  return v !== null && v !== undefined;
+};
+export async function setQueuePaused(redis: RedisLike, paused: boolean): Promise<void> {
+  if (paused) await redis.set(KEYS.queuePaused, '1'); else await redis.del(KEYS.queuePaused);
+}
 export const retryDead = async (redis: RedisLike, max = 500): Promise<number> => Number(await redis.eval(REQUEUE_DEAD, [KEYS.queueDead, KEYS.queuePending], [String(max)]));
 export const purgeDead = async (redis: RedisLike): Promise<number> => { const n = Number(await redis.llen(KEYS.queueDead)); await redis.del(KEYS.queueDead); return n; };

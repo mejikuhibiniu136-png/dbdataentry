@@ -1,6 +1,7 @@
 // Operasi admin untuk HWID & watermark (khusus Superadmin lewat izin apikeys:manage).
 //   GET    ?keyId=<id>  -> kebocoran terbaru (+ perangkat terdaftar bila keyId diberikan)
-//   DELETE ?keyId=<id>  -> reset binding (pengguna ganti perangkat)
+//   DELETE ?keyId=<id>  -> reset SEMUA binding (pengguna ganti perangkat)
+//   DELETE ?keyId=<id>&device=<8 hex> -> cabut satu perangkat (ditolak di unduhan & kanal kontrol)
 //   POST   {token}      -> telusuri salinan skrip bocor: buka token watermark di dalamnya
 import { z } from 'zod';
 import { actorOf, recordAudit } from '@/lib/audit';
@@ -8,7 +9,7 @@ import { isApiKeyActive } from '@/lib/apikeys';
 import { HttpError, clampInt, errorResponse, json, readJson } from '@/lib/http';
 import { requirePermission } from '@/lib/rbac/guard';
 import { getRedis } from '@/lib/redis';
-import { listBindings, readLeaks, resetHwidBindings } from '@/lib/scriptguard/binding';
+import { listBindings, readLeaks, resetHwidBindings, revokeHwidDevice } from '@/lib/scriptguard/binding';
 import { isSameOrigin } from '@/lib/scriptguard/origin';
 import { openWatermark } from '@/lib/scriptguard/watermark';
 
@@ -43,6 +44,15 @@ export async function DELETE(request: Request) {
     if (!isSameOrigin(request)) throw new HttpError(403, 'Origin tidak diizinkan');
     const redis = getRedis();
     const keyId = keyIdOf(request);
+    const device = new URL(request.url).searchParams.get('device');
+    if (device !== null) {
+      // Cabut satu perangkat: ?keyId=<id>&device=<8 hex>
+      const res = await revokeHwidDevice(redis, keyId, device);
+      if (res === 'notfound') throw new HttpError(404, 'Perangkat tidak ditemukan (mungkin sudah dicabut)');
+      if (res === 'ambiguous') throw new HttpError(409, 'Pengenal perangkat ambigu; reset semua HWID key ini');
+      await recordAudit(redis, { ...actorOf(session, request.headers), action: 'hwid.revoke', target: keyId, detail: `perangkat ${device.toLowerCase()} dicabut` });
+      return json({ success: true, revoked: device.toLowerCase() });
+    }
     const removed = await resetHwidBindings(redis, keyId);
     await recordAudit(redis, { ...actorOf(session, request.headers), action: 'hwid.reset', target: keyId, detail: removed ? 'binding dihapus' : 'tidak ada binding' });
     return json({ success: true, removed: removed > 0 });

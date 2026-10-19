@@ -6,7 +6,7 @@ import { renderAccountStatusLua } from '@/lib/lua/accountStatus';
 import { sealScript } from '@/lib/lua/scriptCrypto';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis } from '@/lib/redis';
-import { bindHwid, recordLeak } from '@/lib/scriptguard/binding';
+import { bindHwid, isHwidRevoked, recordLeak } from '@/lib/scriptguard/binding';
 import { composeGuardedLua, readLuaModules } from '@/lib/scriptguard/compose';
 import { hwidDigest, normalizeHwid } from '@/lib/scriptguard/hwid';
 import { originOf } from '@/lib/scriptguard/origin';
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     if (!hwid) throw new HttpError(400, 'Header x-hwid wajib dan harus berupa HWID perangkat yang valid');
     const hwHash = hwidDigest(hwid);
 
+    if (await isHwidRevoked(redis, key.id, hwHash)) throw new HttpError(403, 'Akses perangkat ini telah dicabut admin.');
     const bind = await bindHwid(redis, key.id, hwHash, { max: envInt('HWID_MAX_DEVICES', 1, 1, 10), ip: getClientIp(request.headers) });
     if (bind.status === 'denied') {
       await recordLeak(redis, { reason: 'device_limit', source: 'download', uid: key.id, observedHw: hwHash, headers: request.headers });

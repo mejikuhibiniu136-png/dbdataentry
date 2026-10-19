@@ -161,7 +161,11 @@ export type AuditAction =
   | 'queue.setting'
   | 'crypto.sweep'
   | 'control.issue'
-  | 'hwid.reset';
+  | 'hwid.reset'
+  | 'hwid.revoke'
+  | 'queue.pause'
+  | 'announce.post'
+  | 'announce.delete';
 
 export interface AuditEntry {
   id: string;
