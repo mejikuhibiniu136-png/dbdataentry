@@ -93,7 +93,7 @@ export function useToasts() {
   const push = useCallback((message: string, type: Toast['type'] = 'info') => {
     counter.current += 1;
     const id = counter.current;
-    setToasts((l) => [...l.slice(-3), { id, message, type }]);
+    setToasts((l) => [...l.slice(-2), { id, message, type }]);
     timers.current.set(id, setTimeout(() => dismiss(id), 4000));
   }, [dismiss]);
 

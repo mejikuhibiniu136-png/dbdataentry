@@ -21,9 +21,9 @@ export function Button({ variant = 'ghost', size = 'md', className = '', childre
     <motion.button
       whileHover={disabled ? undefined : { y: -1 }}
       whileTap={disabled ? undefined : { scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
       disabled={disabled}
-      className={`inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2'} ${STYLES[variant]} ${className}`}
+      className={`inline-flex min-h-9 pointer-coarse:min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${size === 'sm' ? 'min-h-8 px-3 py-1.5 text-xs' : 'px-4 py-2'} ${STYLES[variant]} ${className}`}
       {...rest}
     >
       {children}

@@ -30,7 +30,7 @@ function AccountCardInner({ acc, state, uptime, syncText, latency, isAdmin, onDe
   const avatar = safeImageUrl(acc.avatarUrl);
   const color = STATE_COLOR[state];
   return (
-    <motion.article layout="position" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }} whileHover={{ y: -3 }} transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+    <motion.article layout="position" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }} whileHover={{ y: -3 }} transition={{ duration: 0.15, ease: 'easeOut' }}
       className="glass glass-hover relative flex flex-col gap-3 overflow-hidden p-4">
       {/* Garis tipis menyala tiap heartbeat baru (key = lastUpdate). */}
       <motion.span key={acc.lastUpdate} className="absolute inset-x-0 top-0 h-0.5 origin-left" style={{ background: color }} initial={{ opacity: 0.9, scaleX: 1 }} animate={{ opacity: 0, scaleX: 0.2 }} transition={{ duration: 1.1, ease: 'easeOut' }} aria-hidden />

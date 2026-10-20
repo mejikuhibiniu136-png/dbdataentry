@@ -111,7 +111,7 @@ export function NotificationsPanel({ toast }: { toast: Notify }) {
           </fieldset>
 
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={platform} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="grid gap-3 sm:grid-cols-2">
+            <motion.div key={platform} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }} className="grid gap-3 sm:grid-cols-2">
               {platform === 'discord' ? (
                 <label className="sm:col-span-2">
                   <span className="mb-1 block text-xs text-slate-400">{t('notify.webhookUrl')}</span>

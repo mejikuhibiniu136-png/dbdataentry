@@ -20,7 +20,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-          <motion.div role="dialog" aria-modal="true" aria-labelledby={id} className={`glass w-full ${wide ? 'max-w-2xl' : 'max-w-md'} p-6`} initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
+          <motion.div role="dialog" aria-modal="true" aria-labelledby={id} className={`glass w-full ${wide ? 'max-w-2xl' : 'max-w-md'} p-6`} initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ duration: 0.15, ease: 'easeOut' }}>
             <h3 id={id} className="mb-3 text-lg font-semibold text-white">{title}</h3>
             {children}
           </motion.div>

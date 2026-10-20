@@ -13,7 +13,7 @@ export function Toasts({ toasts }: { toasts: Toast[] }) {
         {toasts.map((t) => {
           const Icon = ICON[t.type];
           return (
-            <motion.div key={t.id} layout initial={{ opacity: 0, x: 40, scale: 0.96 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 40, scale: 0.96, transition: { duration: 0.18 } }} transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+            <motion.div key={t.id} layout initial={{ opacity: 0, x: 40, scale: 0.96 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 40, scale: 0.96, transition: { duration: 0.15 } }} transition={{ duration: 0.15, ease: 'easeOut' }}
               className={`glass pointer-events-auto relative flex items-start gap-2.5 overflow-hidden px-4 py-3 text-sm ${TONE[t.type]}`}>
               <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span className="text-slate-100">{t.message}</span>

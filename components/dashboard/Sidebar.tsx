@@ -1,8 +1,10 @@
 'use client';
 import { motion } from 'motion/react';
-import { Boxes, ChartColumn, LayoutDashboard, LogOut, MapPinned, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Boxes, ChartColumn, Ellipsis, LayoutDashboard, LogOut, MapPinned, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { useEscape } from '@/components/ui/Modal';
 import { Pill } from '@/components/ui/Pill';
 import { ROLE_LABEL_KEY } from '@/lib/rbac/permissions';
 import type { MessageKey } from '@/lib/i18n/dictionaries/en';
@@ -28,12 +30,20 @@ export const VIEWS: { id: ViewId; labelKey: MessageKey; icon: typeof Radar; staf
 export function Sidebar({
   view, onView, role, username, onLogout, pendingCount = 0,
 }: { view: ViewId; onView: (v: ViewId) => void; role: Role; username: string; onLogout: () => void; pendingCount?: number }) {
-  const { t } = useI18n();
+  const { t, tr } = useI18n();
+  const [more, setMore] = useState(false);
   const isStaff = role === 'admin' || role === 'superadmin';
   const isSuperadmin = role === 'superadmin';
   const items = VIEWS.filter((v) => (!v.staffOnly || isStaff) && (!v.superadminOnly || isSuperadmin));
 
   const badge = (id: ViewId) => (id === 'users' && isSuperadmin && pendingCount > 0 ? pendingCount : null);
+
+  // Mobile: bar bawah maksimal 5 slot (4 menu utama + "Lainnya"). Sisanya, bahasa, dan keluar ada di panel.
+  const primary = items.slice(0, 4);
+  const rest = items.slice(4);
+  const restActive = rest.some((v) => v.id === view);
+  const restBadge = rest.reduce((sum, v) => sum + (badge(v.id) ?? 0), 0);
+  useEscape(more, () => setMore(false));
 
   return (
     <>
@@ -49,7 +59,7 @@ export function Sidebar({
             const count = badge(v.id);
             return (
               <button key={v.id} onClick={() => onView(v.id)} aria-current={active ? 'page' : undefined} className={`relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'}`}>
-                {active && <motion.span layoutId="nav-active" className="absolute inset-0 rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-300/15 to-violet-400/10" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                {active && <motion.span layoutId="nav-active" className="absolute inset-0 rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-300/15 to-violet-400/10" transition={{ duration: 0.15, ease: 'easeOut' }} />}
                 <v.icon className="relative size-4" aria-hidden /><span className="relative flex-1">{t(v.labelKey)}</span>
                 {count !== null && <span className="relative grid min-w-5 place-items-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">{count}</span>}
               </button>
@@ -63,18 +73,42 @@ export function Sidebar({
         </div>
       </aside>
 
-      {/* Mobile: bar bawah */}
-      <nav data-tour="nav" aria-label={t('nav.main')} className="glass fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-2xl p-1.5 lg:hidden">
-        {items.map((v) => {
-          const count = badge(v.id);
+      {/* Mobile: bar bawah (maks 5 slot) + panel "Lainnya" */}
+      {more && (
+        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>
+          <div id="more-menu" role="dialog" aria-label={tr('Menu lainnya')} className="glass absolute inset-x-3 bottom-[5.25rem] max-h-[70dvh] overflow-y-auto p-2">
+            {rest.map((v) => {
+              const count = badge(v.id);
+              return (
+                <button key={v.id} onClick={() => { onView(v.id); setMore(false); }} aria-current={v.id === view ? 'page' : undefined} className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-sm ${v.id === view ? 'bg-cyan-300/15 text-cyan-100' : 'text-slate-300 hover:bg-white/[0.05]'}`}>
+                  <v.icon className="size-4" aria-hidden /><span className="flex-1">{t(v.labelKey)}</span>
+                  {count !== null && <span className="grid min-w-5 place-items-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">{count}</span>}
+                </button>
+              );
+            })}
+            <div className="mt-2 space-y-2 border-t border-white/10 px-1 pt-3">
+              <div className="flex items-center justify-between gap-2 px-2"><span className="truncate text-sm font-medium text-white">{username}</span><Pill tone={ROLE_TONE[role]}>{t(ROLE_LABEL_KEY[role])}</Pill></div>
+              <LanguageSwitcher dropUp />
+              <button onClick={onLogout} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm text-slate-300 hover:bg-white/[0.05]"><LogOut className="size-4" aria-hidden />{t('nav.logout')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <nav data-tour="nav" aria-label={t('nav.main')} className="glass fixed inset-x-3 bottom-3 z-40 flex justify-around gap-1 rounded-2xl p-1.5 lg:hidden">
+        {primary.map((v) => {
+          const active = v.id === view;
           return (
-            <button key={v.id} onClick={() => onView(v.id)} aria-current={v.id === view ? 'page' : undefined} aria-label={t(v.labelKey)} className={`relative grid min-h-11 min-w-11 cursor-pointer place-items-center rounded-xl px-2 ${v.id === view ? 'bg-cyan-300/15 text-cyan-200' : 'text-slate-400'}`}>
-              <v.icon className="size-5" aria-hidden />
-              {count !== null && <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-amber-400/90 px-1 text-[9px] font-semibold text-slate-900">{count}</span>}
+            <button key={v.id} onClick={() => { setMore(false); onView(v.id); }} aria-current={active ? 'page' : undefined} className={`relative flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-xs ${active ? 'bg-cyan-300/15 text-cyan-100' : 'text-slate-400'}`}>
+              <v.icon className="size-5" aria-hidden /><span className="max-w-full truncate">{t(v.labelKey)}</span>
             </button>
           );
         })}
-        <button onClick={onLogout} aria-label={t('nav.logout')} className="grid min-h-11 min-w-11 cursor-pointer place-items-center rounded-xl px-2 text-slate-400"><LogOut className="size-5" aria-hidden /></button>
+        {rest.length > 0 && (
+          <button onClick={() => setMore((m) => !m)} aria-expanded={more} aria-controls="more-menu" aria-haspopup="dialog" className={`relative flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-xs ${restActive || more ? 'bg-cyan-300/15 text-cyan-100' : 'text-slate-400'}`}>
+            <Ellipsis className="size-5" aria-hidden /><span className="max-w-full truncate">{tr('Lainnya')}</span>
+            {restBadge > 0 && <span className="absolute right-2 top-1 grid min-w-4 place-items-center rounded-full bg-amber-400/90 px-1 text-[10px] font-semibold text-slate-900">{restBadge}</span>}
+          </button>
+        )}
       </nav>
     </>
   );

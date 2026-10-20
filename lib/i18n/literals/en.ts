@@ -493,4 +493,7 @@ export const en: Record<string, string> = {
   "{n} secret dienkripsi ulang, {f} gagal": "{n} secrets re-encrypted, {f} failed",
   "{time} • {a} event, {b} heartbeat": "{time} • {a} events, {b} heartbeats",
   "… (dipotong, gunakan Unduh untuk data lengkap)": "… (truncated, use Download for the full data)",
+  "Lewati ke konten": "Skip to content",
+  "Lainnya": "More",
+  "Menu lainnya": "More menu",
 };

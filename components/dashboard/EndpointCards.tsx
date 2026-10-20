@@ -16,7 +16,7 @@ function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <motion.section whileHover={{ y: -2 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }} className="glass glass-hover flex flex-col gap-3 p-5">
+    <motion.section whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: 'easeOut' }} className="glass glass-hover flex flex-col gap-3 p-5">
       <div className="flex items-center gap-2.5">
         <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">{icon}</span>
         <div><h3 className="text-sm font-semibold text-white">{title}</h3><p className="text-xs text-slate-400">{hint}</p></div>

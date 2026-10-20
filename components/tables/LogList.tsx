@@ -69,7 +69,7 @@ function LogCardInner({ log, isNew, copied, showGame, onOpen, onCopy }: CardProp
   const text = str(p.content) || str(p.text) || str(p.message);
 
   return (
-    <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+    <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}
       className={`glass glass-hover p-4 ${isNew ? 'border-cyan-300/50 shadow-[0_0_24px_-8px_rgb(34_211_238/0.6)]' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -112,7 +112,7 @@ export function LogDrawer({ log, onClose, onCopy, onDownload }: { log: LogEntry 
     <AnimatePresence>
       {log && (
         <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-          <motion.aside role="dialog" aria-modal="true" aria-label={tr('Detail log')} className="glass h-full w-full max-w-xl overflow-y-auto rounded-r-none border-r-0 p-5" initial={{ x: 80, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 80, opacity: 0 }} transition={{ type: 'spring', stiffness: 360, damping: 34 }}>
+          <motion.aside role="dialog" aria-modal="true" aria-label={tr('Detail log')} className="glass h-full w-full max-w-xl overflow-y-auto rounded-r-none border-r-0 p-5" initial={{ x: 80, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 80, opacity: 0 }} transition={{ duration: 0.15, ease: 'easeOut' }}>
             <div className="mb-4 flex items-center justify-between gap-2">
               <h3 className="truncate text-lg font-semibold text-white">{eventLabel(log)}</h3>
               <div className="flex gap-2">

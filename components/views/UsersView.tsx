@@ -63,7 +63,7 @@ export function UsersView({ role, toast, onPendingCount }: { role: Role; toast: 
           return (
             <button key={t.id} role="tab" aria-selected={active} onClick={() => setTab(t.id)}
               className={`relative flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/40 text-white' : 'border-white/10 text-slate-400 hover:text-slate-100'}`}>
-              {active && <motion.span layoutId="users-tab" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+              {active && <motion.span layoutId="users-tab" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ duration: 0.15, ease: 'easeOut' }} />}
               <span className="relative">{tr(t.label)}{counts[t.id] > 0 && ` (${counts[t.id]})`}</span>
             </button>
           );

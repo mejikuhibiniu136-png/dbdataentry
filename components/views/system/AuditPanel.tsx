@@ -77,7 +77,7 @@ export function AuditPanel({ toast }: { toast: Notify }) {
 
       <AnimatePresence initial={false}>
         {calendarOpen && (
-          <motion.div key="cal" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+          <motion.div key="cal" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
             <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4">
               <DateRangeCalendar value={range} onChange={setRange} />
               <p className="mt-3 text-xs text-slate-500">{range.from && !range.to ? tr('Pilih tanggal akhir, atau biarkan untuk satu hari penuh.') : tr('Klik tanggal awal lalu tanggal akhir.')}</p>
