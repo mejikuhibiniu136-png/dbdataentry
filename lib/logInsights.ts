@@ -238,8 +238,8 @@ export function computeInsights(logs: LogEntry[]): Insights {
   };
 }
 
-export function formatMetric(n: number): string {
+export function formatMetric(n: number, fmt: (v: number, o?: Intl.NumberFormatOptions) => string = (v, o) => v.toLocaleString('en-US', o)): string {
   if (!Number.isFinite(n)) return '-';
   if (Math.abs(n) >= 1e6) return n.toExponential(2).replace('e+', 'e');
-  return n.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  return fmt(n, { maximumFractionDigits: 1 });
 }

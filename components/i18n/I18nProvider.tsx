@@ -9,6 +9,8 @@ import { loadDictionary } from '@/lib/i18n/load';
 interface I18nValue {
   locale: Locale;
   t: (key: MessageKey, params?: Params) => string;
+  /** Terjemahkan kalimat Indonesia yang ditulis langsung di komponen; tidak ada terjemahan = kalimat aslinya. Params: "{nama}". */
+  tr: (text: string, params?: Params) => string;
   setLocale: (next: Locale) => Promise<void>;
   n: (value: number, opts?: Intl.NumberFormatOptions) => string;
   dt: (value: Date | string | number, opts?: Intl.DateTimeFormatOptions) => string;
@@ -49,6 +51,7 @@ export function I18nProvider({ locale: initial, dictionary: initialDict, childre
   const value = useMemo<I18nValue>(() => ({
     locale: state.locale,
     t: (key, params) => interpolate(state.dict[key] ?? key, params),
+    tr: (text, params) => interpolate((state.dict as Record<string, string>)[text] ?? text, params),
     setLocale,
     n: (v, o) => formatNumber(state.locale, v, o),
     dt: (v, o) => formatDateTime(state.locale, v, o),

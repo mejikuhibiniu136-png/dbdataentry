@@ -2,11 +2,13 @@
 import { motion } from 'motion/react';
 import { Check, Copy, Terminal, Webhook } from 'lucide-react';
 import { useState } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { copyText, useOrigin } from '@/lib/client';
 
 function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React.ReactNode; title: string; hint: string; value: string; loading: boolean; onResult: (ok: boolean, label: string) => void }) {
+  const { tr } = useI18n();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     const ok = await copyText(value);
@@ -22,8 +24,8 @@ function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React
       {loading ? <Skeleton className="h-16" /> : (
         <div className="flex items-stretch gap-2">
           <code className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 font-mono text-xs leading-relaxed break-all text-cyan-100 select-all">{value}</code>
-          <Button onClick={copy} variant={copied ? 'primary' : 'ghost'} aria-label={`Salin ${title}`} className="flex-none">
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}<span className="hidden sm:inline">{copied ? 'Disalin' : 'Salin'}</span>
+          <Button onClick={copy} variant={copied ? 'primary' : 'ghost'} aria-label={tr('Salin {title}', { title })} className="flex-none">
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}<span className="hidden sm:inline">{copied ? tr('Disalin') : tr('Salin')}</span>
           </Button>
         </div>
       )}
@@ -33,12 +35,13 @@ function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React
 
 // Alamat dibangun dari window.location.origin: tidak ada domain, token, atau API key di kode.
 export function EndpointCards({ onResult }: { onResult: (ok: boolean, label: string) => void }) {
+  const { tr } = useI18n();
   const origin = useOrigin();
   const loading = origin === '';
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <CopyCard icon={<Webhook className="size-4" />} title="Universal Webhook Endpoint" hint="Terima JSON, form, atau teks dari sumber mana pun (POST)" value={`${origin}/api/receiver/universal`} loading={loading} onResult={onResult} />
-      <CopyCard icon={<Terminal className="size-4" />} title="Loadstring Executor" hint="Tempel di executor untuk memantau status akun" value={`loadstring(game:HttpGet("${origin}/scripts/account_status.lua"))()`} loading={loading} onResult={onResult} />
+      <CopyCard icon={<Webhook className="size-4" />} title="Universal Webhook Endpoint" hint={tr('Terima JSON, form, atau teks dari sumber mana pun (POST)')} value={`${origin}/api/receiver/universal`} loading={loading} onResult={onResult} />
+      <CopyCard icon={<Terminal className="size-4" />} title="Loadstring Executor" hint={tr('Tempel di executor untuk memantau status akun')} value={`loadstring(game:HttpGet("${origin}/scripts/account_status.lua"))()`} loading={loading} onResult={onResult} />
     </div>
   );
 }

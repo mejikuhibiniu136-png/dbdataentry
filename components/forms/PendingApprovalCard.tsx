@@ -2,6 +2,7 @@
 import { motion } from 'motion/react';
 import { Clock3, LogOut, ShieldAlert } from 'lucide-react';
 import { useEffect } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { Button } from '@/components/ui/Button';
 import type { UserStatus } from '@/types';
 
@@ -25,6 +26,7 @@ const COPY: Record<UserStatus, { title: string; body: string; icon: typeof Clock
 };
 
 export function PendingApprovalCard({ username, status }: { username: string; status: UserStatus }) {
+  const { tr } = useI18n();
   const { title, body, icon: Icon } = COPY[status];
 
   // Poling ringan: begitu Superadmin approve, pengguna otomatis masuk tanpa perlu login ulang.
@@ -48,11 +50,11 @@ export function PendingApprovalCard({ username, status }: { username: string; st
           <Icon className="size-7" aria-hidden />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-white">{title}</h1>
-          <p className="mt-1 text-sm text-slate-400">Halo, {username}</p>
+          <h1 className="text-xl font-semibold text-white">{tr(title)}</h1>
+          <p className="mt-1 text-sm text-slate-400">{tr('Halo, {name}', { name: username })}</p>
         </div>
-        <p className="text-sm leading-relaxed text-slate-300">{body}</p>
-        <Button onClick={logout} className="mx-auto w-full py-2.5"><LogOut className="size-4" />Keluar</Button>
+        <p className="text-sm leading-relaxed text-slate-300">{tr(body)}</p>
+        <Button onClick={logout} className="mx-auto w-full py-2.5"><LogOut className="size-4" />{tr('Keluar')}</Button>
       </motion.div>
     </main>
   );

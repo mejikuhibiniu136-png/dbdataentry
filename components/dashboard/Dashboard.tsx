@@ -34,7 +34,7 @@ const CONNECTION: Record<Connection, { tone: 'ok' | 'neutral' | 'warn'; key: Mes
 };
 
 export function Dashboard({ username, role }: { username: string; role: Role }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   // RBAC berjenjang: Superadmin (mutlak) > Admin (CRUD akun/game, baca pengguna/log) > Viewer (baca saja).
   const isStaff = role === 'admin' || role === 'superadmin';
   const isSuperadmin = role === 'superadmin';
@@ -99,13 +99,13 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
     if (prevStates.current) {
       for (const a of d.accounts) {
         const before = prevStates.current.get(a.username);
-        if (before === 'ONLINE' && a.state === 'OFFLINE') toast(`${a.displayName || a.username} offline`, 'error');
-        else if (before === 'OFFLINE' && a.state === 'ONLINE') toast(`${a.displayName || a.username} kembali online`, 'success');
+        if (before === 'ONLINE' && a.state === 'OFFLINE') toast(tr('{name} offline', { name: a.displayName || a.username }), 'error');
+        else if (before === 'OFFLINE' && a.state === 'ONLINE') toast(tr('{name} kembali online', { name: a.displayName || a.username }), 'success');
       }
     }
     prevStates.current = next;
     setLoading(false);
-  }, [toast]);
+  }, [toast, tr]);
 
   const connection = useLiveStream({ paused, game, limit, onData: onStream });
 
@@ -113,27 +113,27 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const switchGame = useCallback((slug: string) => { if (slug !== game) { setGame(slug); setLogs([]); setLoading(true); } }, [game]);
   useEffect(() => { if (game !== 'all' && games.length && !games.some((g) => g.slug === game)) switchGame('all'); }, [games, game, switchGame]);
 
-  const gameLabel = game === 'all' ? 'Semua tabel' : games.find((g) => g.slug === game)?.name ?? game;
+  const gameLabel = game === 'all' ? tr('Semua tabel') : games.find((g) => g.slug === game)?.name ?? game;
 
   const run = useCallback(async (fn: () => Promise<unknown>, ok: string) => {
-    try { await fn(); toast(ok, 'success'); } catch (e) { toast(e instanceof Error ? e.message : 'Aksi gagal', 'error'); }
-  }, [toast]);
+    try { await fn(); toast(ok, 'success'); } catch (e) { toast(e instanceof Error ? e.message : tr('Aksi gagal'), 'error'); }
+  }, [toast, tr]);
 
   // Kill-switch: KILL meminta konfirmasi (tidak bisa dibatalkan dari dashboard); PAUSE/RESUME langsung.
   const sendControl = useCallback((a: TrackedAccount, command: ControlCommand) => {
-    const go = () => run(() => apiJson('/api/receiver/control', 'POST', { accountId: a.username, command }), `${command} diantrekan untuk ${a.displayName || a.username}, menunggu skrip mengambil`);
+    const go = () => run(() => apiJson('/api/receiver/control', 'POST', { accountId: a.username, command }), tr('{command} diantrekan untuk {name}, menunggu skrip mengambil', { command, name: a.displayName || a.username }));
     if (command !== 'KILL') return void go();
     setConfirm({
-      title: `Hentikan skrip ${a.username}?`, danger: true, confirmLabel: 'Kill skrip',
-      message: 'Skrip di akun ini berhenti total, UI-nya dihancurkan, dan akun ditandai offline. Perintah menunggu diambil skrip maksimal 2 menit; untuk menjalankan lagi, eksekusi ulang loader di executor.',
+      title: tr('Hentikan skrip {name}?', { name: a.username }), danger: true, confirmLabel: tr('Kill skrip'),
+      message: tr('Skrip di akun ini berhenti total, UI-nya dihancurkan, dan akun ditandai offline. Perintah menunggu diambil skrip maksimal 2 menit; untuk menjalankan lagi, eksekusi ulang loader di executor.'),
       onConfirm: go,
     });
-  }, [run]);
+  }, [run, tr]);
 
-  const copyResult = useCallback((ok: boolean, label: string) => toast(ok ? `${label} disalin` : 'Gagal menyalin; salin manual dari kotak', ok ? 'success' : 'error'), [toast]);
+  const copyResult = useCallback((ok: boolean, label: string) => toast(ok ? tr('{label} disalin', { label }) : tr('Gagal menyalin; salin manual dari kotak'), ok ? 'success' : 'error'), [toast, tr]);
   const copyLog = useCallback(async (l: LogEntry) => {
-    if (await copyText(JSON.stringify(l.payload, null, 2))) { setCopiedId(l.id); setTimeout(() => setCopiedId((c) => (c === l.id ? null : c)), 1500); } else toast('Gagal menyalin', 'error');
-  }, [toast]);
+    if (await copyText(JSON.stringify(l.payload, null, 2))) { setCopiedId(l.id); setTimeout(() => setCopiedId((c) => (c === l.id ? null : c)), 1500); } else toast(tr('Gagal menyalin'), 'error');
+  }, [toast, tr]);
   const copyJob = useCallback(async (a: TrackedAccount) => copyResult(await copyText(a.jobId), 'Job ID'), [copyResult]);
 
   const logout = async () => {
@@ -142,18 +142,18 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
     window.location.href = '/login'; };
 
   const clearLogs = () => setConfirm({
-    title: 'Hapus log?', danger: true, confirmLabel: 'Hapus log',
+    title: tr('Hapus log?'), danger: true, confirmLabel: tr('Hapus log'),
     message: game === 'all'
-      ? 'Semua log (stream gabungan dan seluruh tabel game) akan dihapus. Akun terdaftar, riwayat perangkat, dan daftar akun tidak terpengaruh.'
-      : `Log pada tabel "${gameLabel}" akan dihapus. Akun terdaftar, riwayat perangkat, dan daftar akun tidak terpengaruh.`,
-    onConfirm: () => run(() => apiJson(`/api/logs?game=${encodeURIComponent(game)}`, 'DELETE'), 'Log dibersihkan'),
+      ? tr('Semua log (stream gabungan dan seluruh tabel game) akan dihapus. Akun terdaftar, riwayat perangkat, dan daftar akun tidak terpengaruh.')
+      : tr('Log pada tabel "{name}" akan dihapus. Akun terdaftar, riwayat perangkat, dan daftar akun tidak terpengaruh.', { name: gameLabel }),
+    onConfirm: () => run(() => apiJson(`/api/logs?game=${encodeURIComponent(game)}`, 'DELETE'), tr('Log dibersihkan')),
   });
 
   const submitName = async (name: string) => {
-    if (nameDialog?.mode === 'create') { await apiJson('/api/games', 'POST', { name }); toast(`Tabel "${name}" dibuat`, 'success'); } else if (nameDialog?.game) {
+    if (nameDialog?.mode === 'create') { await apiJson('/api/games', 'POST', { name }); toast(tr('Tabel "{name}" dibuat', { name }), 'success'); } else if (nameDialog?.game) {
       const res = await apiJson<{ data: GameTable }>(`/api/games/${nameDialog.game.slug}`, 'PATCH', { name });
       if (game === nameDialog.game.slug) switchGame(res.data.slug);
-      toast('Nama tabel diubah', 'success');
+      toast(tr('Nama tabel diubah'), 'success');
     }
   };
 
@@ -163,9 +163,9 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       case 'logs': return <LogsView loading={loading} logs={logs} newIds={newIds} copiedId={copiedId} showGame={game === 'all'} gameLabel={gameLabel} gameSlug={game} isAdmin={isStaff} onOpen={setSelected} onCopy={copyLog} onClear={clearLogs} toast={toast} />;
       case 'games': return <GamesView loading={loading && games.length === 0} games={games} isAdmin={isStaff} onCreate={() => setNameDialog({ mode: 'create' })}
         onOpen={(g) => { switchGame(g.slug); setView('logs'); }} onRename={(g) => setNameDialog({ mode: 'rename', game: g })}
-        onDelete={(g) => setConfirm({ title: `Hapus tabel "${g.name}"?`, danger: true, confirmLabel: 'Hapus tabel', message: 'Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.', onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), 'Tabel dihapus') })} />;
+        onDelete={(g) => setConfirm({ title: tr('Hapus tabel "{name}"?', { name: g.name }), danger: true, confirmLabel: tr('Hapus tabel'), message: tr('Tabel beserta seluruh lognya dihapus permanen. Jika sumbernya masih mengirim data, tabel akan dibuat ulang otomatis dari nol.'), onConfirm: () => run(() => apiJson(`/api/games/${g.slug}`, 'DELETE'), tr('Tabel dihapus')) })} />;
       case 'accounts': return <AccountsView loading={loading} accounts={accounts} logs={logs} now={now} isAdmin={isStaff} onCopyJob={copyJob}
-        onDelete={(a) => setConfirm({ title: `Hapus akun ${a.username}?`, danger: true, confirmLabel: 'Hapus akun', message: 'Akun dihapus dari daftar tracker. Akan muncul lagi jika script masih mengirim heartbeat.', onConfirm: () => run(() => apiJson(`/api/accounts?username=${encodeURIComponent(a.username)}`, 'DELETE'), 'Akun dihapus') })} />;
+        onDelete={(a) => setConfirm({ title: tr('Hapus akun {name}?', { name: a.username }), danger: true, confirmLabel: tr('Hapus akun'), message: tr('Akun dihapus dari daftar tracker. Akan muncul lagi jika script masih mengirim heartbeat.'), onConfirm: () => run(() => apiJson(`/api/accounts?username=${encodeURIComponent(a.username)}`, 'DELETE'), tr('Akun dihapus')) })} />;
       case 'live': return <LiveView loading={loading} accounts={accounts} logs={logs} controls={controls} now={now} canControl={isStaff} onControl={sendControl} />;
       case 'analytics': return <AnalyticsView loading={loading} logs={logs} gameLabel={gameLabel} />;
       case 'sessions': return <SessionsView role={role} toast={toast} />;
@@ -173,7 +173,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       case 'system': return isSuperadmin ? <SystemView toast={toast} /> : null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isStaff, isSuperadmin, role, copyResult, copyLog, copyJob, toast, controls, sendControl]);
+  }, [view, loading, logs, games, accounts, now, gameLabel, newIds, copiedId, game, isStaff, isSuperadmin, role, copyResult, copyLog, copyJob, toast, controls, sendControl, tr]);
 
   const showSwitcher = view === 'overview' || view === 'logs' || view === 'analytics';
   const current = VIEWS.find((v) => v.id === view);
@@ -202,8 +202,8 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
         </header>
 
         {showSwitcher && (
-          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Pilih tabel game">
-            {[{ slug: 'all', name: 'Semua' }, ...games].map((g) => {
+          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={tr('Pilih tabel game')}>
+            {[{ slug: 'all', name: tr('Semua') }, ...games].map((g) => {
               const active = g.slug === game;
               return (
                 <button key={g.slug} role="tab" aria-selected={active} onClick={() => switchGame(g.slug)} className={`relative flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/40 text-white' : 'border-white/10 text-slate-400 hover:text-slate-100'}`}>
@@ -223,8 +223,8 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       <LogDrawer log={selected} onClose={() => setSelected(null)} onCopy={copyLog} onDownload={(l) => downloadText(`log-${l.id}.json`, JSON.stringify(l, null, 2))} />
       <ConfirmDialog dialog={confirm} onClose={() => setConfirm(null)} />
       <NameDialog open={Boolean(nameDialog)} onClose={() => setNameDialog(null)}
-        title={nameDialog?.mode === 'create' ? 'Buat tabel game' : 'Ganti nama tabel'} label="Nama game / sumber" initial={nameDialog?.game?.name ?? ''}
-        submitLabel={nameDialog?.mode === 'create' ? 'Buat' : 'Simpan'} onSubmit={submitName} />
+        title={nameDialog?.mode === 'create' ? tr('Buat tabel game') : tr('Ganti nama tabel')} label={tr('Nama game / sumber')} initial={nameDialog?.game?.name ?? ''}
+        submitLabel={nameDialog?.mode === 'create' ? tr('Buat') : tr('Simpan')} onSubmit={submitName} />
       <Toasts toasts={toasts} />
     </div>
   );

@@ -32,7 +32,8 @@ describe('i18n', () => {
     const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
     for (const l of LOCALES) {
       const d = await loadDictionary(l);
-      expect(Object.keys(d).sort(), l).toEqual(keys);
+      // Kamus yang dimuat = kunci pesan (wajib persis sama dengan en) + terjemahan literal tr() (kunci kalimat Indonesia, dicek di i18n-literals.test.ts).
+      expect(Object.keys(d).filter((k) => k in en).sort(), l).toEqual(keys);
       for (const k of keys) {
         const v = (d as Record<string, string>)[k];
         expect(v.trim().length, `${l}:${k}`).toBeGreaterThan(0);

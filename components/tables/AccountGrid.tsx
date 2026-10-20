@@ -5,6 +5,7 @@ import { memo } from 'react';
 import { Sparkline } from '@/components/charts/Charts';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { Button } from '@/components/ui/Button';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { STATE_COLOR, StatusPill } from '@/components/ui/Pill';
 import type { AccountState } from '@/lib/accounts';
 import { safeImageUrl } from '@/lib/client';
@@ -24,6 +25,7 @@ function Metric({ label, value, unit, tone }: { label: string; value: number | u
 }
 
 function AccountCardInner({ acc, state, uptime, syncText, latency, isAdmin, onDelete, onCopyJob }: Props) {
+  const { tr } = useI18n();
   const name = acc.displayName || acc.username;
   const avatar = safeImageUrl(acc.avatarUrl);
   const color = STATE_COLOR[state];
@@ -43,26 +45,26 @@ function AccountCardInner({ acc, state, uptime, syncText, latency, isAdmin, onDe
       </div>
 
       <div className="space-y-1.5 text-sm">
-        <div className="flex items-center justify-between gap-2"><span className="truncate text-slate-300"><span className="text-slate-500">Game:</span> {acc.gameName || '-'}</span><b className="tabular flex-none" style={{ color }}>Aktif {uptime}</b></div>
+        <div className="flex items-center justify-between gap-2"><span className="truncate text-slate-300"><span className="text-slate-500">{tr('Game:')}</span> {acc.gameName || '-'}</span><b className="tabular flex-none" style={{ color }}>{tr('Aktif {t}', { t: uptime })}</b></div>
         <div className="truncate font-mono text-xs text-slate-500">Job ID: {acc.jobId || 'Local/Private'}</div>
-        <div className="flex items-center justify-between text-xs text-slate-400"><span>User ID: {acc.userId || '-'}</span><span>Latensi: <AnimatedNumber value={acc.latencyMs} suffix="ms" /></span></div>
+        <div className="flex items-center justify-between text-xs text-slate-400"><span>User ID: {acc.userId || '-'}</span><span>{tr('Latensi:')} <AnimatedNumber value={acc.latencyMs} suffix="ms" /></span></div>
       </div>
 
       {state !== 'OFFLINE' && (acc.fps != null || acc.pingMs != null || acc.memoryMb != null) && (
-        <div className="grid grid-cols-3 gap-2 text-center" aria-label="Telemetri klien">
+        <div className="grid grid-cols-3 gap-2 text-center" aria-label={tr('Telemetri klien')}>
           <Metric label="FPS" value={acc.fps} unit="" tone={acc.fps == null ? undefined : acc.fps >= 50 ? '#34d399' : acc.fps >= 30 ? '#fbbf24' : '#f87171'} />
           <Metric label="Ping" value={acc.pingMs} unit="ms" tone={acc.pingMs == null ? undefined : acc.pingMs < 150 ? '#34d399' : acc.pingMs < 400 ? '#fbbf24' : '#f87171'} />
-          <Metric label="Memori" value={acc.memoryMb} unit="MB" />
+          <Metric label={tr('Memori')} value={acc.memoryMb} unit="MB" />
         </div>
       )}
 
-      <div><div className="mb-0.5 text-[11px] text-slate-500">Tren latensi</div><Sparkline values={latency} color={color} label={`Latensi ${acc.username}`} /></div>
+      <div><div className="mb-0.5 text-[11px] text-slate-500">{tr('Tren latensi')}</div><Sparkline values={latency} color={color} label={tr('Latensi {name}', { name: acc.username })} /></div>
 
       <div className="mt-auto flex items-center justify-between gap-2 text-xs text-slate-500">
-        <span>Sync: {syncText}</span>
+        <span>{tr('Sync: {t}', { t: syncText })}</span>
         <span className="flex gap-1.5">
           {acc.jobId && <Button size="sm" onClick={() => onCopyJob(acc)}><Copy className="size-3.5" />Job ID</Button>}
-          {isAdmin && <Button size="sm" variant="danger" onClick={() => onDelete(acc)} aria-label={`Hapus akun ${acc.username}`}><Trash2 className="size-3.5" /></Button>}
+          {isAdmin && <Button size="sm" variant="danger" onClick={() => onDelete(acc)} aria-label={tr('Hapus akun {name}', { name: acc.username })}><Trash2 className="size-3.5" /></Button>}
         </span>
       </div>
     </motion.article>

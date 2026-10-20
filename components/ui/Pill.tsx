@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import type { AccountState } from '@/lib/accounts';
@@ -27,12 +28,13 @@ export const STATE_COLOR: Record<AccountState, string> = { ONLINE: '#34d399', ST
 
 // Label status bertukar dengan crossfade; titik berdenyut hanya saat ONLINE.
 export function StatusPill({ state }: { state: AccountState }) {
+  const { tr } = useI18n();
   return (
     <Pill tone={STATE_TONE[state]}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.span key={state} className="inline-flex items-center gap-1.5" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}>
           <span className={`size-1.5 rounded-full bg-current ${state === 'ONLINE' ? 'animate-pulse-dot' : ''}`} />
-          {state}
+          {tr(state === 'ONLINE' ? 'Online' : state === 'STALLED' ? 'Stalled' : 'Offline')}
         </motion.span>
       </AnimatePresence>
     </Pill>

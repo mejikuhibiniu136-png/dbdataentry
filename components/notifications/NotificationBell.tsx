@@ -2,7 +2,9 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Bell, BellRing, CheckCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { apiJson } from '@/lib/client';
+import { timeAgo } from '@/lib/logStats';
 import type { NotificationFeed, NotificationItem } from '@/lib/announcements';
 
 const LEVEL: Record<NotificationItem['level'], { dot: string; ring: string; label: string }> = {
@@ -13,17 +15,12 @@ const LEVEL: Record<NotificationItem['level'], { dot: string; ring: string; labe
 const POLL_MS = 60_000;
 const ALERT_MS = 9000;
 
-const ago = (iso: string): string => {
-  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
-  if (s < 60) return 'baru saja';
-  if (s < 3600) return `${Math.floor(s / 60)} mnt lalu`;
-  if (s < 86400) return `${Math.floor(s / 3600)} jam lalu`;
-  return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-};
 
 // Lonceng di bilah atas: lencana merah = jumlah belum dibaca, menu tarik turun = riwayat pesan.
 // Setelah masuk, pengumuman baru sejak login sebelumnya muncul sebagai peringatan melayang (sekali per login).
 export function NotificationBell({ username }: { username: string }) {
+  const { tr, locale, dt } = useI18n();
+  const ago = (iso: string): string => (Date.now() - Date.parse(iso) > 7 * 86_400_000 ? dt(iso, { day: 'numeric', month: 'short' }) : timeAgo(Date.parse(iso), Date.now(), locale));
   const [feed, setFeed] = useState<NotificationFeed | null>(null);
   const [open, setOpen] = useState(false);
   const [alert, setAlert] = useState<NotificationItem[] | null>(null);
@@ -76,7 +73,7 @@ export function NotificationBell({ username }: { username: string }) {
   const unread = feed?.unread ?? 0;
   return (
     <div ref={wrap} className="relative">
-      <button type="button" onClick={() => { setOpen((v) => !v); setAlert(null); }} aria-haspopup="true" aria-expanded={open} aria-label={unread ? `Notifikasi, ${unread} belum dibaca` : 'Notifikasi'}
+      <button type="button" onClick={() => { setOpen((v) => !v); setAlert(null); }} aria-haspopup="true" aria-expanded={open} aria-label={unread ? tr('Notifikasi, {n} belum dibaca', { n: unread }) : tr('Notifikasi')}
         className="relative grid size-9 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:border-white/20 hover:bg-white/[0.08]">
         {unread ? <BellRing className="size-4" aria-hidden /> : <Bell className="size-4" aria-hidden />}
         <AnimatePresence>
@@ -91,20 +88,20 @@ export function NotificationBell({ username }: { username: string }) {
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-            className="glass fixed inset-x-3 top-16 z-50 max-h-[70vh] overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[24rem]" role="region" aria-label="Riwayat notifikasi">
+            className="glass fixed inset-x-3 top-16 z-50 max-h-[70vh] overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[24rem]" role="region" aria-label={tr('Riwayat notifikasi')}>
             <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-              <h2 className="text-sm font-semibold text-white">Notifikasi</h2>
-              <button type="button" disabled={!unread} onClick={() => void markRead()} className="flex cursor-pointer items-center gap-1.5 text-xs text-cyan-300 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline"><CheckCheck className="size-3.5" aria-hidden />Tandai semua dibaca</button>
+              <h2 className="text-sm font-semibold text-white">{tr('Notifikasi')}</h2>
+              <button type="button" disabled={!unread} onClick={() => void markRead()} className="flex cursor-pointer items-center gap-1.5 text-xs text-cyan-300 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline"><CheckCheck className="size-3.5" aria-hidden />{tr('Tandai semua dibaca')}</button>
             </div>
             <ul className="max-h-[calc(70vh-3rem)] divide-y divide-white/5 overflow-y-auto">
-              {!feed ? <li className="px-4 py-6 text-center text-sm text-slate-500">Memuat…</li> : feed.items.length === 0 ? <li className="px-4 py-8 text-center text-sm text-slate-500">Belum ada notifikasi.</li> : feed.items.map((n) => (
+              {!feed ? <li className="px-4 py-6 text-center text-sm text-slate-500">{tr('Memuat…')}</li> : feed.items.length === 0 ? <li className="px-4 py-8 text-center text-sm text-slate-500">{tr('Belum ada notifikasi.')}</li> : feed.items.map((n) => (
                 <li key={n.id}>
                   <button type="button" onClick={() => { if (!n.read) void markRead([n.id]); }} className={`flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.05] ${n.read ? '' : 'bg-cyan-300/[0.05]'}`}>
                     <span className={`mt-1.5 size-2 flex-none rounded-full ${n.read ? 'bg-slate-600' : LEVEL[n.level].dot}`} aria-hidden />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2"><span className={`truncate text-sm ${n.read ? 'text-slate-300' : 'font-medium text-white'}`}>{n.title}</span><time className="flex-none text-[11px] text-slate-500" dateTime={n.at}>{ago(n.at)}</time></span>
                       {n.body && <span className="mt-0.5 line-clamp-3 block whitespace-pre-line break-words text-xs text-slate-400">{n.body}</span>}
-                      <span className="mt-1 block text-[11px] text-slate-600">{LEVEL[n.level].label} · {n.by}{n.audience === 'staff' ? ' · khusus staf' : ''}</span>
+                      <span className="mt-1 block text-[11px] text-slate-600">{tr(LEVEL[n.level].label)} · {n.by}{n.audience === 'staff' ? ` · ${tr('khusus staf')}` : ''}</span>
                     </span>
                   </button>
                 </li>
@@ -121,11 +118,11 @@ export function NotificationBell({ username }: { username: string }) {
             <div className="flex items-start gap-3">
               <BellRing className="mt-0.5 size-4 flex-none text-cyan-300" aria-hidden />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-white">{alert.length > 1 ? `${alert.length} pengumuman baru` : 'Pengumuman baru'}</p>
+                <p className="text-sm font-semibold text-white">{alert.length > 1 ? tr('{n} pengumuman baru', { n: alert.length }) : tr('Pengumuman baru')}</p>
                 <p className="mt-0.5 truncate text-xs text-slate-300">{alert[0].title}</p>
-                <button type="button" onClick={() => { setAlert(null); setOpen(true); }} className="mt-2 cursor-pointer text-xs text-cyan-300 hover:underline">Lihat semua</button>
+                <button type="button" onClick={() => { setAlert(null); setOpen(true); }} className="mt-2 cursor-pointer text-xs text-cyan-300 hover:underline">{tr('Lihat semua')}</button>
               </div>
-              <button type="button" onClick={() => setAlert(null)} aria-label="Tutup peringatan" className="grid size-7 flex-none cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-white/[0.08]"><X className="size-4" /></button>
+              <button type="button" onClick={() => setAlert(null)} aria-label={tr('Tutup peringatan')} className="grid size-7 flex-none cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-white/[0.08]"><X className="size-4" /></button>
             </div>
           </motion.div>
         )}

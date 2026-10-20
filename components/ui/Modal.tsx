@@ -1,6 +1,7 @@
 'use client';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { Button } from '@/components/ui/Button';
 
 export function useEscape(active: boolean, onClose: () => void) {
@@ -32,6 +33,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 export interface ConfirmState { title: string; message: string; confirmLabel?: string; danger?: boolean; onConfirm: () => void }
 
 export function ConfirmDialog({ dialog, onClose }: { dialog: ConfirmState | null; onClose: () => void }) {
+  const { tr } = useI18n();
   const last = useRef<ConfirmState | null>(null);
   if (dialog) last.current = dialog;
   const d = dialog ?? last.current;
@@ -39,8 +41,8 @@ export function ConfirmDialog({ dialog, onClose }: { dialog: ConfirmState | null
     <Modal open={Boolean(dialog)} onClose={onClose} title={d?.title ?? ''}>
       <p className="mb-5 text-sm leading-relaxed text-slate-300">{d?.message}</p>
       <div className="flex justify-end gap-2">
-        <Button onClick={onClose} autoFocus>Batal</Button>
-        <Button variant={d?.danger ? 'danger' : 'primary'} onClick={() => { onClose(); d?.onConfirm(); }}>{d?.confirmLabel ?? 'Ya, lanjutkan'}</Button>
+        <Button onClick={onClose} autoFocus>{tr('Batal')}</Button>
+        <Button variant={d?.danger ? 'danger' : 'primary'} onClick={() => { onClose(); d?.onConfirm(); }}>{d?.confirmLabel ?? tr('Ya, lanjutkan')}</Button>
       </div>
     </Modal>
   );
@@ -48,6 +50,7 @@ export function ConfirmDialog({ dialog, onClose }: { dialog: ConfirmState | null
 
 // Dialog satu input teks (buat / ganti nama tabel).
 export function NameDialog({ open, title, label, initial, submitLabel, onClose, onSubmit }: { open: boolean; title: string; label: string; initial: string; submitLabel: string; onClose: () => void; onSubmit: (name: string) => Promise<void> }) {
+  const { tr } = useI18n();
   const [value, setValue] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +61,7 @@ export function NameDialog({ open, title, label, initial, submitLabel, onClose, 
     e.preventDefault();
     if (busy) return;
     setBusy(true); setError('');
-    try { await onSubmit(value); onClose(); } catch (err) { setError(err instanceof Error ? err.message : 'Gagal'); } finally { setBusy(false); }
+    try { await onSubmit(value); onClose(); } catch (err) { setError(err instanceof Error ? err.message : tr('Gagal')); } finally { setBusy(false); }
   };
 
   return (
@@ -70,8 +73,8 @@ export function NameDialog({ open, title, label, initial, submitLabel, onClose, 
           {error && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" onClick={onClose}>Batal</Button>
-          <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Menyimpan…' : submitLabel}</Button>
+          <Button type="button" onClick={onClose}>{tr('Batal')}</Button>
+          <Button type="submit" variant="primary" disabled={busy}>{busy ? tr('Menyimpan…') : submitLabel}</Button>
         </div>
       </form>
     </Modal>

@@ -1,3 +1,5 @@
+import type { Locale } from '@/lib/i18n/config';
+import { formatRelative } from '@/lib/i18n/format';
 // Fungsi murni untuk dashboard (tanpa React/Redis).
 import type { GameTable, LogEntry, TrackedAccount } from '@/types';
 
@@ -152,9 +154,10 @@ export function formatDuration(totalSeconds: number): string {
   return h > 0 ? `${h}j ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-export function timeAgo(thenMs: number, nowMs = Date.now()): string {
+export function timeAgo(thenMs: number, nowMs = Date.now(), locale?: Locale): string {
   if (!Number.isFinite(thenMs)) return '-';
   const s = Math.max(0, Math.floor((nowMs - thenMs) / 1000));
+  if (locale) return formatRelative(locale, s < 5 ? 0 : -s); // sesuai bahasa aktif; tanpa locale = format Indonesia lama
   if (s < 5) return 'baru saja';
   if (s < 60) return `${s} dtk lalu`;
   const m = Math.floor(s / 60);
