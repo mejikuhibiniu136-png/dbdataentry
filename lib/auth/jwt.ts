@@ -35,13 +35,16 @@ export async function verifySession(token: string, secret: string, nowMs = Date.
     });
     const role = payload.role;
     if (typeof payload.sub !== 'string' || !ROLES.includes(role as Role)) return null;
-    // Token lama (sebelum RBAC berjenjang) tidak punya field status: anggap aktif agar sesi lama tidak langsung logout.
-    const status = STATUSES.includes(payload.status as UserStatus) ? (payload.status as UserStatus) : 'active';
+    // Token tanpa status / sid (sebelum RBAC berjenjang & registri sesi) tidak lagi diterima: tidak bisa dicabut per sesi,
+    // jadi akan jadi jalur downgrade bila JWT_SECRET pernah bocor. Pengguna lama cukup login ulang (umur token 8 jam).
+    if (!STATUSES.includes(payload.status as UserStatus)) return null;
+    if (typeof payload.sid !== 'string' || !/^[0-9a-f-]{36}$/i.test(payload.sid)) return null;
+    const status = payload.status as UserStatus;
     return {
       sub: payload.sub,
       role: role as Role,
       status,
-      sid: typeof payload.sid === 'string' ? payload.sid : '',
+      sid: payload.sid,
       iat: payload.iat,
       exp: payload.exp,
     };

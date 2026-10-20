@@ -145,8 +145,11 @@ d('route: unduhan terlindungi, laporan, kill-switch', () => {
     expect((await readLeaks(redis, 5))[0]).toMatchObject({ reason: 'hwid_mismatch', source: 'poll' });
 
     expect((await (await ackReq(wm.token, HW1, state.id)).json()).acked).toBe(true);
-    expect(await (await poll(wm.token, HW1)).json()).toMatchObject({ cmd: 'NONE' });
-    expect((await (await ackReq(wm.token, HW1, state.id)).json()).acked).toBe(false);
+    expect(await (await poll(wm.token, HW1)).json()).toMatchObject({ cmd: 'NONE' }); // salinan ini sudah ack
+    // Ack satu salinan TIDAK menghapus perintah bagi salinan lain (token tak terikat akun: tidak boleh jadi tombol "hapus KILL").
+    const wm2 = wmOf(await unseal(await download(key, HW1), key))!;
+    expect(await (await poll(wm2.token, HW1)).json()).toMatchObject({ cmd: 'KILL', id: state.id });
+    expect((await (await ackReq(wm.token, HW1, 'id-asing')).json()).acked).toBe(false);
   });
 
   it('POST: tanpa sesi ditolak, tanpa Origin / Origin asing 403, akun tak dikenal 404, perintah/ttl tak valid 400', async () => {

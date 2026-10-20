@@ -1,4 +1,6 @@
-import { requireSession } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/rbac/guard';
+import { hitRateLimit } from '@/lib/rateLimit';
+import { KEYS } from '@/lib/keys';
 import { errorResponse, json } from '@/lib/http';
 import { EXPORT_MIME, exportStream, parseBound, type ExportFormat } from '@/lib/logSearch';
 import { getRedis } from '@/lib/redis';
@@ -11,8 +13,10 @@ const SLUG = /^[a-z0-9-]{1,64}$/;
 // ?game=<slug>|all &format=csv|json|ndjson  &q=<kueri pencarian> &from=&to=  (filter sama dengan /api/logs/search)
 export async function GET(request: Request) {
   try {
-    const { denied } = await requireSession();
+    const { session, denied } = await requirePermission('logs:export');
     if (denied) return denied;
+    const rl = await hitRateLimit(getRedis(), KEYS.rateLimit('logexport', session.sub.toLowerCase()), { limit: 10, windowSeconds: 60 });
+    if (!rl.allowed) return json({ success: false, message: 'Terlalu banyak ekspor' }, 429, { 'Retry-After': String(rl.retryAfterSeconds) });
     const params = new URL(request.url).searchParams;
     const game = params.get('game') ?? 'all';
     if (game !== 'all' && !SLUG.test(game)) return json({ success: false, message: 'Parameter game tidak valid' }, 400);

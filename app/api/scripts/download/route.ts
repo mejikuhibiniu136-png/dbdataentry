@@ -28,6 +28,10 @@ function readKey(headers: Headers): string {
 export async function GET(request: Request) {
   try {
     const redis = getRedis();
+    // Limit per IP SEBELUM lookup key / penulisan security event: tebakan key tidak bisa menulis ke Redis tanpa batas.
+    const pre = await hitRateLimit(redis, KEYS.rateLimit('script-dl-ip', getClientIp(request.headers)), { limit: 60, windowSeconds: 60 });
+    if (!pre.allowed) throw new HttpError(429, 'Terlalu banyak request', { 'Retry-After': String(pre.retryAfterSeconds) });
+
     const provided = readKey(request.headers);
     const key = provided ? await authenticateApiKey(redis, provided) : null;
     if (!key) {

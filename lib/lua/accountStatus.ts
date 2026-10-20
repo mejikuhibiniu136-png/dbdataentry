@@ -297,10 +297,20 @@ local function send(eventType, maxAttempts)
 		end
 
 		local startedAt = os.clock()
+		local postHeaders = { ["Content-Type"] = "application/json" }
+		local hdrFn = sharedEnv.__dbdataentry_hdr
+		if type(hdrFn) == "function" then
+			local okHdr, extra = pcall(hdrFn)
+			if okHdr and type(extra) == "table" then
+				for k, v in pairs(extra) do
+					postHeaders[k] = v
+				end
+			end
+		end
 		local ok, res = pcall(httpRequest, {
 			Url = CONFIG.URL,
 			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
+			Headers = postHeaders,
 			Body = body,
 		})
 		local rtt = math.floor((os.clock() - startedAt) * 1000 + 0.5)

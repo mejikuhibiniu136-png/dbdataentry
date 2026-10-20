@@ -25,6 +25,9 @@ export async function POST(request: Request) {
       await recordSecurityEvent(redis, 'auth_fail');
       throw new HttpError(403, 'Token tidak valid');
     }
+    // Per token: membatasi penyalahgunaan endpoint ini sebagai oracle HWID.
+    const perToken = await hitRateLimit(redis, KEYS.rateLimit('script-report-jti', payload.jti), { limit: 5, windowSeconds: 3600 });
+    if (!perToken.allowed) throw new HttpError(429, 'Terlalu banyak laporan', { 'Retry-After': String(perToken.retryAfterSeconds) });
     const hwid = normalizeHwid(body.hwid);
     if (!hwid) throw new HttpError(400, 'HWID tidak valid');
 

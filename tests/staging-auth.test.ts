@@ -82,8 +82,8 @@ describe('staging', () => {
 describe('jwt', () => {
   const secret = 'x'.repeat(40);
   it('sign + verify', async () => {
-    const t = await signSession({ sub: 'alice', role: 'viewer', status: 'active', sid: 's1' }, secret);
-    expect(await verifySession(t, secret)).toMatchObject({ sub: 'alice', role: 'viewer', status: 'active', sid: 's1' });
+    const t = await signSession({ sub: 'alice', role: 'viewer', status: 'active', sid: '11111111-1111-4111-8111-111111111111' }, secret);
+    expect(await verifySession(t, secret)).toMatchObject({ sub: 'alice', role: 'viewer', status: 'active', sid: '11111111-1111-4111-8111-111111111111' });
   });
   it('menolak secret salah, token diubah, kedaluwarsa, dan alg none', async () => {
     const now = Date.now();

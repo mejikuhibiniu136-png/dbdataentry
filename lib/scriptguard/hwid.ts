@@ -15,8 +15,15 @@ export function normalizeHwid(value: unknown): string | null {
   return typeof value === 'string' && HWID_RE.test(value) ? value : null;
 }
 
+// Pepper HWID dipisah dari KEK: merotasi ENCRYPTION_KEY tidak lagi mengubah semua digest HWID. Bila HWID_PEPPER belum diisi,
+// jatuh ke ENCRYPTION_KEY saat ini (perilaku lama). Migrasi: isi HWID_PEPPER dengan nilai ENCRYPTION_KEY yang berlaku sekarang.
+const pepperHex = (env: Record<string, string | undefined>): string => {
+  const p = (env.HWID_PEPPER ?? '').trim();
+  return /^[0-9a-fA-F]{64}$/.test(p) ? p : getEncryptionKeyHex(env);
+};
+
 const hwidKey = (env: Record<string, string | undefined> = process.env): Buffer =>
-  Buffer.from(hkdfSync('sha256', Buffer.from(getEncryptionKeyHex(env), 'hex'), Buffer.from('dbdataentry/hwid', 'utf8'), Buffer.from('hmac-v1', 'utf8'), 32));
+  Buffer.from(hkdfSync('sha256', Buffer.from(pepperHex(env), 'hex'), Buffer.from('dbdataentry/hwid', 'utf8'), Buffer.from('hmac-v1', 'utf8'), 32));
 
 /** 32 karakter hex (128 bit). Stabil selama ENCRYPTION_KEY tidak berganti (rotasi KEK lama mengubahnya: reset binding). */
 export function hwidDigest(hwid: string, env?: Record<string, string | undefined>): string {

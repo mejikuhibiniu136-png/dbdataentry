@@ -43,8 +43,23 @@ function M.request(method, path, body)
 	return res.StatusCode, decoded
 end
 
+-- Header identitas untuk telemetri (skrip utama menggabungkannya ke POST ingest lewat env.__dbdataentry_hdr).
+function M.headers()
+	if not S.token then
+		return {}
+	end
+	local h = { ["x-wm"] = S.token }
+	if S.hwid then
+		h["x-hwid"] = S.hwid
+	end
+	return h
+end
+local envHdr = (getgenv and getgenv()) or _G
+envHdr.__dbdataentry_hdr = M.headers
+
 function M.wipe()
 	S.token = nil
+	envHdr.__dbdataentry_hdr = nil
 end
 
 return M

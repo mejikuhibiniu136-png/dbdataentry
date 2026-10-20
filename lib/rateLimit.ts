@@ -27,3 +27,15 @@ export async function hitRateLimit(
 export async function resetRateLimit(redis: RedisLike, key: string): Promise<void> {
   await redis.del(key);
 }
+
+/** Hanya MEMBACA counter (tanpa menaikkannya): dipakai untuk limit yang menghitung kegagalan saja. */
+export async function isLimited(redis: RedisLike, key: string, limit: number): Promise<boolean> {
+  return (Number(await redis.get(key)) || 0) >= limit;
+}
+
+/** Menaikkan counter kegagalan; jendela dipasang saat kegagalan pertama. */
+export async function recordFailure(redis: RedisLike, key: string, windowSeconds: number): Promise<number> {
+  const n = await redis.incr(key);
+  if (n === 1) await redis.expire(key, windowSeconds);
+  return n;
+}

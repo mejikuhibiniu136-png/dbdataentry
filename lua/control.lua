@@ -12,7 +12,7 @@ local env = (getgenv and getgenv()) or _G
 
 local POLL_INTERVAL = 5 -- detik; server membatasi 600 poll/menit per key
 local MAX_BACKOFF = 6 -- pengali jeda maksimum saat server tak terjangkau (tidak pernah menghentikan skrip)
-local HOOKS = { "__dbdataentry_stop", "__dbdataentry_offline", "__dbdataentry_setpaused", "__dbdataentry_ready", "__dbdataentry_ctl", "__dbdataentry_ctl_stop" }
+local HOOKS = { "__dbdataentry_stop", "__dbdataentry_offline", "__dbdataentry_setpaused", "__dbdataentry_ready", "__dbdataentry_ctl", "__dbdataentry_ctl_stop", "__dbdataentry_hdr" }
 
 local M = { running = false, killed = false }
 local lastId = nil -- id perintah PAUSE/RESUME terakhir yang dijalankan (dedupe: server mengirim ulang sampai ack)

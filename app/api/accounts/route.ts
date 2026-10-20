@@ -1,5 +1,6 @@
 import { actorOf, recordAudit } from '@/lib/audit';
-import { requireAdmin, requireSession } from '@/lib/auth/session';
+import { requireAdmin } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/rbac/guard';
 import { applyOfflineTimeout, normalizeUsername } from '@/lib/accounts';
 import { deleteAccount, readAccounts } from '@/lib/ingest/store';
 import { HttpError, errorResponse, json } from '@/lib/http';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const { denied } = await requireSession();
+    const { denied } = await requirePermission('accounts:read');
     if (denied) return denied;
     const now = Date.now();
     return json({ success: true, data: (await readAccounts(getRedis())).map((a) => applyOfflineTimeout(a, now)) });

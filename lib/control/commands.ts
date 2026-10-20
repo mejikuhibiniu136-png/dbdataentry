@@ -87,3 +87,31 @@ export async function readControlStates(redis: RedisLike, nowMs = Date.now()): P
   }
   return out;
 }
+
+// ---------- Ack per salinan skrip (T1) ----------
+// Kredensial kanal kontrol (token publik) tidak terikat ke akun, jadi ack TIDAK boleh menghapus perintah untuk semua
+// orang: ack hanya menandai salinan skrip itu (jti). Perintah tetap hidup sampai TTL-nya habis.
+
+/** Perintah yang belum di-ack OLEH salinan ini. */
+export async function peekCommandFor(redis: RedisLike, account: string, scriptId: string): Promise<ControlState | null> {
+  const cmd = await peekCommand(redis, account);
+  if (!cmd) return null;
+  return Number(await redis.hexists(KEYS.controlAcked(cmd.id), scriptId)) === 1 ? null : cmd;
+}
+
+export async function ackCommandFor(redis: RedisLike, account: string, id: string, scriptId: string, nowMs = Date.now()): Promise<boolean> {
+  if (typeof id !== 'string' || id.length > 64 || !scriptId) return false;
+  const cmd = await peekCommand(redis, account);
+  if (!cmd || cmd.id !== id) return false;
+  const key = KEYS.controlAcked(id);
+  await redis.hset(key, { [scriptId.slice(0, 64)]: String(nowMs) });
+  await redis.expire(key, TTL_SECONDS.max + 60);
+  const field = account.toLowerCase();
+  const current = asState(await redis.hget(KEYS.controlState, field));
+  // ackedAt = "ada salinan yang mengaku menjalankan", bukan bukti (token publik anonim). Bukti sebenarnya: event OFFLINE akun itu.
+  if (current && current.id === id && !current.ackedAt) {
+    await redis.hset(KEYS.controlState, { [field]: JSON.stringify({ ...current, ackedAt: new Date(nowMs).toISOString() }) });
+  }
+  await redis.incr(KEYS.streamSeq);
+  return true;
+}

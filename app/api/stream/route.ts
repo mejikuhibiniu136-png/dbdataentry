@@ -1,4 +1,6 @@
-import { requireSession } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/rbac/guard';
+import { hitRateLimit } from '@/lib/rateLimit';
+import { KEYS } from '@/lib/keys';
 import { applyOfflineTimeout } from '@/lib/accounts';
 import { readControlStates } from '@/lib/control/commands';
 import { envInt } from '@/lib/env';
@@ -19,12 +21,15 @@ const MAX_STREAM_MS = 55_000;
 // SSE. Hemat command: tiap tick hanya membaca 1 key penanda perubahan (logs:seq);
 // data penuh dikirim hanya saat penanda berubah. Parameter: ?game=<slug>|all &limit=10..500
 export async function GET(request: Request) {
-  const { denied } = await requireSession();
+  const { session, denied } = await requirePermission('logs:read');
   if (denied) return denied;
 
   let redis;
   try {
     redis = getRedis();
+    // Tiap koneksi SSE memegang timer + pembacaan Redis selama ~55 dtk: batasi pembukaan koneksi per pengguna.
+    const rl = await hitRateLimit(redis, KEYS.rateLimit('sse', session.sub.toLowerCase()), { limit: 12, windowSeconds: 60 });
+    if (!rl.allowed) return json({ success: false, message: 'Terlalu banyak koneksi stream' }, 429, { 'Retry-After': String(rl.retryAfterSeconds) });
   } catch (err) {
     console.error('[stream]', err);
     return json({ success: false, message: 'Terjadi kesalahan pada server' }, 500);

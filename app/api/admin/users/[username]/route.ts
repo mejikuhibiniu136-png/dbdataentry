@@ -37,7 +37,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ us
     const changes = [parsed.data.status !== undefined && `status=${parsed.data.status}`, parsed.data.role !== undefined && `role=${parsed.data.role}`].filter(Boolean).join(', ');
     // JWT membawa role/status di dalamnya: tanpa pencabutan, penurunan role atau penangguhan baru
     // berlaku setelah token kedaluwarsa (hingga 8 jam). Semua sesi pengguna ini dicabut sekarang.
-    const revoked = await revokeAllForUser(redis, key).catch(() => 0);
+    // Tanpa .catch: bila pencabutan gagal, request gagal (500) dan Superadmin mengulang. Operasinya idempoten; jangan pernah
+    // melaporkan sukses sementara sesi lama masih hidup.
+    const revoked = await revokeAllForUser(redis, key);
     await recordAudit(redis, { ...actorOf(session, request.headers), action: 'user.update', target: updated.username, detail: `${changes}${revoked ? `, ${revoked} sesi dicabut` : ''}` });
     return json({ success: true, data: { username: updated.username, role: updated.role, status: updated.status } });
   } catch (err) {

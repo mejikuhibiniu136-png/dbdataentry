@@ -323,8 +323,12 @@ d('ingest (Redis sungguhan)', () => {
 
     const attacker = new Headers({ 'x-forwarded-for': '198.51.100.7' });
     for (let i = 0; i < 5; i += 1) await performLogin(redis, attacker, 'victim', 'tebak').catch(() => undefined);
-    const blocked = await performLogin(redis, new Headers({ 'x-forwarded-for': '198.51.100.8' }), 'victim', 'tebak').catch((e) => e);
-    expect(blocked.status).toBe(429); // pembatas per username, bukan hanya per IP
+    // Pasangan (user+IP) terkunci setelah 5 kegagalan...
+    const blocked = await performLogin(redis, attacker, 'victim', 'tebak').catch((e) => e);
+    expect(blocked.status).toBe(429);
+    // ...tetapi IP lain TIDAK ikut terkunci (penyerang tidak bisa mengunci pengguna asli dari luar).
+    const other = await performLogin(redis, new Headers({ 'x-forwarded-for': '198.51.100.8' }), 'victim', 'tebak').catch((e) => e);
+    expect(other.status).toBe(401);
   });
 
   it('login tanpa env admin/JWT: 503 generik (detail hanya di log server)', async () => {

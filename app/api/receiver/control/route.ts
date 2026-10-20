@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { normalizeUsername } from '@/lib/accounts';
 import { actorOf, recordAudit } from '@/lib/audit';
-import { ackCommand, issueCommand, peekCommand } from '@/lib/control/commands';
+import { ackCommandFor, issueCommand, peekCommandFor } from '@/lib/control/commands';
 import { HttpError, errorResponse, json, readJson } from '@/lib/http';
 import { KEYS } from '@/lib/keys';
 import { hitRateLimit } from '@/lib/rateLimit';
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     if (!account) throw new HttpError(400, 'Parameter account wajib');
 
     const now = Date.now();
-    const pending = await peekCommand(redis, account);
+    const pending = await peekCommandFor(redis, account, auth.scriptId);
     return json({
       success: true,
       cmd: pending?.cmd ?? 'NONE',
@@ -84,7 +84,7 @@ export async function PUT(request: Request) {
     const body = await readJson(request, 1024);
     const account = normalizeUsername(body.account);
     if (!account || typeof body.id !== 'string') throw new HttpError(400, 'account dan id wajib');
-    return json({ success: true, acked: await ackCommand(redis, account, body.id) });
+    return json({ success: true, acked: await ackCommandFor(redis, account, body.id, auth.scriptId) });
   } catch (err) {
     return errorResponse(err, 'receiver/control PUT');
   }

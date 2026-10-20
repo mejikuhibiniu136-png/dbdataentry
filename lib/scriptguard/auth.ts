@@ -47,7 +47,7 @@ const MESSAGES: Record<DenyReason, string> = {
 export const scriptDenied = (auth: Extract<ScriptAuth, { ok: false }>): Response =>
   json({ success: false, cmd: 'KILL', reason: auth.reason, message: MESSAGES[auth.reason] }, auth.status);
 
-export type ControlAuth = { ok: true; rateId: string; mode: 'key' | 'public' } | Extract<ScriptAuth, { ok: false }>;
+export type ControlAuth = { ok: true; rateId: string; scriptId: string; mode: 'key' | 'public' } | Extract<ScriptAuth, { ok: false }>;
 
 /**
  * Autentikasi kanal kontrol. Token publik (skrip /scripts/account_status.lua) dicoba dulu karena murah (tanpa Redis);
@@ -60,8 +60,8 @@ export async function authenticateControl(request: Request, redis: RedisLike, no
   if (pub) {
     if (!publicControlEnabled()) return { ok: false, status: 403, reason: 'revoked' };
     if (nowMs - pub.ts > publicTokenMaxAgeMs()) return { ok: false, status: 403, reason: 'expired' };
-    return { ok: true, rateId: `pub:${pub.jti}`, mode: 'public' };
+    return { ok: true, rateId: `pub:${pub.jti}`, scriptId: pub.jti, mode: 'public' };
   }
   const auth = await authenticateScript(request, redis, nowMs);
-  return auth.ok ? { ok: true, rateId: auth.payload.uid, mode: 'key' } : auth;
+  return auth.ok ? { ok: true, rateId: auth.payload.uid, scriptId: auth.payload.jti, mode: 'key' } : auth;
 }

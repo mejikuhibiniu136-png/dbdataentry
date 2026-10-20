@@ -49,6 +49,8 @@ export const KEYS = {
 
   // ----- Kill-switch jarak jauh -----
   controlCmd: (account: string) => `ctl:cmd:${account.toLowerCase()}`, // string JSON + TTL: perintah yang menunggu diambil skrip
+  controlAcked: (id: string) => `ctl:acked:${id}`, // hash: id salinan skrip -> waktu ack (ack per salinan, bukan hapus global)
+  jtiDenied: (jti: string) => `deny:jti:${jti}`, // deny-list salinan skrip (diisi admin bila salinan menyalahgunakan ingest)
   controlState: 'ctl:state', // hash: akun (huruf kecil) -> JSON ControlState terakhir; hanya untuk tampilan dashboard
 
   // ----- HWID & watermark skrip -----

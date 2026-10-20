@@ -6,7 +6,7 @@
 // log tidak mungkin masuk tanpa tabelnya, dan tidak ada lost update pada akun.
 import { envInt } from '@/lib/env';
 import { KEYS } from '@/lib/keys';
-import { parseStored } from '@/lib/http';
+import { HttpError, parseStored } from '@/lib/http';
 import type { ResolvedGame } from '@/lib/games';
 import type { RedisLike } from '@/lib/redis';
 import type { LogEntry, TrackedAccount } from '@/types';
@@ -14,6 +14,7 @@ import type { LogEntry, TrackedAccount } from '@/types';
 export const INGEST_SCRIPT = `
 if ARGV[1] ~= '' then
   local cur = redis.call('HGET', KEYS[1], ARGV[1])
+  if not cur and ARGV[9] and redis.call('HLEN', KEYS[1]) >= tonumber(ARGV[9]) then return -1 end
   local rev = -1
   if cur then
     local ok, obj = pcall(cjson.decode, cur)
@@ -37,6 +38,8 @@ return 1
 `;
 
 export const MAX_CAS_RETRIES = 6;
+// Mencegah hash tracker:accounts tumbuh tanpa batas oleh payload account_status palsu.
+export const maxTrackedAccounts = () => envInt('MAX_TRACKED_ACCOUNTS', 2000, 50, 100_000);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const limits = () => ({
@@ -62,9 +65,12 @@ async function run(
       String(perGame),
       game.slug,
       game.metaJson,
+      String(maxTrackedAccounts()),
     ]
   );
-  return Number(result) === 1;
+  const n = Number(result);
+  if (n === -1) throw new HttpError(429, 'Batas akun terlacak tercapai', { 'Retry-After': '60' });
+  return n === 1;
 }
 
 // Hanya log (webhook pihak ketiga): tanpa baca-ubah-tulis, jadi tidak ada balapan.

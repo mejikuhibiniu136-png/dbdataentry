@@ -118,7 +118,8 @@ d('fitur v5.1 (Redis sungguhan)', () => {
       expect((await send({ 'x-api-key': 'dbde_salah' })).status).toBe(401);
       expect((await send({ 'x-api-key': key })).status).toBe(200);
       expect((await send({ authorization: `Bearer ${key}` })).status).toBe(200);
-      expect((await send({}, undefined, `http://t/api/receiver/universal?key=${key}`)).status).toBe(200);
+      // ?key= tidak lagi diterima (key bocor ke log URL)
+      expect((await send({}, undefined, `http://t/api/receiver/universal?key=${key}`)).status).toBe(401);
     });
 
     it('key dicabut atau kedaluwarsa langsung ditolak saat wajib', async () => {

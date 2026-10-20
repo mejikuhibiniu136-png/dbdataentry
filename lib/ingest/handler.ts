@@ -17,6 +17,7 @@ import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis, type RedisLike } from '@/lib/redis';
 import { authenticateApiKey } from '@/lib/apikeys';
 import { recordSecurityEvent } from '@/lib/securityStats';
+import { authenticateControl, scriptDenied } from '@/lib/scriptguard/auth';
 import { readRuntimeSettings, readSecretSetting } from '@/lib/settings';
 
 // Verifikasi HMAC-SHA256 opsional (header X-Webhook-Signature / X-Hub-Signature-256) terhadap
@@ -95,23 +96,30 @@ async function authenticate(
   apiKeyRequired: boolean,
   env: Record<string, string | undefined> = process.env
 ): Promise<{ denied: Response | null; keyId: string | null }> {
+  // Token per salinan skrip (x-wm): publik atau berlisensi (key + HWID). Identitas ini dipakai sebagai kunci rate limit
+  // (per salinan, bukan per IP) dan bisa dicabut lewat deny-list jti. Salinan berlisensi yang dicabut / HWID salah ditolak;
+  // token publik yang kedaluwarsa jatuh ke jalur anonim kecuali INGEST_REQUIRE_TOKEN=on.
+  const requireToken = (env.INGEST_REQUIRE_TOKEN ?? '').trim().toLowerCase() === 'on';
+  if (request.headers.get('x-wm')) {
+    const ctl = await authenticateControl(request, redis);
+    if (ctl.ok) {
+      if (Number(await redis.exists(KEYS.jtiDenied(ctl.scriptId))) === 1) return { denied: json({ success: false, message: 'Salinan skrip diblokir' }, 403), keyId: null };
+      return { denied: null, keyId: ctl.rateId };
+    }
+    if (requireToken || ctl.reason === 'revoked' || ctl.reason === 'hwid') return { denied: scriptDenied(ctl), keyId: null };
+  }
+
   const expected = (env.WEBHOOK_INGEST_TOKEN ?? '').trim();
   const auth = request.headers.get('authorization') ?? '';
   const bearer = /^bearer\s+/i.test(auth) ? auth.replace(/^bearer\s+/i, '').trim() : '';
-  let query = '';
-  try {
-    query = new URL(request.url).searchParams.get('key') ?? '';
-  } catch {
-    query = '';
-  }
-  const provided = request.headers.get('x-api-key') || bearer || query;
+  const provided = request.headers.get('x-api-key') || bearer; // ?key= tidak lagi diterima: key ikut tercatat di log URL
 
   if (provided && expected && timingSafeEqual(sha(provided), sha(expected))) return { denied: null, keyId: null };
   if (provided) {
     const key = await authenticateApiKey(redis, provided);
     if (key) return { denied: null, keyId: key.id };
   }
-  if (!expected && !apiKeyRequired) return { denied: null, keyId: null };
+  if (!expected && !apiKeyRequired && !requireToken) return { denied: null, keyId: null };
   await recordSecurityEvent(redis, 'auth_fail');
   return { denied: json({ success: false, message: 'Unauthorized' }, 401), keyId: null };
 }

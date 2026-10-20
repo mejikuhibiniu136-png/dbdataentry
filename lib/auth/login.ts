@@ -2,10 +2,10 @@
 import { randomUUID } from 'node:crypto';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { buildDeviceEntry } from '@/lib/device';
-import { ConfigError, getJwtSecret, getSuperadminConfig } from '@/lib/env';
+import { ConfigError, envInt, getJwtSecret, getSuperadminConfig } from '@/lib/env';
 import { HttpError, getClientIp } from '@/lib/http';
 import { KEYS } from '@/lib/keys';
-import { hitRateLimit, resetRateLimit } from '@/lib/rateLimit';
+import { hitRateLimit, isLimited, recordFailure, resetRateLimit } from '@/lib/rateLimit';
 import type { RedisLike } from '@/lib/redis';
 import { signSession } from '@/lib/auth/jwt';
 import { verifyAgainstDummy, verifyPassword } from '@/lib/auth/password';
@@ -18,7 +18,10 @@ const sha = (s: string) => createHash('sha256').update(s).digest();
 const safeEqualText = (a: string, b: string) => timingSafeEqual(sha(a), sha(b));
 
 const IP_LIMIT = { limit: 20, windowSeconds: 15 * 60 };
-const USER_LIMIT = { limit: 5, windowSeconds: 15 * 60 };
+// Limit per (user+IP): penyerang di IP lain tidak bisa mengunci pengguna asli. Limit global per-user hanya berlaku untuk IP
+// yang belum pernah login sukses, dan jauh lebih longgar, supaya Superadmin tidak bisa dikunci dari luar.
+const PAIR_LIMIT = { limit: 5, windowSeconds: 15 * 60 };
+const USER_LIMIT = { limit: 60, windowSeconds: 15 * 60 };
 const REGISTER_LIMIT = { limit: 5, windowSeconds: 60 * 60 };
 
 export interface LoginResult {
@@ -51,19 +54,23 @@ export async function performLogin(
 
   const ip = getClientIp(headers);
   const lowered = userKey(username);
+  const uh = createHash('sha256').update(lowered).digest('hex').slice(0, 24);
   const ipKey = KEYS.rateLimit('login-ip', ip);
-  const userRateKey = KEYS.rateLimit('login-user', createHash('sha256').update(lowered).digest('hex').slice(0, 24));
+  const pairKey = KEYS.rateLimit('login-pair', `${uh}:${ip}`);
+  const userRateKey = KEYS.rateLimit('login-user', uh);
 
-  // Pembatas laju per IP dan per username. Redis bermasalah: login admin tetap boleh berjalan.
+  // Pembatas laju: hanya KEGAGALAN yang dihitung (dicatat setelah verifikasi). Redis bermasalah: login tetap boleh berjalan.
   if (redis) {
     try {
-      for (const [key, rule] of [[ipKey, IP_LIMIT], [userRateKey, USER_LIMIT]] as const) {
-        const r = await hitRateLimit(redis, key, rule);
-        if (!r.allowed) {
-          throw new HttpError(429, `Terlalu banyak percobaan login. Coba lagi dalam ${Math.ceil(r.retryAfterSeconds / 60)} menit.`, {
-            'Retry-After': String(r.retryAfterSeconds),
-          });
-        }
+      const knownIp = (await readDevices(redis, lowered, 20)).some((d) => d.ip === ip);
+      const limited =
+        (await isLimited(redis, ipKey, IP_LIMIT.limit)) ||
+        (await isLimited(redis, pairKey, PAIR_LIMIT.limit)) ||
+        (!knownIp && (await isLimited(redis, userRateKey, USER_LIMIT.limit)));
+      if (limited) {
+        throw new HttpError(429, `Terlalu banyak percobaan login. Coba lagi dalam ${Math.ceil(PAIR_LIMIT.windowSeconds / 60)} menit.`, {
+          'Retry-After': String(PAIR_LIMIT.windowSeconds),
+        });
       }
     } catch (err) {
       if (err instanceof HttpError) throw err;
@@ -103,11 +110,19 @@ export async function performLogin(
   } else {
     await verifyAgainstDummy(password);
   }
-  if (!role) throw BAD_LOGIN;
-
-  if (redis) {
-    await Promise.all([resetRateLimit(redis, userRateKey), resetRateLimit(redis, ipKey)]).catch(() => undefined);
+  if (!role) {
+    if (redis) {
+      await Promise.all([
+        recordFailure(redis, pairKey, PAIR_LIMIT.windowSeconds),
+        recordFailure(redis, ipKey, IP_LIMIT.windowSeconds),
+        recordFailure(redis, userRateKey, USER_LIMIT.windowSeconds),
+      ]).catch(() => undefined);
+    }
+    throw BAD_LOGIN;
   }
+
+  // Hanya counter (user+IP) yang direset; counter IP sengaja tidak, agar login sukses tidak menghapus jejak brute force.
+  if (redis) await resetRateLimit(redis, pairKey).catch(() => undefined);
 
   // Riwayat perangkat/IP disimpan di Redis untuk dipantau admin. Gagal mencatat tidak menggagalkan login.
   const sid = randomUUID();
@@ -141,6 +156,10 @@ export async function performRegister(redis: RedisLike, headers: Headers, userna
     throw new HttpError(429, 'Terlalu banyak pendaftaran dari alamat ini. Coba lagi nanti.', {
       'Retry-After': String(rate.retryAfterSeconds),
     });
+  }
+  // Batas total akun (termasuk pending): pendaftaran massal tidak bisa memenuhi Redis.
+  if ((Number(await redis.zcard(KEYS.usersList)) || 0) >= envInt('MAX_USERS', 500, 10, 10_000)) {
+    throw new HttpError(503, 'Pendaftaran sedang ditutup. Hubungi Superadmin.');
   }
   let reserved: string[] = [];
   try {

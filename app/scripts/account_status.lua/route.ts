@@ -1,4 +1,7 @@
+import { getClientIp } from '@/lib/http';
+import { KEYS } from '@/lib/keys';
 import { renderAccountStatusLua } from '@/lib/lua/accountStatus';
+import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis } from '@/lib/redis';
 import { composePublicLua, readLuaModules, readPublicGuard } from '@/lib/scriptguard/compose';
 import { issuePublicToken, publicControlEnabled } from '@/lib/scriptguard/publicToken';
@@ -22,6 +25,24 @@ function originOf(request: Request): string {
 // server menyajikan source asli atau versi ter-obfuscate. Gagal baca Redis -> fail open ke
 // source polos, supaya skrip tetap bisa diambil executor walau Redis sedang bermasalah.
 export async function GET(request: Request) {
+  // SCRIPT_PUBLIC_ENABLED=off mematikan jalur publik (tanpa key/HWID) sehingga hanya loader berlisensi yang bisa mengambil skrip.
+  // Bawaan: aktif (kompatibel dengan skrip yang sudah terpasang).
+  if (['0', 'false', 'off', 'no'].includes((process.env.SCRIPT_PUBLIC_ENABLED ?? '').trim().toLowerCase())) {
+    return new Response('-- Skrip publik dinonaktifkan. Gunakan loader berlisensi.\n', {
+      status: 410,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+  // Render + obfuscate per request itu mahal dan anonim: batasi per IP. Redis bermasalah -> tetap dilayani.
+  try {
+    const rl = await hitRateLimit(getRedis(), KEYS.rateLimit('script-pub', getClientIp(request.headers)), { limit: 30, windowSeconds: 60 });
+    if (!rl.allowed) {
+      return new Response('-- rate limited\n', { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds), 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
+    }
+  } catch (err) {
+    console.error('[scripts/account_status.lua] rate limit tidak dapat diperiksa:', err instanceof Error ? err.message : err);
+  }
+
   const endpoint = `${originOf(request)}/api/receiver/universal`;
 
   let obfuscate = false;

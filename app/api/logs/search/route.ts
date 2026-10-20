@@ -2,6 +2,8 @@ import { errorResponse, json } from '@/lib/http';
 import { clampInt } from '@/lib/http';
 import { parseBound, searchLogs } from '@/lib/logSearch';
 import { requirePermission } from '@/lib/rbac/guard';
+import { hitRateLimit } from '@/lib/rateLimit';
+import { KEYS } from '@/lib/keys';
 import { getRedis } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
@@ -11,8 +13,11 @@ const SLUG = /^[a-z0-9-]{1,64}$/;
 // GET /api/logs/search?game=<slug|all>&q=<kueri>&from=<ISO|YYYY-MM-DD>&to=<ISO|YYYY-MM-DD>&limit=1..200&cursor=<opaque>
 export async function GET(request: Request) {
   try {
-    const { denied } = await requirePermission('logs:search');
+    const { session, denied } = await requirePermission('logs:search');
     if (denied) return denied;
+    // Satu pencarian memindai hingga 5000 entri: batasi per pengguna.
+    const rl = await hitRateLimit(getRedis(), KEYS.rateLimit('logsearch', session.sub.toLowerCase()), { limit: 30, windowSeconds: 60 });
+    if (!rl.allowed) return json({ success: false, message: 'Terlalu banyak pencarian' }, 429, { 'Retry-After': String(rl.retryAfterSeconds) });
     const p = new URL(request.url).searchParams;
     const game = p.get('game') ?? 'all';
     if (game !== 'all' && !SLUG.test(game)) return json({ success: false, message: 'Parameter game tidak valid' }, 400);

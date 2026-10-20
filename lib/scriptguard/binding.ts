@@ -101,6 +101,14 @@ export interface LeakInput { reason: LeakReason; source: LeakSource; uid: string
 /** Tidak pernah melempar: pencatatan kebocoran tidak boleh menggagalkan respons ke skrip. */
 export async function recordLeak(redis: RedisLike, input: LeakInput, nowMs = Date.now()): Promise<void> {
   try {
+    // Batas per pemilik lisensi: token bocor + HWID acak tidak bisa membanjiri log (maks 500) dan alert.
+    const bucket = KEYS.rateLimit('leak-uid', input.uid.slice(0, 64));
+    const n = await redis.incr(bucket);
+    if (n === 1) await redis.expire(bucket, 3600);
+    if (n > 20) {
+      await redis.hincrby(KEYS.leakStats, `${input.reason}:suppressed`, 1);
+      return;
+    }
     const ev: LeakEvent = {
       id: randomUUID(),
       at: new Date(nowMs).toISOString(),
@@ -130,7 +138,7 @@ export async function recordLeak(redis: RedisLike, input: LeakInput, nowMs = Dat
           { name: 'Negara', value: ev.country ?? '-', inline: true },
           { name: 'Perangkat terlihat', value: ev.observedHw ?? '-', inline: true },
         ],
-        dedupeKey: `${ev.uid}|${ev.observedHw ?? ev.ip}`,
+        dedupeKey: ev.uid, // satu alert per key per jendela dedupe, bukan per HWID yang terlihat
       },
       { redis }
     );

@@ -13,6 +13,7 @@ vi.mock('@/lib/auth/session', async () => {
   const session = () => ({ sub: 'root', role: h.role, status: 'active', sid: 's' });
   const staff = () => h.role === 'superadmin' || h.role === 'admin';
   return {
+    getSession: async () => session(),
     requireSession: async () => ({ session: session() }),
     requireAdmin: async () => (staff() ? { session: session() } : { denied: http.forbidden() }),
     requireSuperadmin: async () => (h.role === 'superadmin' ? { session: session() } : { denied: http.forbiddenSuperadmin() }),
