@@ -493,4 +493,8 @@ export const zh: Record<string, string> = {
   "{n} secret dienkripsi ulang, {f} gagal": "已重新加密 {n} 个密钥，{f} 个失败",
   "{time} • {a} event, {b} heartbeat": "{time} • {a} 个事件，{b} 个心跳",
   "… (dipotong, gunakan Unduh untuk data lengkap)": "…（已截断，请使用下载获取完整数据）",
+  "Paginasi": "分页",
+  "Halaman sebelumnya": "上一页",
+  "Halaman berikutnya": "下一页",
+  "Lewati ke konten": "跳到内容",
 };

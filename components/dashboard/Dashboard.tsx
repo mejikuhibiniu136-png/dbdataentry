@@ -1,5 +1,5 @@
 'use client';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import { CircleHelp, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
@@ -54,7 +54,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const [nameDialog, setNameDialog] = useState<{ mode: 'create' | 'rename'; game?: GameTable } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
-  const { toasts, push: toast } = useToasts();
+  const { toasts, push: toast, dismiss: dismissToast } = useToasts();
 
   const seen = useRef<Set<string> | null>(null);
   const seenGame = useRef(game);
@@ -180,21 +180,22 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const conn = CONNECTION[connection];
 
   return (
-    <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
+    <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-28 sm:p-4 lg:pb-4">
+      <a href="#main-content" className="skip-link">{tr('Lewati ke konten')}</a>
       <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 
-      <main data-tour="content" className="min-w-0 flex-1 space-y-5">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+      <main id="main-content" tabIndex={-1} data-tour="content" className="min-w-0 flex-1 space-y-5 outline-none">
+        <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-white">{current ? t(current.labelKey) : ''}</h1>
-            <p className="text-sm text-slate-400">{t('header.greeting', { name: username })}</p>
+            <p className="text-sm text-slate-300">{t('header.greeting', { name: username })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span data-tour="status"><Pill tone={conn.tone} dot={connection === 'live' ? 'live' : 'static'}>{t(conn.key)}</Pill></span>
             <NotificationBell username={username} />
             <LanguageSwitcher compact align="right" />
             <span data-tour="controls" className="flex items-center gap-2">
-            <select className="field w-auto py-1.5 text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>
+            <select className="field w-auto py-1.5 text-xs sm:text-xs" aria-label={t('header.logsLoaded')} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{LIMITS.map((l) => <option key={l} value={l}>{t('header.logCount', { count: l })}</option>)}</select>
             <Button size="sm" onClick={() => setPaused((p) => !p)}>{paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}{paused ? t('header.resume') : t('header.pause')}</Button>
             </span>
             <Button size="sm" variant="subtle" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}><CircleHelp className="size-3.5" aria-hidden />{getCopy(locale).replay}</Button>
@@ -202,13 +203,12 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
         </header>
 
         {showSwitcher && (
-          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={tr('Pilih tabel game')}>
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]" role="tablist" aria-label={tr('Pilih tabel game')}>
             {[{ slug: 'all', name: tr('Semua') }, ...games].map((g) => {
               const active = g.slug === game;
               return (
-                <button key={g.slug} role="tab" aria-selected={active} onClick={() => switchGame(g.slug)} className={`relative flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/40 text-white' : 'border-white/10 text-slate-400 hover:text-slate-100'}`}>
-                  {active && <motion.span layoutId="game-chip" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
-                  <span className="relative">{g.name}</span>
+                <button key={g.slug} type="button" role="tab" aria-selected={active} onClick={() => switchGame(g.slug)} className={`touch-target relative min-h-10 flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/60 bg-cyan-300/15 text-white' : 'border-white/15 text-slate-300 hover:border-white/30 hover:text-white'}`}>
+                  {g.name}
                 </button>
               );
             })}
@@ -225,7 +225,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       <NameDialog open={Boolean(nameDialog)} onClose={() => setNameDialog(null)}
         title={nameDialog?.mode === 'create' ? tr('Buat tabel game') : tr('Ganti nama tabel')} label={tr('Nama game / sumber')} initial={nameDialog?.game?.name ?? ''}
         submitLabel={nameDialog?.mode === 'create' ? tr('Buat') : tr('Simpan')} onSubmit={submitName} />
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

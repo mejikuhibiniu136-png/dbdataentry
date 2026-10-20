@@ -3,6 +3,7 @@ import { Bot, Check, Monitor, Pause, Play, Smartphone, Tablet, HelpCircle, X } f
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { Pill, type Tone } from '@/components/ui/Pill';
 import { SkeletonRows } from '@/components/ui/Skeleton';
 import { useI18n } from '@/components/i18n/I18nProvider';
@@ -24,6 +25,7 @@ export function UsersTable({
   const [selected, setSelected] = useState<UserSummary | null>(null);
   const [devices, setDevices] = useState<DeviceEntry[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const pg = usePagination(users ?? [], 15);
 
   const open = async (u: UserSummary) => {
     setSelected(u); setDevices(null);
@@ -35,15 +37,15 @@ export function UsersTable({
     try { await apiJson(`/api/admin/users/${encodeURIComponent(u.username)}`, 'PATCH', patch); onChanged(); } finally { setBusy(null); }
   };
 
-  if (!users) return <SkeletonRows count={3} />;
-  if (users.length === 0) return <div className="glass p-6 text-center text-sm text-slate-400">{tr('Tidak ada pengguna pada filter ini.')}</div>;
+  if (!users) return <SkeletonRows count={3} className="h-[3.75rem]" />;
+  if (users.length === 0) return <div className="glass p-6 text-center text-sm text-slate-300">{tr('Tidak ada pengguna pada filter ini.')}</div>;
 
   return (
     <>
       <div className="glass overflow-x-auto">
         <table className="w-full min-w-[46rem] text-left text-sm">
           <caption className="sr-only">{tr('Daftar pengguna')}</caption>
-          <thead className="border-b border-white/10 text-xs text-slate-400">
+          <thead className="border-b border-white/10 text-xs text-slate-300">
             <tr>
               <th scope="col" className="px-4 py-3 font-medium">{tr('Pengguna')}</th>
               <th scope="col" className="px-4 py-3 font-medium">{tr('Role')}</th>
@@ -53,14 +55,14 @@ export function UsersTable({
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => {
+            {pg.slice.map((u) => {
               const isBusy = busy === u.username;
               return (
-                <tr key={u.username} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03]">
+                <tr key={u.username} className="h-[3.75rem] border-b border-white/5 last:border-0 hover:bg-white/[0.04]">
                   <td className="px-4 py-3 font-medium text-white">{u.username}{u.immutable && <span className="ml-1.5 text-xs text-slate-500">(env)</span>}</td>
                   <td className="px-4 py-3">
                     {canManage && !u.immutable ? (
-                      <select className="field w-auto py-1 text-xs" value={u.role} disabled={isBusy}
+                      <select className="field w-auto py-1 text-xs" aria-label={tr('Role')} value={u.role} disabled={isBusy}
                         onChange={(e) => void update(u, { role: e.target.value as StorableRole })}>
                         <option value="viewer">viewer</option>
                         <option value="admin">admin</option>
@@ -68,7 +70,7 @@ export function UsersTable({
                     ) : <Pill tone={ROLE_TONE[u.role] ?? 'neutral'}>{u.role}</Pill>}
                   </td>
                   <td className="px-4 py-3"><Pill tone={STATUS_TONE[u.status]}>{tr(STATUS_LABEL[u.status])}</Pill></td>
-                  <td className="px-4 py-3 text-xs text-slate-400">{u.lastLogin ? `${u.lastLogin.browser} · ${u.lastLogin.device} · ${u.lastLogin.ip} · ${new Date(u.lastLogin.at).toLocaleString(locale)}` : tr('Belum pernah')}</td>
+                  <td className="px-4 py-3 text-xs text-slate-300">{u.lastLogin ? `${u.lastLogin.browser} · ${u.lastLogin.device} · ${u.lastLogin.ip} · ${new Date(u.lastLogin.at).toLocaleString(locale)}` : tr('Belum pernah')}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {canManage && !u.immutable && u.status === 'pending' && (
@@ -92,9 +94,10 @@ export function UsersTable({
           </tbody>
         </table>
       </div>
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} from={pg.from} to={pg.to} onPage={pg.setPage} />
 
       <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={tr('Riwayat login · {name}', { name: selected?.username ?? '' })} wide>
-        {!devices ? <SkeletonRows count={3} /> : devices.length === 0 ? <p className="text-sm text-slate-400">{tr('Belum ada riwayat login.')}</p> : (
+        {!devices ? <SkeletonRows count={3} className="h-[4.5rem]" /> : devices.length === 0 ? <p className="text-sm text-slate-400">{tr('Belum ada riwayat login.')}</p> : (
           <ul className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
             {devices.map((d) => {
               const Icon = DEVICE_ICON[d.deviceType] ?? HelpCircle;
@@ -103,8 +106,8 @@ export function UsersTable({
                   <Icon className="mt-0.5 size-5 flex-none text-cyan-300" aria-hidden />
                   <div className="min-w-0 text-sm">
                     <div className="font-medium text-white">{d.device} · {d.browser}</div>
-                    <div className="text-xs text-slate-400">{d.ip} · {place(d, tr('Lokasi tidak tersedia'))}{d.isp ? ` · ${d.isp}` : ''}</div>
-                    <div className="text-xs text-slate-500">{new Date(d.at).toLocaleString(locale)}</div>
+                    <div className="text-xs text-slate-300">{d.ip} · {place(d, tr('Lokasi tidak tersedia'))}{d.isp ? ` · ${d.isp}` : ''}</div>
+                    <div className="text-xs text-slate-400">{new Date(d.at).toLocaleString(locale)}</div>
                   </div>
                 </li>
               );
