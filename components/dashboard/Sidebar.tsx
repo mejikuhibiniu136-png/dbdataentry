@@ -50,19 +50,19 @@ export function Sidebar({
       {/* Desktop */}
       <aside className="glass sticky top-4 hidden h-[calc(100dvh-2rem)] w-60 flex-none flex-col p-4 lg:flex">
         <div className="mb-4 flex shrink-0 items-center gap-2.5 px-2 [@media(max-height:720px)]:mb-2">
-          <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-5" aria-hidden /></span>
+          <span className="ring-spin grid size-9 place-items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-5" aria-hidden /></span>
           <span className="text-base font-semibold text-white">dbdataentry</span>
         </div>
         <nav data-tour="nav" aria-label={t('nav.main')} className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1">
-          {items.map((v) => {
+          {items.map((v, i) => {
             const active = v.id === view;
             const count = badge(v.id);
             return (
-              <button key={v.id} onClick={() => onView(v.id)} aria-current={active ? 'page' : undefined} className={`relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors [@media(max-height:720px)]:py-1.5 ${active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'}`}>
+              <motion.button key={v.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.15 + i * 0.05 }} whileHover={active ? undefined : { x: 3 }} onClick={() => onView(v.id)} aria-current={active ? 'page' : undefined} className={`relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors [@media(max-height:720px)]:py-1.5 ${active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'}`}>
                 {active && <motion.span layoutId="nav-active" className="absolute inset-0 rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-300/15 to-violet-400/10 shadow-[0_0_20px_-6px_rgb(34_211_238/0.55)]" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                 <v.icon className="relative size-4" aria-hidden /><span className="relative flex-1">{t(v.labelKey)}</span>
                 {count !== null && <span className="relative grid min-w-5 place-items-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">{count}</span>}
-              </button>
+              </motion.button>
             );
           })}
         </nav>

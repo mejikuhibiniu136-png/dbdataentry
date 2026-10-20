@@ -1,6 +1,7 @@
 'use client';
 import { useI18n } from '@/components/i18n/I18nProvider';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useId } from 'react';
 import type { Activity } from '@/lib/logStats';
 
 // Batang tumbuh dari garis dasar: transform-box fill-box membuat asal skala di tepi bawah batang itu sendiri.
@@ -10,6 +11,8 @@ const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 export function Sparkline({ values, color = '#22d3ee', label }: { values: number[]; color?: string; label: string }) {
   const { tr } = useI18n();
+  const gid = useId();
+  const reduce = useReducedMotion();
   const data = values.map(num);
   const W = 120, H = 34, pad = 3;
   if (!data.length) {
@@ -21,8 +24,14 @@ export function Sparkline({ values, color = '#22d3ee', label }: { values: number
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg className="h-8 w-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={tr('{label}: terakhir {last} ms, rentang {min}-{max} ms', { label, last: data[data.length - 1], min, max })}>
+      {data.length > 1 && (
+        <>
+          <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.32" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+          <motion.path d={`M${pts[0][0].toFixed(1)} ${H} ${pts.map(([x, y]) => `L${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')} L${lx.toFixed(1)} ${H}Z`} fill={`url(#${gid})`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.35 }} />
+        </>
+      )}
       {data.length > 1 && <motion.polyline initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
-      <path d={`M${lx.toFixed(1)} ${ly.toFixed(1)}h0.001`} stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <motion.path d={`M${lx.toFixed(1)} ${ly.toFixed(1)}h0.001`} stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" animate={reduce ? undefined : { opacity: [1, 0.35, 1] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }} />
     </svg>
   );
 }

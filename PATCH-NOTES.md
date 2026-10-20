@@ -40,3 +40,10 @@ Cara pakai: ekstrak zip ini DI ATAS folder proyek lama (timpa file yang sama). T
 
 ## Verifikasi yang dijalankan
 tsc --noEmit bersih; vitest 25 file lulus (Redis sungguhan); luac -p OK untuk 3 modul Lua + skrip hasil render (polos & obfuscated); next build sukses. Tidak ada uji dinamis/penetrasi nyata, dan alur ingest dengan x-wm di Roblox executor belum diuji di game sungguhan.
+
+## Animasi "wow" (three.js + motion)
+
+- Baru: adegan 3D three.js (`components/three/`) di login, register, `/welcome`, dan layar sambutan: inti wireframe, cincin orbit, jaringan node, paket data mengalir, parallax kursor. Dimuat malas (`next/dynamic`, tanpa SSR), DPR dibatasi, berhenti saat tab tersembunyi, dibuang bersih saat unmount. Tanpa WebGL atau dengan "kurangi gerakan": cadangan CSS / satu bingkai statis.
+- Baru: efek warp (adegan melaju, form memudar) saat login berhasil dan saat menekan Masuk di layar sambutan.
+- Baru: kartu statistik miring 3D mengikuti kursor (`useTilt`), angka berdenyut saat berubah, kilau menyapu tombol utama, cincin gradien berputar di logo, item sidebar masuk berurutan, sparkline dengan area gradien + titik ujung berdenyut, judul sambutan muncul dari kabur.
+- Dependensi: `three@^0.186.0`, `@types/three@^0.186.0`. Jalankan `npm install`.

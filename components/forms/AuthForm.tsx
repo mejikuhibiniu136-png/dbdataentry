@@ -1,5 +1,5 @@
 'use client';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Eye, EyeOff, Radar } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -7,6 +7,7 @@ import { useId, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Button } from '@/components/ui/Button';
+import { SceneBackdrop } from '@/components/three/SceneBackdrop';
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const { t } = useI18n();
@@ -21,11 +22,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [caps, setCaps] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const reduce = useReducedMotion();
   const registered = params.get('registered') === '1';
 
   const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || leaving) return;
     setError('');
     if (!isLogin && password !== confirm) { setError(t('auth.mismatch')); return; }
     setLoading(true);
@@ -37,7 +40,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) { setError(data.message || t('auth.errorGeneric')); return; }
-      if (isLogin) { router.push('/'); router.refresh(); } else router.push('/login?registered=1');
+      if (isLogin) {
+        // Adegan 3D "melompat" (warp) sebentar sebelum masuk dashboard.
+        setLeaving(true);
+        await new Promise((r) => setTimeout(r, reduce ? 0 : 650));
+        router.push('/'); router.refresh();
+      } else router.push('/login?registered=1');
     } catch {
       setError(t('auth.errorNetwork'));
     } finally {
@@ -46,11 +54,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   };
 
   return (
-    <main className="relative grid min-h-dvh place-items-center p-4">
-      <div className="absolute top-4 right-4"><LanguageSwitcher align="right" /></div>
-      <motion.form onSubmit={submit} aria-busy={loading} className="glass w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.15, ease: 'easeOut' }}>
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden p-4">
+      <SceneBackdrop warp={leaving} />
+      <div className="absolute top-4 right-4 z-10"><LanguageSwitcher align="right" /></div>
+      <motion.form onSubmit={submit} aria-busy={loading} className="glass relative z-10 w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0, y: 28, scale: 0.96 }} animate={leaving ? { opacity: 0, y: -12, scale: 0.94 } : { opacity: 1, y: 0, scale: 1 }} transition={{ duration: leaving ? 0.5 : 0.7, delay: leaving ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}>
         <div className="text-center">
-          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_32px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-6" aria-hidden /></div>
+          <div className="ring-spin mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_32px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-6" aria-hidden /></div>
           <h1 className="text-xl font-semibold text-white">{isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}</h1>
           <p className="mt-1 text-sm text-slate-400">{isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}</p>
         </div>
@@ -82,7 +91,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           </div>
         )}
 
-        <Button type="submit" variant="primary" disabled={loading} className="w-full py-2.5">{loading ? t('auth.processing') : isLogin ? t('auth.login') : t('auth.register')}</Button>
+        <Button type="submit" variant="primary" disabled={loading || leaving} className="w-full py-2.5">{loading ? t('auth.processing') : isLogin ? t('auth.login') : t('auth.register')}</Button>
 
         <p className="text-center text-sm text-slate-400">
           {isLogin ? t('auth.noAccount') : t('auth.haveAccount')}

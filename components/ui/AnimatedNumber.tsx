@@ -10,6 +10,7 @@ export function AnimatedNumber({ value, suffix = '', duration = 0.9, className =
   const mv = useMotionValue(0);
   const reduce = useReducedMotion();
   const { n: fmtNumber, locale } = useI18n();
+  const first = useRef(true);
   const fmt = (v: number) => `${fmtNumber(Math.round(v))}${suffix}`;
 
   useEffect(() => mv.on('change', (v) => { if (ref.current) ref.current.textContent = fmt(v); }), [mv, suffix]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -19,5 +20,16 @@ export function AnimatedNumber({ value, suffix = '', duration = 0.9, className =
     return () => c.stop();
   }, [n, reduce, duration, mv]);
 
-  return <span ref={ref} className={`tabular ${className}`}>{fmt(n)}</span>;
+  // Denyut + cahaya singkat setiap nilai berubah (bukan saat pertama tampil).
+  useEffect(() => {
+    if (first.current) { first.current = false; return undefined; }
+    const node = ref.current;
+    if (!node || reduce) return undefined;
+    node.classList.remove('num-bump');
+    void node.offsetWidth; // paksa reflow supaya animasi diputar ulang
+    node.classList.add('num-bump');
+    return undefined;
+  }, [n, reduce]);
+
+  return <span ref={ref} className={`tabular ${className}`} onAnimationEnd={(e) => e.currentTarget.classList.remove('num-bump')}>{fmt(n)}</span>;
 }

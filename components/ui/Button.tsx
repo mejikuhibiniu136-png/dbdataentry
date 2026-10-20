@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 type Variant = 'primary' | 'ghost' | 'danger' | 'subtle';
 const STYLES: Record<Variant, string> = {
-  primary: 'bg-gradient-to-r from-cyan-400 to-violet-500 text-slate-950 font-semibold shadow-[0_0_24px_-6px_rgb(34_211_238/0.6)] hover:shadow-[0_0_32px_-4px_rgb(34_211_238/0.8)]',
+  primary: 'btn-sheen bg-gradient-to-r from-cyan-400 to-violet-500 text-slate-950 font-semibold shadow-[0_0_24px_-6px_rgb(34_211_238/0.6)] hover:shadow-[0_0_32px_-4px_rgb(34_211_238/0.8)]',
   ghost: 'border border-white/10 bg-white/[0.04] text-slate-200 hover:border-white/20 hover:bg-white/[0.08]',
   subtle: 'text-slate-300 hover:bg-white/[0.06]',
   danger: 'border border-rose-400/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20',
