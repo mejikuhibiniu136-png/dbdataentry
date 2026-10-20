@@ -3,6 +3,7 @@ import { KEYS } from '@/lib/keys';
 import { renderAccountStatusLua } from '@/lib/lua/accountStatus';
 import { hitRateLimit } from '@/lib/rateLimit';
 import { getRedis } from '@/lib/redis';
+import { obfuscateLuaSource } from '@/lib/lua/obfuscate';
 import { composePublicLua, readLuaModules, readPublicGuard } from '@/lib/scriptguard/compose';
 import { issuePublicToken, publicControlEnabled } from '@/lib/scriptguard/publicToken';
 import { readLuaObfuscationEnabled } from '@/lib/settings';
@@ -52,7 +53,10 @@ export async function GET(request: Request) {
     console.error('[scripts/account_status.lua] gagal membaca LUA_OBFUSCATION_ENABLED, fallback ke skrip polos:', err);
   }
 
-  const main = renderAccountStatusLua(endpoint, { obfuscate });
+  // Selalu render polos dulu: obfuscate baru diterapkan di akhir, ke skrip GABUNGAN (guard_public + control +
+  // main), bukan cuma ke `main`. Sebelumnya obfuscate hanya membungkus `main`, jadi guard_public.lua dan
+  // control.lua ikut ke jaringan sebagai teks Lua biasa walau toggle Proteksi Skrip Lua menyala.
+  const main = renderAccountStatusLua(endpoint);
 
   // Kanal kontrol (Pause/Resume/Kill dari dashboard) ikut dirakit ke skrip publik. Tanpa ini, tombol kontrol di
   // dashboard menerbitkan perintah yang tidak pernah diambil siapa pun. Gagal merakit (kunci enkripsi belum diset,
@@ -67,6 +71,12 @@ export async function GET(request: Request) {
     } catch (err) {
       console.error('[scripts/account_status.lua] kanal kontrol tidak dirakit, melayani skrip tanpa kontrol:', err);
     }
+  }
+
+  // Obfuscate SETELAH komposisi, atas `lua` (skrip final, apa pun isinya), bukan atas `main` saja: dengan ini
+  // guard_public.lua + control.lua ikut terbungkus loadstring ter-enkripsi, bukan cuma bagian account-status-nya.
+  if (obfuscate) {
+    lua = obfuscateLuaSource(lua, [{ configField: 'URL', value: endpoint }]).source;
   }
 
   return new Response(lua, {
