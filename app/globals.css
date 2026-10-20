@@ -43,7 +43,11 @@ body {
 
 /* Lembar bawah (bottom sheet) responsif: modal di desktop, sheet penuh di ponsel. */
 .sheet-backdrop { @apply fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4; }
-.sheet-panel { @apply glass flex max-h-[92dvh] w-full flex-col rounded-b-none p-5 sm:max-h-[88dvh] sm:rounded-2xl sm:p-6; padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+.sheet-panel {
+  @apply flex max-h-[92dvh] w-full flex-col rounded-t-2xl rounded-b-none border border-white/10 bg-slate-900/95 p-5 backdrop-blur-xl sm:max-h-[88dvh] sm:rounded-2xl sm:p-6;
+  box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.6);
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
 
 /* Virtualisasi ringan: anak di luar viewport tidak ikut dilukis. */
 .cv-auto { content-visibility: auto; contain-intrinsic-size: auto 8rem; }
