@@ -493,8 +493,4 @@ export const ja: Record<string, string> = {
   "{n} secret dienkripsi ulang, {f} gagal": "{n} 件のシークレットを再暗号化、{f} 件失敗",
   "{time} • {a} event, {b} heartbeat": "{time} • イベント {a} 件、ハートビート {b} 件",
   "… (dipotong, gunakan Unduh untuk data lengkap)": "…（省略されました。完全なデータはダウンロードを使用してください）",
-  "Paginasi": "ページ送り",
-  "Halaman sebelumnya": "前のページ",
-  "Halaman berikutnya": "次のページ",
-  "Lewati ke konten": "コンテンツへスキップ",
 };

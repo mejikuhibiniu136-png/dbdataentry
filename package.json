@@ -11,8 +11,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "hash": "node scripts/hash-password.mjs",
-    "deps:update": "npx --yes npm-check-updates -u && npm install"
+    "hash": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

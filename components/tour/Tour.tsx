@@ -95,7 +95,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
       {/* Penangkap klik: dashboard di belakang tidak bisa disentuh selama tur. Tanpa target, latar digelapkan penuh. */}
       <div className={`absolute inset-0 ${rect ? '' : 'bg-[#03060e]/75 backdrop-blur-sm'}`} />
       {rect && (
-        <motion.div initial={false} animate={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 }} transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }}
+        <motion.div initial={false} animate={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }}
           className="pointer-events-none fixed rounded-2xl border border-cyan-300/60 shadow-[0_0_0_9999px_rgb(3_6_14/0.72),0_0_32px_rgb(34_211_238/0.35)]" />
       )}
       {rect

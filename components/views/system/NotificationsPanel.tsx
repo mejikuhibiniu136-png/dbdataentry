@@ -175,7 +175,7 @@ export function NotificationsPanel({ toast }: { toast: Notify }) {
               <ul className="space-y-1.5">
                 <AnimatePresence initial={false}>
                   {data.deliveries.slice(0, 8).map((d) => (
-                    <motion.li key={d.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="flex flex-wrap items-center gap-2 rounded-lg bg-black/20 px-3 py-1.5 text-xs">
+                    <motion.li key={d.id} layout="position" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="flex flex-wrap items-center gap-2 rounded-lg bg-black/20 px-3 py-1.5 text-xs">
                       <Pill tone={d.ok ? 'ok' : 'bad'}>{d.ok ? 'OK' : d.status ?? 'ERR'}</Pill>
                       <Pill tone={SEV_TONE[d.severity]}>{t(`notify.severity.${d.severity}` as MessageKey)}</Pill>
                       <span className="min-w-0 flex-1 truncate text-slate-300">{d.title}</span>

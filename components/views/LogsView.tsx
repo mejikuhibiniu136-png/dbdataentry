@@ -1,17 +1,18 @@
 'use client';
+import { AnimatePresence } from 'motion/react';
 import { Download, Search, Server, Trash2 } from 'lucide-react';
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LogBoundary, LogCard } from '@/components/tables/LogList';
 import { ServerLogSearch } from '@/components/views/logs/ServerLogSearch';
 import { Button } from '@/components/ui/Button';
 import { Explainer } from '@/components/ui/Explainer';
 import { SkeletonRows } from '@/components/ui/Skeleton';
-import { VirtualList } from '@/components/ui/VirtualList';
 import { downloadText } from '@/lib/client';
 import { RANGE_OPTIONS, computeLogStats, filterLogs, logsToCsv } from '@/lib/logStats';
 import type { LogEntry } from '@/types';
 
+const PAGE = 60;
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
 interface Props {
@@ -27,7 +28,7 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
   const [user, setUser] = useState('ALL');
   const [rangeId, setRangeId] = useState('ALL');
   const [hideHeartbeat, setHideHeartbeat] = useState(false);
-  const logKey = useCallback((l: LogEntry) => l.id, []);
+  const [visible, setVisible] = useState(PAGE);
   const searchRef = useRef<HTMLInputElement>(null);
   const deferred = useDeferredValue(search);
 
@@ -52,7 +53,7 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
       <div className="glass flex flex-wrap items-center gap-3 p-3">
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
-          <input ref={searchRef} className="field pl-9" placeholder={tr('Cari di payload…')} aria-label={tr('Cari log')} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input ref={searchRef} className="field pl-9" placeholder={tr('Cari di payload…')} aria-label={tr('Cari log')} value={search} onChange={(e) => { setSearch(e.target.value); setVisible(PAGE); }} />
         </div>
         <select className="field w-auto" aria-label={tr('Filter pengguna')} value={user} onChange={(e) => setUser(e.target.value)}>
           <option value="ALL">{tr('Semua username')}</option>{users.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -63,7 +64,7 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
         <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300"><input type="checkbox" className="size-4 accent-cyan-400" checked={hideHeartbeat} onChange={(e) => setHideHeartbeat(e.target.checked)} />{tr('Sembunyikan heartbeat')}</label>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
         <span>{tr('{a} dari {b} log dimuat · {name}', { a: n(filtered.length), b: n(logs.length), name: gameLabel })}</span>
         <div className="flex flex-wrap gap-2">
           {modeToggle}
@@ -82,11 +83,17 @@ export function LogsView({ loading, logs, newIds, copiedId, showGame, gameLabel,
         tr('Tombol Detail membuka isi lengkap log. Tombol JSON pada kartu menyalin log tersebut.'),
       ]} />
 
-      {loading ? <SkeletonRows count={5} /> : filtered.length === 0 ? (
-        <div className="glass p-10 text-center text-sm text-slate-300">{logs.length === 0 ? tr('Belum ada log pada tabel ini.') : tr('Tidak ada log yang cocok dengan filter.')}</div>
+      {loading ? <SkeletonRows /> : filtered.length === 0 ? (
+        <div className="glass p-10 text-center text-sm text-slate-500">{logs.length === 0 ? tr('Belum ada log pada tabel ini.') : tr('Tidak ada log yang cocok dengan filter.')}</div>
       ) : (
-        <VirtualList items={filtered} estimate={132} gap={12} getKey={logKey} label={tr('Cari log')}
-          render={(log) => <LogBoundary><LogCard log={log} isNew={newIds.has(log.id)} copied={copiedId === log.id} showGame={showGame} onOpen={onOpen} onCopy={onCopy} /></LogBoundary>} />
+        <div className="space-y-3">
+          <AnimatePresence initial={false}>
+            {filtered.slice(0, visible).map((log) => (
+              <LogBoundary key={log.id}><LogCard log={log} isNew={newIds.has(log.id)} copied={copiedId === log.id} showGame={showGame} onOpen={onOpen} onCopy={onCopy} /></LogBoundary>
+            ))}
+          </AnimatePresence>
+          {filtered.length > visible && <div className="text-center"><Button onClick={() => setVisible((v) => v + PAGE)}>{tr('Tampilkan lebih banyak ({n})', { n: filtered.length - visible })}</Button></div>}
+        </div>
       )}
     </div>
   );

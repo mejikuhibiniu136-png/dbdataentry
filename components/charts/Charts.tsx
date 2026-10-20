@@ -21,7 +21,7 @@ export function Sparkline({ values, color = '#22d3ee', label }: { values: number
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg className="h-8 w-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={tr('{label}: terakhir {last} ms, rentang {min}-{max} ms', { label, last: data[data.length - 1], min, max })}>
-      {data.length > 1 && <motion.polyline initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }} points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+      {data.length > 1 && <motion.polyline initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
       <path d={`M${lx.toFixed(1)} ${ly.toFixed(1)}h0.001`} stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -55,8 +55,8 @@ export function ActivityChart({ data }: { data: Activity }) {
           return (
             <g key={bk.start}>
               <title>{tr('{time} • {a} event, {b} heartbeat', { time: fmtTime(bk.start), a: bk.other, b: bk.heartbeat })}</title>
-              {bk.heartbeat > 0 && <motion.rect x={x} y={yH} width={barW} height={hH} rx="2" fill="#22d3ee" style={BAR_STYLE} initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 0.35 }} transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }} />}
-              {bk.other > 0 && <motion.rect x={x} y={yO} width={barW} height={hO} rx="2" fill="#8b5cf6" style={BAR_STYLE} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }} />}
+              {bk.heartbeat > 0 && <motion.rect x={x} y={yH} width={barW} height={hH} rx="2" fill="#22d3ee" style={BAR_STYLE} initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 0.35 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
+              {bk.other > 0 && <motion.rect x={x} y={yO} width={barW} height={hO} rx="2" fill="#8b5cf6" style={BAR_STYLE} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
             </g>
           );
         })}
@@ -81,7 +81,7 @@ export function BarList({ items, empty }: { items: { name: string; count: number
         <div key={it.name} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm">
           <span className="truncate text-slate-300" title={it.name}>{it.name}</span>
           <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
-            <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-[width] duration-150" style={{ width: `${Math.max(3, (num(it.count) / max) * 100)}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-[width] duration-500" style={{ width: `${Math.max(3, (num(it.count) / max) * 100)}%` }} />
           </div>
           <b className="tabular text-slate-100">{it.count.toLocaleString('id-ID')}</b>
         </div>

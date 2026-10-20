@@ -1,4 +1,5 @@
 'use client';
+import { AnimatePresence } from 'motion/react';
 import { Download, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
@@ -52,15 +53,17 @@ export function AccountsView({ loading, accounts, logs, now, isAdmin, onDelete, 
         tr('Menghapus akun hanya menghapusnya dari daftar. Akun muncul lagi jika skripnya masih mengirim data. Tombol Job ID menyalin Job ID.'),
       ]} />
 
-      {loading ? <SkeletonGrid count={6} /> : rows.length === 0 ? (
-        <div className="glass p-10 text-center text-sm text-slate-300">{accounts.length === 0 ? tr('Belum ada akun. Jalankan loadstring di executor untuk mulai melacak.') : tr('Tidak ada akun yang cocok.')}</div>
+      {loading ? <SkeletonGrid count={6} className="h-60" /> : rows.length === 0 ? (
+        <div className="glass p-10 text-center text-sm text-slate-500">{accounts.length === 0 ? tr('Belum ada akun. Jalankan loadstring di executor untuk mulai melacak.') : tr('Tidak ada akun yang cocok.')}</div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <AnimatePresence mode="popLayout" initial={false}>
             {rows.map(({ a, s }) => (
               <AccountCard key={a.username} acc={a} state={s} isAdmin={isAdmin} latency={latencySeries(logs, a.username)}
                 uptime={s === 'OFFLINE' ? '-' : formatDuration(locale, (now - new Date(a.timestamp).getTime()) / 1000)}
                 syncText={timeAgo(new Date(a.lastUpdate).getTime(), now, locale)} onDelete={onDelete} onCopyJob={onCopyJob} />
             ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

@@ -48,7 +48,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   return (
     <main className="relative grid min-h-dvh place-items-center p-4">
       <div className="absolute top-4 right-4"><LanguageSwitcher align="right" /></div>
-      <motion.form onSubmit={submit} aria-busy={loading} className="glass w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+      <motion.form onSubmit={submit} aria-busy={loading} className="glass w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 26 }}>
         <div className="text-center">
           <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_32px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-6" aria-hidden /></div>
           <h1 className="text-xl font-semibold text-white">{isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}</h1>

@@ -1,32 +1,32 @@
 'use client';
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { motion, type HTMLMotionProps } from 'motion/react';
+import type { ReactNode } from 'react';
 
 type Variant = 'primary' | 'ghost' | 'danger' | 'subtle';
-// Kontras (WCAG AA): teks primer slate-950 di atas gradien cyan/violet >= 7:1; teks ghost slate-100 di atas latar gelap >= 12:1.
 const STYLES: Record<Variant, string> = {
-  primary: 'bg-gradient-to-r from-cyan-300 to-violet-400 text-slate-950 font-semibold hover:brightness-110',
-  ghost: 'border border-white/15 bg-white/[0.05] text-slate-100 hover:border-white/30 hover:bg-white/[0.1]',
-  subtle: 'text-slate-200 hover:bg-white/[0.08]',
-  danger: 'border border-rose-300/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25',
+  primary: 'bg-gradient-to-r from-cyan-400 to-violet-500 text-slate-950 font-semibold shadow-[0_0_24px_-6px_rgb(34_211_238/0.6)] hover:shadow-[0_0_32px_-4px_rgb(34_211_238/0.8)]',
+  ghost: 'border border-white/10 bg-white/[0.04] text-slate-200 hover:border-white/20 hover:bg-white/[0.08]',
+  subtle: 'text-slate-300 hover:bg-white/[0.06]',
+  danger: 'border border-rose-400/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20',
 };
 
-interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+interface Props extends Omit<HTMLMotionProps<'button'>, 'children'> {
   variant?: Variant;
   size?: 'sm' | 'md';
   children: ReactNode;
 }
 
-// Tombol tanpa library animasi: transisi warna 150 ms lewat CSS, umpan balik tekan lewat active:scale.
-// Tinggi minimal 40px (44px pada layar sentuh) dan cincin fokus global dari :focus-visible.
-export const Button = forwardRef<HTMLButtonElement, Props>(function Button({ variant = 'ghost', size = 'md', className = '', children, type = 'button', ...rest }, ref) {
+export function Button({ variant = 'ghost', size = 'md', className = '', children, disabled, ...rest }: Props) {
   return (
-    <button
-      ref={ref}
-      type={type}
-      className={`touch-target inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl text-sm transition-[background-color,border-color,filter,transform] duration-150 select-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${size === 'sm' ? 'min-h-9 px-3 py-1.5 text-xs' : 'min-h-10 px-4 py-2'} ${STYLES[variant]} ${className}`}
+    <motion.button
+      whileHover={disabled ? undefined : { y: -1 }}
+      whileTap={disabled ? undefined : { scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      disabled={disabled}
+      className={`inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2'} ${STYLES[variant]} ${className}`}
       {...rest}
     >
       {children}
-    </button>
+    </motion.button>
   );
-});
+}

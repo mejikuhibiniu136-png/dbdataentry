@@ -78,7 +78,6 @@ export function useOrigin(): string {
 
 // ---------- Toast ----------
 export interface Toast { id: number; message: string; type: 'success' | 'error' | 'info' }
-export const MAX_TOASTS = 3;
 
 export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -94,22 +93,15 @@ export function useToasts() {
   const push = useCallback((message: string, type: Toast['type'] = 'info') => {
     counter.current += 1;
     const id = counter.current;
-    // Maksimal 3 toast aktif: yang terlama dilepas (timer-nya ikut dibersihkan) sebelum yang baru masuk.
-    setToasts((l) => {
-      const next = [...l, { id, message, type }];
-      const dropped = next.slice(0, Math.max(0, next.length - MAX_TOASTS));
-      dropped.forEach((d) => { clearTimeout(timers.current.get(d.id)); timers.current.delete(d.id); });
-      return next.slice(-MAX_TOASTS);
-    });
-    // Hilang otomatis; error diberi waktu baca lebih lama.
-    timers.current.set(id, setTimeout(() => dismiss(id), type === 'error' ? 6000 : 4000));
+    setToasts((l) => [...l.slice(-3), { id, message, type }]);
+    timers.current.set(id, setTimeout(() => dismiss(id), 4000));
   }, [dismiss]);
 
   useEffect(() => {
     const current = timers.current;
     return () => current.forEach((t) => clearTimeout(t));
   }, []);
-  return { toasts, push, dismiss };
+  return { toasts, push };
 }
 
 // ---------- SSE ----------
