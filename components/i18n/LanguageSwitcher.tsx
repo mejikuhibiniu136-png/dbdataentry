@@ -48,7 +48,7 @@ export function LanguageSwitcher({ compact = false, align = 'left', dropUp = fal
         {open && (
           <motion.ul id={listId} role="listbox" aria-label={t('lang.choose')} aria-activedescendant={`${listId}-${LOCALES[active]}`} tabIndex={-1}
             initial={{ opacity: 0, y: dropUp ? 6 : -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: dropUp ? 6 : -6, scale: 0.97 }} transition={{ duration: 0.15, ease: 'easeOut' }}
-            className={`glass absolute z-50 min-w-44 overflow-hidden p-1 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
+            className={`glass glass-solid absolute z-50 min-w-44 overflow-hidden p-1 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
             {LOCALES.map((l, i) => (
               <li key={l} id={`${listId}-${l}`} role="option" aria-selected={l === locale} lang={l} onMouseEnter={() => setActive(i)} onClick={() => choose(l)}
                 className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm ${i === active ? 'bg-cyan-300/10 text-white' : 'text-slate-300'}`}>

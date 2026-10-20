@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 
 // Angka berjalan: bergerak halus dari nilai sebelumnya ke nilai baru (mis. total log naik lewat SSE).
-export function AnimatedNumber({ value, suffix = '', duration = 0.15, className = '' }: { value: number; suffix?: string; duration?: number; className?: string }) {
+export function AnimatedNumber({ value, suffix = '', duration = 0.9, className = '' }: { value: number; suffix?: string; duration?: number; className?: string }) {
   const n = Number.isFinite(value) ? value : 0;
   const ref = useRef<HTMLSpanElement>(null);
   const mv = useMotionValue(0);

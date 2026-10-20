@@ -17,7 +17,8 @@ export type Tone = keyof typeof TONES;
 export function Pill({ tone = 'neutral', children, dot, className = '' }: { tone?: Tone; children: ReactNode; dot?: 'live' | 'static'; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${TONES[tone]} ${className}`}>
-      {dot && <span className={`size-1.5 rounded-full bg-current ${dot === 'live' ? 'animate-pulse-dot' : ''}`} />}
+      {dot === 'live' && <span className="relative flex size-1.5" aria-hidden><span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" /><span className="relative size-1.5 rounded-full bg-current" /></span>}
+      {dot === 'static' && <span className="size-1.5 rounded-full bg-current" aria-hidden />}
       {children}
     </span>
   );

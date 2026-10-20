@@ -36,6 +36,33 @@ body {
 }
 .glass-hover { @apply transition-colors duration-150 hover:border-cyan-300/30 hover:bg-white/[0.06]; }
 
+/* Menu melayang (dropdown, panel): latar solid supaya teks di belakangnya tidak tembus */
+.glass-solid { background-color: #0c1220; backdrop-filter: none; }
+
+/* Spotlight mengikuti kursor (perangkat dengan mouse/trackpad saja) */
+@media (hover: hover) and (pointer: fine) {
+  .glass-hover:hover { background-image: radial-gradient(22rem circle at var(--mx, 50%) var(--my, 50%), rgb(34 211 238 / 0.10), transparent 65%); }
+}
+
+/* Aurora: tiga cahaya besar melayang pelan di belakang konten (hanya transform, ringan di GPU) */
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.aurora i { position: absolute; border-radius: 9999px; will-change: transform; }
+.aurora i:nth-child(1) { width: 46rem; height: 46rem; left: -10rem; top: -14rem; background: radial-gradient(closest-side, rgb(34 211 238 / 0.2), transparent); animation: aurora-a 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(2) { width: 42rem; height: 42rem; right: -12rem; top: 2rem; background: radial-gradient(closest-side, rgb(139 92 246 / 0.22), transparent); animation: aurora-b 32s ease-in-out infinite alternate; }
+.aurora i:nth-child(3) { width: 38rem; height: 38rem; left: 30%; bottom: -18rem; background: radial-gradient(closest-side, rgb(16 185 129 / 0.14), transparent); animation: aurora-c 38s ease-in-out infinite alternate; }
+@keyframes aurora-a { to { transform: translate3d(14rem, 9rem, 0) scale(1.15); } }
+@keyframes aurora-b { to { transform: translate3d(-12rem, 11rem, 0) scale(1.1); } }
+@keyframes aurora-c { to { transform: translate3d(-10rem, -8rem, 0) scale(1.2); } }
+
+/* Kilau sekali jalan saat kartu muncul */
+.shine { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.shine::after { content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 40%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.16), transparent); transform: translateX(-150%) skewX(-18deg); animation: shine-sweep 0.9s ease-out var(--shine-delay, 0.5s) forwards; }
+@keyframes shine-sweep { to { transform: translateX(350%) skewX(-18deg); } }
+
+/* Judul dengan kilau gradien yang bergeser pelan */
+.text-shimmer { background-image: linear-gradient(100deg, #fff 0%, #a5f3fc 30%, #c4b5fd 55%, #fff 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: text-sheen 7s ease-in-out infinite alternate; }
+@keyframes text-sheen { to { background-position: -100% 0; } }
+
 .field {
   @apply min-h-10 pointer-coarse:min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 transition;
   @apply focus:border-cyan-300/50 focus:bg-black/40 focus:outline-none focus:ring-2 focus:ring-cyan-300/20;
@@ -60,5 +87,7 @@ body {
 .json-bool { color: #c4b5fd; } .json-null { color: #94a3b8; }
 
 @media (prefers-reduced-motion: reduce) {
+  .aurora i, .text-shimmer { animation: none; }
+  .shine { display: none; }
   *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }

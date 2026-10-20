@@ -22,7 +22,7 @@ function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React
         <div><h3 className="text-sm font-semibold text-white">{title}</h3><p className="text-xs text-slate-400">{hint}</p></div>
       </div>
       {loading ? <Skeleton className="h-16" /> : (
-        <div className="flex items-stretch gap-2">
+        <div className="flex items-start gap-2">
           <code className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 font-mono text-xs leading-relaxed break-all text-cyan-100 select-all">{value}</code>
           <Button onClick={copy} variant={copied ? 'primary' : 'ghost'} aria-label={tr('Salin {title}', { title })} className="flex-none">
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}<span className="hidden sm:inline">{copied ? tr('Disalin') : tr('Salin')}</span>

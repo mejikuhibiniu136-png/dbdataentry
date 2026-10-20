@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { MotionProvider } from '@/components/ui/MotionProvider';
+import { Spotlight } from '@/components/ui/Spotlight';
 import { getDictionary, getLocale } from '@/lib/i18n/server';
 
 export const metadata: Metadata = {
@@ -17,7 +18,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const [locale, dictionary] = await Promise.all([getLocale(), getDictionary()]);
   return (
     <html lang={locale}>
-      <body><I18nProvider locale={locale} dictionary={dictionary}><MotionProvider>{children}</MotionProvider></I18nProvider></body>
+      <body>
+        <div className="aurora" aria-hidden><i /><i /><i /></div>
+        <Spotlight />
+        <I18nProvider locale={locale} dictionary={dictionary}><MotionProvider>{children}</MotionProvider></I18nProvider></body>
     </html>
   );
 }

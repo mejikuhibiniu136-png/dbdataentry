@@ -49,25 +49,25 @@ export function Sidebar({
     <>
       {/* Desktop */}
       <aside className="glass sticky top-4 hidden h-[calc(100dvh-2rem)] w-60 flex-none flex-col p-4 lg:flex">
-        <div className="mb-6 flex items-center gap-2.5 px-2">
+        <div className="mb-4 flex shrink-0 items-center gap-2.5 px-2 [@media(max-height:720px)]:mb-2">
           <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-5" aria-hidden /></span>
           <span className="text-base font-semibold text-white">dbdataentry</span>
         </div>
-        <nav data-tour="nav" aria-label={t('nav.main')} className="flex flex-col gap-1">
+        <nav data-tour="nav" aria-label={t('nav.main')} className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1">
           {items.map((v) => {
             const active = v.id === view;
             const count = badge(v.id);
             return (
-              <button key={v.id} onClick={() => onView(v.id)} aria-current={active ? 'page' : undefined} className={`relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'}`}>
-                {active && <motion.span layoutId="nav-active" className="absolute inset-0 rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-300/15 to-violet-400/10" transition={{ duration: 0.15, ease: 'easeOut' }} />}
+              <button key={v.id} onClick={() => onView(v.id)} aria-current={active ? 'page' : undefined} className={`relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors [@media(max-height:720px)]:py-1.5 ${active ? 'text-white' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'}`}>
+                {active && <motion.span layoutId="nav-active" className="absolute inset-0 rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-300/15 to-violet-400/10 shadow-[0_0_20px_-6px_rgb(34_211_238/0.55)]" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                 <v.icon className="relative size-4" aria-hidden /><span className="relative flex-1">{t(v.labelKey)}</span>
                 {count !== null && <span className="relative grid min-w-5 place-items-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">{count}</span>}
               </button>
             );
           })}
         </nav>
-        <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
-          <div className="px-1"><div className="truncate text-sm font-medium text-white">{username}</div><Pill tone={ROLE_TONE[role]} className="mt-1">{t(ROLE_LABEL_KEY[role])}</Pill></div>
+        <div className="mt-2 shrink-0 space-y-2 border-t border-white/10 pt-3">
+          <div className="flex items-center justify-between gap-2 px-1"><span className="truncate text-sm font-medium text-white">{username}</span><Pill tone={ROLE_TONE[role]}>{t(ROLE_LABEL_KEY[role])}</Pill></div>
           <LanguageSwitcher dropUp />
           <button onClick={onLogout} className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-white"><LogOut className="size-4" aria-hidden />{t('nav.logout')}</button>
         </div>
@@ -76,7 +76,7 @@ export function Sidebar({
       {/* Mobile: bar bawah (maks 5 slot) + panel "Lainnya" */}
       {more && (
         <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>
-          <div id="more-menu" role="dialog" aria-label={tr('Menu lainnya')} className="glass absolute inset-x-3 bottom-[5.25rem] max-h-[70dvh] overflow-y-auto p-2">
+          <div id="more-menu" role="dialog" aria-label={tr('Menu lainnya')} className="glass glass-solid absolute inset-x-3 bottom-[5.25rem] max-h-[70dvh] overflow-y-auto p-2">
             {rest.map((v) => {
               const count = badge(v.id);
               return (

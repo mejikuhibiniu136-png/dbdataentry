@@ -187,7 +187,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       <main id="main-content" tabIndex={-1} data-tour="content" className="min-w-0 flex-1 space-y-5 focus:outline-none">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-white">{current ? t(current.labelKey) : ''}</h1>
+            <h1 className="text-shimmer text-2xl font-semibold text-white">{current ? t(current.labelKey) : ''}</h1>
             <p className="text-sm text-slate-400">{t('header.greeting', { name: username })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -208,7 +208,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
               const active = g.slug === game;
               return (
                 <button key={g.slug} role="tab" aria-selected={active} onClick={() => switchGame(g.slug)} className={`relative flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/40 text-white' : 'border-white/10 text-slate-400 hover:text-slate-100'}`}>
-                  {active && <motion.span layoutId="game-chip" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ duration: 0.15, ease: 'easeOut' }} />}
+                  {active && <motion.span layoutId="game-chip" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                   <span className="relative">{g.name}</span>
                 </button>
               );
