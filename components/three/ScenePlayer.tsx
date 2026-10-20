@@ -39,7 +39,7 @@ function disposeTree(root: THREE.Object3D) {
 interface Edge { a: number; b: number }
 interface Packet { e: number; t: number; v: number; rev: boolean }
 
-export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
+export default function ScenePlayer({ warp = false, ambient = false }: { warp?: boolean; ambient?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const warpRef = useRef(warp);
   useEffect(() => { warpRef.current = warp; }, [warp]);
@@ -49,7 +49,9 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     if (!el) return undefined;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    const small = coarse || el.clientWidth < 640;
+    const small = ambient || coarse || el.clientWidth < 640;
+    const base = ambient ? 0.45 : 1; // kecepatan dasar: mode ambient berputar pelan
+    const z0 = ambient ? 7.5 : 6.4;
 
     let renderer: THREE.WebGLRenderer;
     try {
@@ -58,14 +60,14 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       return undefined; // WebGL tidak tersedia: latar CSS (aurora) tetap menjadi cadangan.
     }
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
+    renderer.setPixelRatio(ambient ? 1 : Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
     const canvas = renderer.domElement;
     canvas.style.cssText = 'display:block;width:100%;height:100%';
     el.appendChild(canvas);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-    camera.position.set(0, 0, 6.4);
+    camera.position.set(0, 0, z0);
     const world = new THREE.Group();
     scene.add(world);
 
@@ -176,7 +178,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     const onMove = (e: PointerEvent) => { target.x = e.clientX / window.innerWidth - 0.5; target.y = e.clientY / window.innerHeight - 0.5; };
     const timer = new THREE.Timer();
     timer.connect(document); // delta dibekukan saat tab tersembunyi
-    let speed = 1, camZ = 6.4;
+    let speed = base, camZ = z0;
 
     const frame = () => {
       timer.update();
@@ -184,8 +186,8 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       const t = timer.getElapsed();
       const w = warpRef.current;
       const k = (rate: number) => Math.min(1, dt * rate);
-      speed += ((w ? 7 : 1) - speed) * k(3);
-      camZ += ((w ? 2.2 : 6.4) - camZ) * k(2.2);
+      speed += ((w ? 7 : base) - speed) * k(3);
+      camZ += ((w ? 2.2 : z0) - camZ) * k(2.2);
       cur.x += (target.x - cur.x) * k(3);
       cur.y += (target.y - cur.y) * k(3);
 
@@ -212,7 +214,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       renderer.render(scene, camera); // satu bingkai statis, tanpa gerak
     } else {
       renderer.setAnimationLoop(frame);
-      if (!coarse) window.addEventListener('pointermove', onMove, { passive: true });
+      if (!coarse && !ambient) window.addEventListener('pointermove', onMove, { passive: true });
     }
 
     return () => {
@@ -227,7 +229,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       renderer.forceContextLoss();
       canvas.remove();
     };
-  }, []);
+  }, [ambient]);
 
   return <div ref={host} className="size-full" />;
 }

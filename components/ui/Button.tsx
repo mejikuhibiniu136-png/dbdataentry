@@ -1,5 +1,5 @@
 'use client';
-import { motion, type HTMLMotionProps } from 'motion/react';
+import { motion, useMotionValue, useReducedMotion, useSpring, type HTMLMotionProps } from 'motion/react';
 import type { ReactNode } from 'react';
 
 type Variant = 'primary' | 'ghost' | 'danger' | 'subtle';
@@ -16,10 +16,29 @@ interface Props extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children: ReactNode;
 }
 
-export function Button({ variant = 'ghost', size = 'md', className = '', children, disabled, ...rest }: Props) {
+const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+
+export function Button({ variant = 'ghost', size = 'md', className = '', children, disabled, style, onPointerMove, onPointerLeave, ...rest }: Props) {
+  // Tombol utama "tertarik" ke kursor (hanya mouse; sentuh dan "kurangi gerakan" dilewati).
+  const reduce = useReducedMotion();
+  const magnet = variant === 'primary' && !disabled && !reduce;
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const sx = useSpring(mx, { stiffness: 300, damping: 20, mass: 0.4 });
+  const sy = useSpring(my, { stiffness: 300, damping: 20, mass: 0.4 });
   return (
     <motion.button
-      whileHover={disabled ? undefined : { y: -1 }}
+      style={magnet ? { x: sx, y: sy, ...style } : style}
+      onPointerMove={(e) => {
+        if (magnet && e.pointerType === 'mouse') {
+          const r = e.currentTarget.getBoundingClientRect();
+          mx.set(clamp((e.clientX - (r.left + r.width / 2)) * 0.18, 8));
+          my.set(clamp((e.clientY - (r.top + r.height / 2)) * 0.25, 6) - 1);
+        }
+        onPointerMove?.(e);
+      }}
+      onPointerLeave={(e) => { mx.set(0); my.set(0); onPointerLeave?.(e); }}
+      whileHover={disabled || magnet ? undefined : { y: -1 }}
       whileTap={disabled ? undefined : { scale: 0.97 }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
       disabled={disabled}

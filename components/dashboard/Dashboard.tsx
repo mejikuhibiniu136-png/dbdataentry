@@ -4,6 +4,7 @@ import { CircleHelp, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { AmbientScene } from '@/components/three/SceneBackdrop';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { TOUR_EVENT, WELCOME_COOKIE } from '@/components/onboarding/constants';
 import { getCopy } from '@/components/onboarding/copy';
@@ -181,6 +182,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   return (
     <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
+      <AmbientScene />
       <a href="#main-content" className="skip-link">{tr('Lewati ke konten')}</a>
       <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 

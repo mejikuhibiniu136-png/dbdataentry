@@ -47,3 +47,9 @@ tsc --noEmit bersih; vitest 25 file lulus (Redis sungguhan); luac -p OK untuk 3 
 - Baru: efek warp (adegan melaju, form memudar) saat login berhasil dan saat menekan Masuk di layar sambutan.
 - Baru: kartu statistik miring 3D mengikuti kursor (`useTilt`), angka berdenyut saat berubah, kilau menyapu tombol utama, cincin gradien berputar di logo, item sidebar masuk berurutan, sparkline dengan area gradien + titik ujung berdenyut, judul sambutan muncul dari kabur.
 - Dependensi: `three@^0.186.0`, `@types/three@^0.186.0`. Jalankan `npm install`.
+
+## Perbaikan notifikasi + animasi tambahan (v7)
+
+- Bug: panel notifikasi terpotong di tepi kiri layar pada lebar sedang (tablet / mode desktop di HP). Panel sekarang `fixed`, posisinya dihitung dari tombol lonceng lalu dijepit ke dalam layar (`components/notifications/NotificationBell.tsx`); ikut menyesuaikan saat resize/scroll.
+- Baru: latar 3D ambient di dashboard (`AmbientScene`; redup, pelan, DPR 1, tanpa pointer; dilewati bila "kurangi gerakan").
+- Baru: tombol utama magnetik (tertarik ke kursor), sinar gradien berputar di tepi kartu statistik saat hover, lonceng bergoyang saat ada notifikasi belum dibaca.

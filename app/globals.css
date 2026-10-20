@@ -106,8 +106,12 @@ body {
 .ring-spin::before { content: ''; position: absolute; inset: -2px; border-radius: inherit; padding: 2px; pointer-events: none; background: conic-gradient(from var(--ring-a), transparent 0 50%, #22d3ee, #8b5cf6, transparent); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ring-turn 3.2s linear infinite; }
 @keyframes ring-turn { to { --ring-a: 360deg; } }
 
+/* Sinar gradien mengelilingi tepi kartu saat hover (hanya berputar ketika di-hover, hemat paint) */
+.beam::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0; transition: opacity 0.3s; background: conic-gradient(from var(--ring-a), transparent 0 55%, #22d3ee, #8b5cf6, transparent); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ring-turn 2.8s linear infinite; animation-play-state: paused; }
+.beam:hover::before { opacity: 1; animation-play-state: running; }
+
 @media (prefers-reduced-motion: reduce) {
-  .ring-spin::before, .btn-sheen::after { animation: none; }
+  .ring-spin::before, .btn-sheen::after, .beam::before { animation: none; }
   .aurora i, .text-shimmer { animation: none; }
   .shine { display: none; }
   *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
