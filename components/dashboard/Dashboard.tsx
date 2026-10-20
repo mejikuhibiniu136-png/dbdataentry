@@ -55,6 +55,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
   const [nameDialog, setNameDialog] = useState<{ mode: 'create' | 'rename'; game?: GameTable } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
+  const [ping, setPing] = useState(0);
   const { toasts, push: toast } = useToasts();
 
   const seen = useRef<Set<string> | null>(null);
@@ -89,6 +90,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       seen.current = new Set(d.logs.map((l) => l.id));
       if (fresh.length) {
         setNewIds(new Set(fresh));
+        setPing((p) => p + 1);
         clearTimeout(newTimer.current);
         newTimer.current = setTimeout(() => setNewIds(new Set()), 2000);
       }
@@ -182,7 +184,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   return (
     <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
-      <AmbientScene />
+      <AmbientScene ping={ping} />
       <a href="#main-content" className="skip-link">{tr('Lewati ke konten')}</a>
       <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 

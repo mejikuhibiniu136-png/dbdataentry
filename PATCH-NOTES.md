@@ -51,5 +51,5 @@ tsc --noEmit bersih; vitest 25 file lulus (Redis sungguhan); luac -p OK untuk 3 
 ## Perbaikan notifikasi + animasi tambahan (v7)
 
 - Bug: panel notifikasi terpotong di tepi kiri layar pada lebar sedang (tablet / mode desktop di HP). Panel sekarang `fixed`, posisinya dihitung dari tombol lonceng lalu dijepit ke dalam layar (`components/notifications/NotificationBell.tsx`); ikut menyesuaikan saat resize/scroll.
-- Baru: latar 3D ambient di dashboard (`AmbientScene`; redup, pelan, DPR 1, tanpa pointer; dilewati bila "kurangi gerakan").
+- Baru: latar 3D dashboard `AmbientScene` -> `TerrainPlayer` (permukaan garis-halus bergelombang sangat pelan, tanpa partikel/neon, memudar ke atas; riak lembut setiap log baru masuk; 30 fps di HP; satu bingkai statis bila "kurangi gerakan"). Berbeda dari adegan hero di login.
 - Baru: tombol utama magnetik (tertarik ke kursor), sinar gradien berputar di tepi kartu statistik saat hover, lonceng bergoyang saat ada notifikasi belum dibaca.

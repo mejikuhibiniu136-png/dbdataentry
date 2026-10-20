@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { disposeTree } from '@/components/three/dispose';
 
 // Adegan 3D latar (three.js): inti wireframe, cincin orbit, jaringan node berbentuk bola, dan
 // "paket data" yang mengalir di sepanjang jaringan (metafora webhook). Ringan: satu draw call per
@@ -27,19 +28,10 @@ function glowTexture(): THREE.CanvasTexture | null {
   return t;
 }
 
-function disposeTree(root: THREE.Object3D) {
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    m.geometry?.dispose();
-    const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-    for (const x of Array.isArray(mat) ? mat : mat ? [mat] : []) x.dispose();
-  });
-}
-
 interface Edge { a: number; b: number }
 interface Packet { e: number; t: number; v: number; rev: boolean }
 
-export default function ScenePlayer({ warp = false, ambient = false }: { warp?: boolean; ambient?: boolean }) {
+export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const warpRef = useRef(warp);
   useEffect(() => { warpRef.current = warp; }, [warp]);
@@ -49,9 +41,7 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
     if (!el) return undefined;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    const small = ambient || coarse || el.clientWidth < 640;
-    const base = ambient ? 0.45 : 1; // kecepatan dasar: mode ambient berputar pelan
-    const z0 = ambient ? 7.5 : 6.4;
+    const small = coarse || el.clientWidth < 640;
 
     let renderer: THREE.WebGLRenderer;
     try {
@@ -60,14 +50,14 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
       return undefined; // WebGL tidak tersedia: latar CSS (aurora) tetap menjadi cadangan.
     }
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(ambient ? 1 : Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
     const canvas = renderer.domElement;
     canvas.style.cssText = 'display:block;width:100%;height:100%';
     el.appendChild(canvas);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-    camera.position.set(0, 0, z0);
+    camera.position.set(0, 0, 6.4);
     const world = new THREE.Group();
     scene.add(world);
 
@@ -178,7 +168,7 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
     const onMove = (e: PointerEvent) => { target.x = e.clientX / window.innerWidth - 0.5; target.y = e.clientY / window.innerHeight - 0.5; };
     const timer = new THREE.Timer();
     timer.connect(document); // delta dibekukan saat tab tersembunyi
-    let speed = base, camZ = z0;
+    let speed = 1, camZ = 6.4;
 
     const frame = () => {
       timer.update();
@@ -186,8 +176,8 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
       const t = timer.getElapsed();
       const w = warpRef.current;
       const k = (rate: number) => Math.min(1, dt * rate);
-      speed += ((w ? 7 : base) - speed) * k(3);
-      camZ += ((w ? 2.2 : z0) - camZ) * k(2.2);
+      speed += ((w ? 7 : 1) - speed) * k(3);
+      camZ += ((w ? 2.2 : 6.4) - camZ) * k(2.2);
       cur.x += (target.x - cur.x) * k(3);
       cur.y += (target.y - cur.y) * k(3);
 
@@ -214,7 +204,7 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
       renderer.render(scene, camera); // satu bingkai statis, tanpa gerak
     } else {
       renderer.setAnimationLoop(frame);
-      if (!coarse && !ambient) window.addEventListener('pointermove', onMove, { passive: true });
+      if (!coarse) window.addEventListener('pointermove', onMove, { passive: true });
     }
 
     return () => {
@@ -229,7 +219,7 @@ export default function ScenePlayer({ warp = false, ambient = false }: { warp?: 
       renderer.forceContextLoss();
       canvas.remove();
     };
-  }, [ambient]);
+  }, []);
 
   return <div ref={host} className="size-full" />;
 }
