@@ -48,7 +48,7 @@ export function UsersView({ role, toast, onPendingCount }: { role: Role; toast: 
     <div className="space-y-4">
       <AnimatePresence initial={false}>
         {canManage && pendingCount > 0 && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
             className="flex items-center gap-3 overflow-hidden rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
             <BellRing className="size-4 flex-none" aria-hidden />
             <span>{tr('{n} pendaftaran baru menunggu persetujuan Anda.', { n: pendingCount })}</span>
@@ -62,9 +62,8 @@ export function UsersView({ role, toast, onPendingCount }: { role: Role; toast: 
           const active = t.id === tab;
           return (
             <button key={t.id} role="tab" aria-selected={active} onClick={() => setTab(t.id)}
-              className={`relative flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/40 text-white' : 'border-white/10 text-slate-400 hover:text-slate-100'}`}>
-              {active && <motion.span layoutId="users-tab" className="absolute inset-0 rounded-full bg-cyan-300/15" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
-              <span className="relative">{tr(t.label)}{counts[t.id] > 0 && ` (${counts[t.id]})`}</span>
+              className={`touch-target relative min-h-10 flex-none cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-colors ${active ? 'border-cyan-300/60 bg-cyan-300/15 text-white' : 'border-white/15 text-slate-300 hover:border-white/30 hover:text-white'}`}>
+                            <span className="relative">{tr(t.label)}{counts[t.id] > 0 && ` (${counts[t.id]})`}</span>
             </button>
           );
         })}

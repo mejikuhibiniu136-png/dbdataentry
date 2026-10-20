@@ -87,7 +87,7 @@ export function LiveView({ loading, accounts, logs, controls, now, canControl, o
                   <span>{hpPct === null ? '-' : `${sel.account.health} / ${sel.account.maxHealth}`}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={tr('Health')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={hpPct === null ? undefined : Math.round(hpPct * 100)}>
-                  <div className={`h-full rounded-full transition-[width] duration-500 ${hpPct !== null && hpPct <= 0.3 ? 'bg-rose-400' : hpPct !== null && hpPct <= 0.6 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${(hpPct ?? 0) * 100}%` }} />
+                  <div className={`h-full rounded-full transition-[width] duration-150 ${hpPct !== null && hpPct <= 0.3 ? 'bg-rose-400' : hpPct !== null && hpPct <= 0.6 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${(hpPct ?? 0) * 100}%` }} />
                 </div>
               </div>
 

@@ -25,18 +25,18 @@ export function WelcomeScreen({ username, onEnter }: { username: string; onEnter
   }, [onEnter]);
 
   return (
-    <motion.div className="fixed inset-0 z-[60] grid place-items-center overflow-hidden bg-ink p-6" initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.03, transition: { duration: 0.45, ease: 'easeIn' } }} role="dialog" aria-modal="true" aria-label={fill(c.title, { name: username })}>
+    <motion.div className="fixed inset-0 z-[60] grid place-items-center overflow-hidden bg-ink p-6" initial={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } }} role="dialog" aria-modal="true" aria-label={fill(c.title, { name: username })}>
       {/* Latar: blob aurora + grid + partikel (hanya transform/opacity) */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        {BLOBS.map((b, i) => <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />)}
+        {BLOBS.map((b, i) => <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} />)}
         <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(white_1px,transparent_1px),linear-gradient(90deg,white_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
-        {dots.map((d, i) => <motion.span key={i} className="absolute size-1 rounded-full bg-cyan-200/70" style={{ left: `${d.left}%`, top: `${d.top}%` }} animate={{ y: [0, -28, 0], opacity: [0, 0.9, 0] }} transition={{ duration: d.dur, delay: d.delay, repeat: Infinity, ease: 'easeInOut' }} />)}
+        {dots.map((d, i) => <motion.span key={i} className="absolute size-1 rounded-full bg-cyan-200/70" style={{ left: `${d.left}%`, top: `${d.top}%` }} />)}
       </div>
 
       <motion.div className="relative z-10 flex max-w-xl flex-col items-center text-center" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } } }}>
         {[
           <span key="logo" className="relative grid size-16 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_48px_-6px_rgb(34_211_238/0.8)]">
-            <motion.span aria-hidden className="absolute inset-0 rounded-2xl border border-cyan-300/40" animate={{ scale: [1, 1.5], opacity: [0.6, 0] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut' }} />
+            <motion.span aria-hidden className="absolute inset-0 rounded-2xl border border-cyan-300/40" />
             <Radar className="size-8" aria-hidden />
           </span>,
           <span key="badge" className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs tracking-wide text-slate-300">{c.badge}</span>,
@@ -47,7 +47,7 @@ export function WelcomeScreen({ username, onEnter }: { username: string; onEnter
             <Button variant="primary" onClick={onEnter} autoFocus className="px-6 py-3 text-base">{c.enter}<ArrowRight className="size-4" aria-hidden /></Button>
             <span className="text-xs text-slate-500">{c.hint}</span>
           </div>,
-        ].map((el, i) => <motion.div key={i} className="mb-5 last:mb-0" variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}>{el}</motion.div>)}
+        ].map((el, i) => <motion.div key={i} className="mb-5 last:mb-0" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.15, ease: EASE_OUT } } }}>{el}</motion.div>)}
       </motion.div>
     </motion.div>
   );

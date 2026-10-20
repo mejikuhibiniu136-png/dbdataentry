@@ -63,7 +63,7 @@ export function AuditPanel({ toast }: { toast: Notify }) {
   return (
     <section className="glass relative overflow-hidden p-4 sm:p-5" aria-busy={loading}>
       <AnimatePresence>
-        {loading && <motion.div key="bar" className="absolute inset-x-0 top-0 h-0.5 origin-left bg-gradient-to-r from-cyan-400 to-violet-500" initial={{ scaleX: 0, opacity: 1 }} animate={{ scaleX: 0.85 }} exit={{ scaleX: 1, opacity: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }} />}
+        {loading && <motion.div key="bar" className="absolute inset-x-0 top-0 h-0.5 origin-left bg-gradient-to-r from-cyan-400 to-violet-500" initial={{ scaleX: 0, opacity: 1 }} animate={{ scaleX: 0.85 }} exit={{ scaleX: 1, opacity: 0 }} transition={{ duration: 0.15, ease: 'easeOut' }} />}
       </AnimatePresence>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-white">{tr('Audit log')}</h3>
@@ -77,7 +77,7 @@ export function AuditPanel({ toast }: { toast: Notify }) {
 
       <AnimatePresence initial={false}>
         {calendarOpen && (
-          <motion.div key="cal" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+          <motion.div key="cal" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
             <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4">
               <DateRangeCalendar value={range} onChange={setRange} />
               <p className="mt-3 text-xs text-slate-500">{range.from && !range.to ? tr('Pilih tanggal akhir, atau biarkan untuk satu hari penuh.') : tr('Klik tanggal awal lalu tanggal akhir.')}</p>

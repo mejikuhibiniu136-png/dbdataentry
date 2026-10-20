@@ -45,7 +45,7 @@ export function PendingApprovalCard({ username, status }: { username: string; st
 
   return (
     <main className="grid min-h-dvh place-items-center p-4">
-      <motion.div className="glass w-full max-w-md space-y-5 p-7 text-center" initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 26 }}>
+      <motion.div className="glass w-full max-w-md space-y-5 p-7 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
         <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-amber-300/30 bg-amber-300/10 text-amber-200 shadow-[0_0_32px_-6px_rgb(251_191_36/0.6)]">
           <Icon className="size-7" aria-hidden />
         </div>

@@ -82,7 +82,7 @@ export function HwidPanel({ toast }: { toast: Notify }) {
             <tbody className="text-slate-300">
               <AnimatePresence initial={false}>
                 {devices.map((d) => (
-                  <motion.tr key={d.id} layout exit={{ opacity: 0, x: 24, backgroundColor: 'rgba(244,63,94,0.18)' }} transition={{ duration: 0.25 }} className="border-t border-white/[0.06]">
+                  <motion.tr key={d.id} exit={{ opacity: 0, backgroundColor: 'rgba(244,63,94,0.18)' }} transition={{ duration: 0.15 }} className="border-t border-white/[0.06]">
                     <td className="py-2.5 pr-3 font-mono text-slate-100">{d.hw}</td>
                     <td className="py-2.5 pr-3">{d.ip || '—'}</td>
                     <td className="whitespace-nowrap py-2.5 pr-3 text-slate-500">{formatWhen(d.first, locale)}</td>

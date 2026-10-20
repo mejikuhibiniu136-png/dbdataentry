@@ -29,16 +29,16 @@ export function WelcomeScreen({ username }: { username: string }) {
   };
 
   return (
-    <motion.main animate={{ opacity: leaving ? 0 : 1, scale: leaving ? 1.03 : 1 }} transition={{ duration: 0.35 }} className="relative grid min-h-dvh place-items-center overflow-hidden px-5 py-10">
+    <motion.main animate={{ opacity: leaving ? 0 : 1 }} transition={{ duration: 0.15 }} className="relative grid min-h-dvh place-items-center overflow-hidden px-5 py-10">
       {/* Latar: blob bergerak + grid memudar + partikel mengambang */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         {BLOBS.map((b, i) => (
-          <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y, scale: [1, 1.15, 0.95, 1] }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />
+          <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} />
         ))}
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.06)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
         {DOTS.map((d, i) => (
           <motion.span key={i} className="absolute rounded-full bg-cyan-200/70" style={{ left: `${d.x}%`, top: `${d.y}%`, width: d.s, height: d.s }}
-            animate={{ y: [0, -28, 0], opacity: [0.15, 0.9, 0.15] }} transition={{ duration: d.d, delay: d.o, repeat: Infinity, ease: 'easeInOut' }} />
+            />
         ))}
       </div>
 

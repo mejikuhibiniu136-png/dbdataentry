@@ -87,7 +87,7 @@ export function NotificationBell({ username }: { username: string }) {
 
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
             className="glass fixed inset-x-3 top-16 z-50 max-h-[70vh] overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[24rem]" role="region" aria-label={tr('Riwayat notifikasi')}>
             <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
               <h2 className="text-sm font-semibold text-white">{tr('Notifikasi')}</h2>
