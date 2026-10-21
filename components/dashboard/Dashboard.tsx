@@ -9,6 +9,8 @@ import { TOUR_EVENT, WELCOME_COOKIE } from '@/components/onboarding/constants';
 import { getCopy } from '@/components/onboarding/copy';
 import { Sidebar, VIEWS, type ViewId } from '@/components/dashboard/Sidebar';
 import { PageTransition } from '@/components/motion/Stagger';
+import { PulseBackdrop } from '@/components/three/PulseBackdrop';
+import { PULSE_EVENT } from '@/components/three/pulse';
 import { LogDrawer } from '@/components/tables/LogList';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog, NameDialog, type ConfirmState } from '@/components/ui/Modal';
@@ -87,6 +89,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
       const fresh = d.logs.filter((l) => !seen.current!.has(l.id)).map((l) => l.id);
       seen.current = new Set(d.logs.map((l) => l.id));
       if (fresh.length) {
+        window.dispatchEvent(new CustomEvent(PULSE_EVENT, { detail: { count: fresh.length } }));
         setNewIds(new Set(fresh));
         clearTimeout(newTimer.current);
         newTimer.current = setTimeout(() => setNewIds(new Set()), 2000);
@@ -181,6 +184,7 @@ export function Dashboard({ username, role }: { username: string; role: Role }) 
 
   return (
     <div className="mx-auto flex max-w-[96rem] gap-5 p-3 pb-24 sm:p-4 lg:pb-4">
+      <PulseBackdrop />
       <a href="#main-content" className="skip-link">{tr('Lewati ke konten')}</a>
       <Sidebar view={view} onView={setView} role={role} username={username} onLogout={logout} pendingCount={pendingCount} />
 

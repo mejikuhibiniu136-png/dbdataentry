@@ -1,7 +1,7 @@
 'use client';
 import { AnimatePresence, motion } from 'motion/react';
 import { Bell, BellRing, CheckCheck, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { apiJson } from '@/lib/client';
 import { timeAgo } from '@/lib/logStats';
@@ -14,6 +14,8 @@ const LEVEL: Record<NotificationItem['level'], { dot: string; ring: string; labe
 };
 const POLL_MS = 60_000;
 const ALERT_MS = 9000;
+const PANEL_W = 384; // 24rem
+const GAP = 12;
 
 
 // Lonceng di bilah atas: lencana merah = jumlah belum dibaca, menu tarik turun = riwayat pesan.
@@ -25,6 +27,8 @@ export function NotificationBell({ username }: { username: string }) {
   const [open, setOpen] = useState(false);
   const [alert, setAlert] = useState<NotificationItem[] | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const welcomed = useRef(false);
 
   const load = useCallback(async () => {
@@ -55,14 +59,32 @@ export function NotificationBell({ username }: { username: string }) {
     return () => clearTimeout(t);
   }, [alert]);
 
+  // Panel dipasang `fixed` dan dijepit ke viewport. Sebelumnya `absolute right-0` pada lonceng yang
+  // posisinya bergeser saat header membungkus (tablet/ponsel): panel 24rem keluar dari tepi kiri layar.
+  const place = useCallback(() => {
+    const b = btn.current;
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const width = Math.min(PANEL_W, vw - GAP * 2);
+    const left = Math.min(Math.max(GAP, r.right - width), vw - width - GAP);
+    setPos({ top: r.bottom + 8, left, width });
+  }, []);
+  useLayoutEffect(() => { if (open) place(); }, [open, place]);
+
   useEffect(() => {
     if (!open) return undefined;
-    const onDown = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false); };
+    const onDown = (e: PointerEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDown);
+    document.addEventListener('pointerdown', onDown);
     document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
-  }, [open]);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, { passive: true, capture: true });
+    return () => {
+      document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true);
+    };
+  }, [open, place]);
 
   const markRead = async (ids?: string[]) => {
     // Optimistis: lencana turun seketika, lalu disinkronkan dari server.
@@ -73,9 +95,9 @@ export function NotificationBell({ username }: { username: string }) {
   const unread = feed?.unread ?? 0;
   return (
     <div ref={wrap} className="relative">
-      <button type="button" onClick={() => { setOpen((v) => !v); setAlert(null); }} aria-haspopup="true" aria-expanded={open} aria-label={unread ? tr('Notifikasi, {n} belum dibaca', { n: unread }) : tr('Notifikasi')}
+      <button ref={btn} type="button" onClick={() => { setOpen((v) => !v); setAlert(null); }} aria-haspopup="true" aria-expanded={open} aria-label={unread ? tr('Notifikasi, {n} belum dibaca', { n: unread }) : tr('Notifikasi')}
         className="relative grid size-9 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:border-white/20 hover:bg-white/[0.08]">
-        {unread ? <BellRing className="size-4" aria-hidden /> : <Bell className="size-4" aria-hidden />}
+        {unread ? <span className="bell-ring grid place-items-center"><BellRing className="size-4" aria-hidden /></span> : <Bell className="size-4" aria-hidden />}
         <AnimatePresence>
           {unread > 0 && (
             <motion.span key="badge" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="absolute -right-1.5 -top-1.5 grid min-w-[1.15rem] place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-[1.15rem] text-white ring-2 ring-[#070a12]">
@@ -86,14 +108,15 @@ export function NotificationBell({ username }: { username: string }) {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && pos && (
           <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-            className="glass glass-solid fixed inset-x-3 top-16 z-50 max-h-[70vh] overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[24rem]" role="region" aria-label={tr('Riwayat notifikasi')}>
-            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+            style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: `min(70vh, calc(100dvh - ${pos.top + GAP}px))` }}
+            className="glass glass-solid fixed z-50 flex flex-col overflow-hidden" role="region" aria-label={tr('Riwayat notifikasi')}>
+            <div className="flex flex-none items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
               <h2 className="text-sm font-semibold text-white">{tr('Notifikasi')}</h2>
               <button type="button" disabled={!unread} onClick={() => void markRead()} className="flex cursor-pointer items-center gap-1.5 text-xs text-cyan-300 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline"><CheckCheck className="size-3.5" aria-hidden />{tr('Tandai semua dibaca')}</button>
             </div>
-            <ul className="max-h-[calc(70vh-3rem)] divide-y divide-white/5 overflow-y-auto">
+            <ul className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto overscroll-contain">
               {!feed ? <li className="px-4 py-6 text-center text-sm text-slate-500">{tr('Memuat…')}</li> : feed.items.length === 0 ? <li className="px-4 py-8 text-center text-sm text-slate-500">{tr('Belum ada notifikasi.')}</li> : feed.items.map((n) => (
                 <li key={n.id}>
                   <button type="button" onClick={() => { if (!n.read) void markRead([n.id]); }} className={`flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.05] ${n.read ? '' : 'bg-cyan-300/[0.05]'}`}>
