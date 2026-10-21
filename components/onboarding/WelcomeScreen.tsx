@@ -9,9 +9,9 @@ import { EASE_OUT, titleReveal } from '@/components/motion/variants';
 import { fill, getCopy } from '@/components/onboarding/copy';
 
 const BLOBS = [
-  { c: 'bg-cyan-400/30', s: 'size-[34rem] -left-40 -top-40', x: [0, 90, -30, 0], y: [0, 60, 120, 0], d: 22 },
-  { c: 'bg-violet-500/30', s: 'size-[38rem] -right-48 top-10', x: [0, -80, 40, 0], y: [0, 100, -40, 0], d: 26 },
-  { c: 'bg-emerald-400/20', s: 'size-[28rem] left-1/3 -bottom-48', x: [0, 70, -60, 0], y: [0, -70, 20, 0], d: 30 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(34_211_238/0.32),transparent)]', s: 'size-[34rem] -left-40 -top-40', x: [0, 90, -30, 0], y: [0, 60, 120, 0], d: 22 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(139_92_246/0.32),transparent)]', s: 'size-[38rem] -right-48 top-10', x: [0, -80, 40, 0], y: [0, 100, -40, 0], d: 26 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(52_211_153/0.22),transparent)]', s: 'size-[28rem] left-1/3 -bottom-48', x: [0, 70, -60, 0], y: [0, -70, 20, 0], d: 30 },
 ];
 
 export function WelcomeScreen({ username, onEnter }: { username: string; onEnter: () => void }) {
@@ -40,7 +40,7 @@ export function WelcomeScreen({ username, onEnter }: { username: string; onEnter
       {/* Latar: adegan 3D three.js + blob aurora + grid */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <SceneBackdrop warp={leaving} lift={0.2} />
-        {BLOBS.map((b, i) => <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />)}
+        {BLOBS.map((b, i) => <motion.div key={i} className={`absolute rounded-full will-change-transform ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />)}
         <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(white_1px,transparent_1px),linear-gradient(90deg,white_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
       </div>
 

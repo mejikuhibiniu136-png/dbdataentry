@@ -56,12 +56,13 @@ export default function ScenePlayer({ warp = false, lift = 0 }: { warp?: boolean
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' }) // AA selalu aktif: cincin & garis tipis tanpa AA tampak merayap/berkedip saat berputar;
+      renderer = new THREE.WebGLRenderer({ antialias: !coarse, alpha: true, powerPreference: 'low-power' }) // MSAA hanya di desktop: di HP biayanya besar dan DPR tinggi sudah menghaluskan garis;
     } catch {
       return undefined; // WebGL tidak tersedia: latar CSS (aurora) tetap menjadi cadangan.
     }
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
+    let dpr = Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2);
+    renderer.setPixelRatio(dpr);
     const canvas = renderer.domElement;
     canvas.style.cssText = 'display:block;width:100%;height:100%';
     el.appendChild(canvas);
@@ -191,10 +192,21 @@ export default function ScenePlayer({ warp = false, lift = 0 }: { warp?: boolean
     const timer = new THREE.Timer();
     timer.connect(document); // delta dibekukan saat tab tersembunyi
 
+    // Waktu dihaluskan (EMA): selisih waktu antar bingkai di Android tidak rata (16/17/33 ms) dan itulah yang terasa sebagai
+    // "jeda" pada gerak yang sebenarnya konstan. Gerak memakai dt halus, bukan dt mentah.
+    let dtS = 1 / 60, slow = 0, ema = 16;
     const frame = () => {
       timer.update();
-      const dt = Math.min(timer.getDelta(), 0.05);
+      const raw = Math.min(timer.getDelta(), 0.1);
+      dtS += (raw - dtS) * 0.1;
+      const dt = dtS;
       const t = timer.getElapsed();
+      // Kualitas adaptif: bila rata-rata bingkai > 24 ms (±40 fps) selama ±1 dtk, turunkan resolusi render 20% (min 0,75).
+      if (t > 1.5 && raw > 0) {
+        ema += (raw * 1000 - ema) * 0.08;
+        slow = ema > 24 ? slow + raw : 0;
+        if (slow > 1 && dpr > 0.75) { dpr = Math.max(0.75, dpr * 0.8); renderer.setPixelRatio(dpr); renderer.setSize(el.clientWidth, el.clientHeight, false); slow = 0; ema = 16; }
+      }
       const w = warpRef.current;
       const k = (rate: number) => Math.min(1, dt * rate);
       speed += ((w ? 7 : 1) - speed) * k(3);
@@ -208,7 +220,8 @@ export default function ScenePlayer({ warp = false, lift = 0 }: { warp?: boolean
       ring1.rotation.z += dt * 0.4 * speed; ring2.rotation.z -= dt * 0.3 * speed;
       dust.rotation.y -= dt * 0.02 * speed;
       glow?.scale.setScalar(3.4 + Math.sin(t * 1.6) * 0.25);
-      camera.position.set(cur.x * 0.8, -cur.y * 0.5, camZ);
+      // Goyang pelan berbasis waktu: kamera selalu bergerak kontinu, termasuk di layar sentuh yang tanpa parallax pointer.
+      camera.position.set(cur.x * 0.8 + Math.sin(t * 0.17) * 0.22, -cur.y * 0.5 + Math.cos(t * 0.13) * 0.14, camZ);
       camera.lookAt(0, 0, 0);
 
       for (const p of packets) {

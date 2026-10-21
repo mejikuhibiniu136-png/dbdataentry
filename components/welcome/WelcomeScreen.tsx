@@ -11,9 +11,9 @@ import { SceneBackdrop } from '@/components/three/SceneBackdrop';
 import { WELCOME_COOKIE } from '@/lib/welcome';
 
 const BLOBS = [
-  { c: 'bg-cyan-400/30', s: 'left-[8%] top-[10%] size-[28rem]', x: [0, 80, -40, 0], y: [0, 50, 90, 0], d: 18 },
-  { c: 'bg-violet-500/30', s: 'right-[6%] top-[18%] size-[26rem]', x: [0, -90, 30, 0], y: [0, 70, -30, 0], d: 22 },
-  { c: 'bg-emerald-400/20', s: 'left-[35%] bottom-[-8%] size-[24rem]', x: [0, 60, -70, 0], y: [0, -60, 20, 0], d: 26 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(34_211_238/0.32),transparent)]', s: 'left-[8%] top-[10%] size-[28rem]', x: [0, 80, -40, 0], y: [0, 50, 90, 0], d: 18 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(139_92_246/0.32),transparent)]', s: 'right-[6%] top-[18%] size-[26rem]', x: [0, -90, 30, 0], y: [0, 70, -30, 0], d: 22 },
+  { c: 'bg-[radial-gradient(closest-side,rgb(52_211_153/0.22),transparent)]', s: 'left-[35%] bottom-[-8%] size-[24rem]', x: [0, 60, -70, 0], y: [0, -60, 20, 0], d: 26 },
 ];
 const FEATURES = [{ icon: Zap, key: 'welcome.f1' }, { icon: Users, key: 'welcome.f2' }, { icon: ShieldCheck, key: 'welcome.f3' }] as const;
 
@@ -34,7 +34,7 @@ export function WelcomeScreen({ username }: { username: string }) {
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <SceneBackdrop warp={leaving} lift={0.2} />
         {BLOBS.map((b, i) => (
-          <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y, scale: [1, 1.15, 0.95, 1] }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />
+          <motion.div key={i} className={`absolute rounded-full will-change-transform ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />
         ))}
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.06)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
       </div>
