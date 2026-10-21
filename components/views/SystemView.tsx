@@ -1,6 +1,6 @@
 'use client';
 import { CheckCircle2, ShieldOff, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { Button } from '@/components/ui/Button';
 import { Explainer } from '@/components/ui/Explainer';
@@ -24,7 +24,8 @@ interface SettingsInfo { success: boolean; data: SystemSettings; encryptionReady
 
 // Superadmin-only (lihat Sidebar & Dashboard): Environment Variables, Redis, Penerima webhook,
 // Pengaturan Dinamis (maintenance, rate limit, proteksi skrip Lua), dan API Key.
-export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'error' | 'info') => void }) {
+// memo: Dashboard dirender ulang tiap detik; panel sistem hanya perlu dirender saat datanya sendiri berubah.
+export const SystemView = memo(function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'error' | 'info') => void }) {
   const { tr, n: fmt } = useI18n();
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [settings, setSettings] = useState<SettingsInfo | null>(null);
@@ -182,4 +183,4 @@ export function SystemView({ toast }: { toast: (m: string, t?: 'success' | 'erro
       <AuditPanel toast={toast} />
     </div>
   );
-}
+});

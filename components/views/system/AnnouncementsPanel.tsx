@@ -2,7 +2,7 @@
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { AnimatePresence, motion } from 'motion/react';
 import { Loader2, Megaphone, Send, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -11,7 +11,8 @@ import { formatWhen, type Notify } from '@/components/views/system/format';
 import type { Announcement, NotificationFeed } from '@/lib/announcements';
 
 // Superadmin: terbitkan pengumuman ke lonceng semua pengguna (atau hanya staf) dan tarik kembali bila salah.
-export function AnnouncementsPanel({ toast }: { toast: Notify }) {
+// memo: Dashboard dirender ulang tiap detik (jam), tanpa memo daftar ikut dihitung ulang dan layout animation memicu kedip.
+export const AnnouncementsPanel = memo(function AnnouncementsPanel({ toast }: { toast: Notify }) {
   const { tr, locale } = useI18n();
   const [items, setItems] = useState<Announcement[] | null>(null);
   const [title, setTitle] = useState('');
@@ -19,6 +20,7 @@ export function AnnouncementsPanel({ toast }: { toast: Notify }) {
   const [audience, setAudience] = useState<'all' | 'staff'>('all');
   const [level, setLevel] = useState<'info' | 'warn' | 'critical'>('info');
   const [sending, setSending] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setItems((await apiJson<{ data: NotificationFeed }>('/api/notifications', 'GET')).data.items); } catch (e) { setItems([]); toast(e instanceof Error ? e.message : tr('Gagal memuat pengumuman'), 'error'); }
@@ -31,7 +33,9 @@ export function AnnouncementsPanel({ toast }: { toast: Notify }) {
     try { await apiJson('/api/admin/announcements', 'POST', { title, body, audience, level }); setTitle(''); setBody(''); toast(tr('Pengumuman diterbitkan'), 'success'); await load(); } catch (e) { toast(e instanceof Error ? e.message : tr('Gagal menerbitkan'), 'error'); } finally { setSending(false); }
   };
   const remove = async (id: string) => {
-    try { await apiJson(`/api/admin/announcements?id=${id}`, 'DELETE'); setItems((l) => l?.filter((a) => a.id !== id) ?? l); toast(tr('Pengumuman ditarik'), 'success'); } catch (e) { toast(e instanceof Error ? e.message : tr('Gagal menarik'), 'error'); }
+    if (removing) return; // cegah klik ganda: permintaan kedua menarik id yang sudah hilang
+    setRemoving(id);
+    try { await apiJson(`/api/admin/announcements?id=${id}`, 'DELETE'); setItems((l) => l?.filter((a) => a.id !== id) ?? l); toast(tr('Pengumuman ditarik'), 'success'); } catch (e) { toast(e instanceof Error ? e.message : tr('Gagal menarik'), 'error'); } finally { setRemoving(null); }
   };
 
   return (
@@ -49,15 +53,16 @@ export function AnnouncementsPanel({ toast }: { toast: Notify }) {
       </div>
       <div className="mt-5">
         {!items ? <Skeleton className="h-16" /> : items.length === 0 ? <p className="text-xs text-slate-500">{tr('Belum ada pengumuman.')}</p> : (
-          <ul className="divide-y divide-white/5">
-            <AnimatePresence initial={false}>
+          <ul className="relative divide-y divide-white/5">
+            <AnimatePresence initial={false} mode="popLayout">
               {items.map((a) => (
-                <motion.li key={a.id} layout exit={{ opacity: 0, x: 20 }} className="flex items-start justify-between gap-3 py-2.5">
+                <motion.li key={a.id} layout="position" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="flex items-start justify-between gap-3 py-2.5">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-slate-100"><span className="break-words">{a.title}</span><Pill tone={a.level === 'critical' ? 'bad' : a.level === 'warn' ? 'warn' : 'accent'}>{tr(a.level === 'critical' ? 'Kritis' : a.level === 'warn' ? 'Penting' : 'Info')}</Pill>{a.audience === 'staff' && <Pill tone="neutral">{tr('staf')}</Pill>}</div>
+                    {a.body && <p className="mt-0.5 line-clamp-2 whitespace-pre-line break-words text-xs text-slate-400">{a.body}</p>}
                     <div className="text-xs text-slate-500">{formatWhen(a.at, locale)} · {a.by}</div>
                   </div>
-                  <button type="button" onClick={() => void remove(a.id)} aria-label={tr('Tarik pengumuman {title}', { title: a.title })} className="grid size-9 flex-none cursor-pointer place-items-center rounded-lg text-rose-300 hover:bg-rose-500/15"><Trash2 className="size-4" aria-hidden /></button>
+                  <button type="button" disabled={removing === a.id} onClick={() => void remove(a.id)} aria-label={tr('Tarik pengumuman {title}', { title: a.title })} className="grid size-9 flex-none cursor-pointer place-items-center rounded-lg text-rose-300 hover:bg-rose-500/15 disabled:opacity-40"><Trash2 className="size-4" aria-hidden /></button>
                 </motion.li>
               ))}
             </AnimatePresence>
@@ -66,4 +71,4 @@ export function AnnouncementsPanel({ toast }: { toast: Notify }) {
       </div>
     </section>
   );
-}
+});
