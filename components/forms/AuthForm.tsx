@@ -1,9 +1,9 @@
 'use client';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import { Eye, EyeOff, Radar } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Button } from '@/components/ui/Button';
@@ -24,16 +24,16 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const reduce = useReducedMotion();
   // Hamparan titik di latar bereaksi pada interaksi: riak kecil saat mengetik (maks. ~3x/dtk), gelombang besar saat berhasil masuk.
   const lastPing = useRef(0);
-  const ping = (count = 1) => {
+  const ping = (count = 1, center = false) => {
     const now = performance.now();
     if (count === 1 && now - lastPing.current < 350) return;
     lastPing.current = now;
-    window.dispatchEvent(new CustomEvent(PULSE_EVENT, { detail: { count } }));
+    window.dispatchEvent(new CustomEvent(PULSE_EVENT, { detail: { count, center } }));
   };
   const registered = params.get('registered') === '1';
+  useEffect(() => { if (isLogin) router.prefetch('/'); }, [isLogin, router]);
 
   const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -50,10 +50,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) { setError(data.message || t('auth.errorGeneric')); return; }
       if (isLogin) {
-        // Adegan 3D "melompat" (warp) sebentar sebelum masuk dashboard.
+        // Navigasi langsung (tanpa menunggu animasi): gelombang berjalan selagi halaman berikutnya dimuat, jadi tidak ada layar kosong.
         setLeaving(true);
-        ping(8); setTimeout(() => ping(8), 140); setTimeout(() => ping(8), 300);
-        await new Promise((r) => setTimeout(r, reduce ? 0 : 650));
+        ping(8, true); setTimeout(() => ping(8, true), 260);
         router.push('/'); router.refresh();
       } else router.push('/login?registered=1');
     } catch {
@@ -65,9 +64,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
 
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden p-4">
-      <PulseBackdrop />
+      <PulseBackdrop strong />
       <div className="absolute top-4 right-4 z-10"><LanguageSwitcher align="right" /></div>
-      <motion.form onSubmit={submit} aria-busy={loading} className="glass relative z-10 w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0, y: 28, scale: 0.96 }} animate={leaving ? { opacity: 0, y: -12, scale: 0.94 } : { opacity: 1, y: 0, scale: 1 }} transition={{ duration: leaving ? 0.5 : 0.7, delay: leaving ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}>
+      <motion.form onSubmit={submit} aria-busy={loading} className="glass relative z-10 w-full max-w-sm space-y-5 p-7" initial={{ opacity: 0, y: 28, scale: 0.96 }} animate={leaving ? { opacity: 0.55, y: -6, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }} transition={{ duration: leaving ? 0.4 : 0.7, delay: leaving ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}>
         <div className="text-center">
           <div className="ring-spin mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-[0_0_32px_-6px_rgb(34_211_238/0.7)]"><Radar className="size-6" aria-hidden /></div>
           <h1 className="text-xl font-semibold text-white">{isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}</h1>

@@ -31,10 +31,11 @@ void main() {
       ring += exp(-w * w * 1.4) * exp(-age * 0.55) * r.w;
     }
   }
-  p.y += h + ring * 1.1;
+  ring = min(ring, 1.2); // riak yang bertumpuk tidak boleh melempar titik tak terbatas
+  p.y += h + ring * 0.8;
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = uScale * (0.9 + aSeed * 0.5 + ring * 2.2) / -mv.z;
+  gl_PointSize = uScale * (0.9 + aSeed * 0.4 + ring * 1.0) / -mv.z;
   vRing = ring;
   vMix = clamp(p.x / 28.0 + 0.5, 0.0, 1.0);
   vFade = 0.2 + 0.8 * smoothstep(-26.0, -2.0, p.z);
@@ -50,6 +51,17 @@ void main() {
   vec3 col = mix(vec3(0.133, 0.827, 0.933), vec3(0.545, 0.361, 0.965), vMix);
   col = mix(col, vec3(0.88, 1.0, 1.0), clamp(vRing, 0.0, 1.0));
   gl_FragColor = vec4(col, a * vFade * (0.38 + vRing * 1.2));
+}`;
+
+// Garis kontur tipis di antara titik pada tiap baris kedua: hamparan terbaca sebagai permukaan bergelombang, bukan debu acak.
+const LINE_FRAG = /* glsl */ `
+varying float vRing;
+varying float vMix;
+varying float vFade;
+void main() {
+  vec3 col = mix(vec3(0.133, 0.827, 0.933), vec3(0.545, 0.361, 0.965), vMix);
+  col = mix(col, vec3(0.88, 1.0, 1.0), clamp(vRing, 0.0, 1.0));
+  gl_FragColor = vec4(col, vFade * (0.07 + vRing * 0.45));
 }`;
 
 export default function PulseField() {
@@ -88,9 +100,9 @@ export default function PulseField() {
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < cols; j++) {
         const k = i * cols + j;
-        pos[k * 3] = (j / (cols - 1) - 0.5) * 28 + (Math.random() - 0.5) * 0.2;
+        pos[k * 3] = (j / (cols - 1) - 0.5) * 28; // kisi teratur: jitter acak membuat hamparan tampak seperti debu
         pos[k * 3 + 1] = 0;
-        pos[k * 3 + 2] = 2 - (i / (rows - 1)) * 28 + (Math.random() - 0.5) * 0.2;
+        pos[k * 3 + 2] = 2 - (i / (rows - 1)) * 28;
         seed[k] = Math.random();
       }
     }
@@ -99,15 +111,28 @@ export default function PulseField() {
     geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
 
     const rips = Array.from({ length: RIPPLES }, () => new THREE.Vector4(0, 0, -100, 0));
+    const uniforms = { uTime: { value: 0 }, uScale: { value: (small ? 30 : 38) * dpr }, uRip: { value: rips } };
     const mat = new THREE.ShaderMaterial({
-      vertexShader: VERT,
-      fragmentShader: FRAG,
-      uniforms: { uTime: { value: 0 }, uScale: { value: (small ? 30 : 38) * dpr }, uRip: { value: rips } },
+      vertexShader: VERT, fragmentShader: FRAG, uniforms,
       transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
     });
     const points = new THREE.Points(geo, mat);
     points.frustumCulled = false;
     scene.add(points);
+
+    const idx: number[] = [];
+    for (let i = 0; i < rows; i += 2) for (let j = 0; j < cols - 1; j++) idx.push(i * cols + j, i * cols + j + 1);
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute('position', geo.getAttribute('position'));
+    lineGeo.setAttribute('aSeed', geo.getAttribute('aSeed'));
+    lineGeo.setIndex(idx);
+    const lineMat = new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: LINE_FRAG, uniforms, // uniform dibagi: satu pembaruan waktu untuk titik & garis
+      transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    });
+    const lines = new THREE.LineSegments(lineGeo, lineMat);
+    lines.frustumCulled = false;
+    scene.add(lines);
 
     let now = 0, slot = 0;
     const ripple = (strength: number) => {
@@ -115,8 +140,10 @@ export default function PulseField() {
       slot = (slot + 1) % RIPPLES;
     };
     const onPulse = (e: Event) => {
-      const n = (e as CustomEvent<{ count?: number }>).detail?.count ?? 1;
-      ripple(Math.min(1.4, 0.8 + n * 0.1));
+      const d = (e as CustomEvent<{ count?: number; center?: boolean }>).detail;
+      const n = d?.count ?? 1;
+      if (d?.center) { rips[slot].set((Math.random() - 0.5) * 2, -6, now, 1.1); slot = (slot + 1) % RIPPLES; return; } // gelombang besar dari tengah (login berhasil)
+      ripple(Math.min(1.1, 0.7 + n * 0.08));
     };
     window.addEventListener(PULSE_EVENT, onPulse);
 
@@ -142,7 +169,7 @@ export default function PulseField() {
       const dt = Math.min(timer.getDelta(), 0.05);
       if (coarse) { acc += dt; if (acc < 1 / 30) return; acc = 0; }
       now = timer.getElapsed();
-      mat.uniforms.uTime.value = now;
+      uniforms.uTime.value = now;
       idle -= dt;
       if (idle <= 0) { ripple(0.45); idle = 4.5 + Math.random() * 3; } // riak pelan saat sepi
       cur.x += (target.x - cur.x) * Math.min(1, dt * 2.5);
@@ -161,8 +188,8 @@ export default function PulseField() {
       canvas.removeEventListener('webglcontextlost', onLost);
       ro.disconnect();
       timer.dispose();
-      geo.dispose();
-      mat.dispose();
+      geo.dispose(); lineGeo.dispose();
+      mat.dispose(); lineMat.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       canvas.remove();

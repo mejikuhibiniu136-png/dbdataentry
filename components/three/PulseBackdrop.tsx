@@ -6,9 +6,9 @@ const PulseField = dynamic(() => import('@/components/three/PulseField'), { ssr:
 
 const FADE = 'linear-gradient(to top, #000 0%, #000 40%, transparent 88%)';
 
-export function PulseBackdrop() {
+export function PulseBackdrop({ strong = false }: { strong?: boolean }) {
   return (
-    <div aria-hidden className="scene-in pointer-events-none fixed inset-0 opacity-70" style={{ zIndex: -1, WebkitMaskImage: FADE, maskImage: FADE }}>
+    <div aria-hidden className={`scene-in pointer-events-none fixed inset-0 ${strong ? 'opacity-100' : 'opacity-70'}`} style={{ zIndex: -1, WebkitMaskImage: FADE, maskImage: FADE }}>
       <PulseField />
     </div>
   );
