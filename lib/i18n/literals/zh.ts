@@ -496,4 +496,7 @@ export const zh: Record<string, string> = {
   "Lewati ke konten": "跳到内容",
   "Lainnya": "更多",
   "Menu lainnya": "更多菜单",
+  "Puncak": "峰值",
+  "{n} detik": "{n} 秒",
+  "Per titik: {span}": "每点: {span}",
 };

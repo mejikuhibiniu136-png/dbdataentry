@@ -496,4 +496,7 @@ export const ja: Record<string, string> = {
   "Lewati ke konten": "コンテンツへスキップ",
   "Lainnya": "その他",
   "Menu lainnya": "その他のメニュー",
+  "Puncak": "ピーク",
+  "{n} detik": "{n} 秒",
+  "Per titik: {span}": "1点あたり: {span}",
 };

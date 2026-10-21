@@ -496,4 +496,7 @@ export const en: Record<string, string> = {
   "Lewati ke konten": "Skip to content",
   "Lainnya": "More",
   "Menu lainnya": "More menu",
+  "Puncak": "Peak",
+  "{n} detik": "{n} seconds",
+  "Per titik: {span}": "Per point: {span}",
 };
