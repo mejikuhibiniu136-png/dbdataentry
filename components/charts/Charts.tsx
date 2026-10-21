@@ -62,10 +62,11 @@ export function ActivityChart({ data }: { data: Activity }) {
           const hO = (bk.other / max) * innerH, hH = (bk.heartbeat / max) * innerH;
           const yO = padT + innerH - hO, yH = yO - hH;
           return (
-            <g key={bk.start}>
+            <g key={i}>
               <title>{tr('{time} • {a} event, {b} heartbeat', { time: fmtTime(bk.start), a: bk.other, b: bk.heartbeat })}</title>
-              {bk.heartbeat > 0 && <motion.rect x={x} y={yH} width={barW} height={hH} rx="2" fill="#22d3ee" style={BAR_STYLE} initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 0.35 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
-              {bk.other > 0 && <motion.rect x={x} y={yO} width={barW} height={hO} rx="2" fill="#8b5cf6" style={BAR_STYLE} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }} />}
+              {/* Batang selalu terpasang (kunci = indeks): tumbuh sekali saat grafik muncul, lalu y/tinggi bergeser halus saat data berubah. */}
+              <motion.rect x={x} width={barW} rx="2" fill="#22d3ee" style={BAR_STYLE} initial={{ scaleY: 0, opacity: 0.35, y: yH, height: hH }} animate={{ scaleY: 1, opacity: 0.35, y: yH, height: hH }} transition={{ scaleY: { duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }, default: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }} />
+              <motion.rect x={x} width={barW} rx="2" fill="#8b5cf6" style={BAR_STYLE} initial={{ scaleY: 0, y: yO, height: hO }} animate={{ scaleY: 1, y: yO, height: hO }} transition={{ scaleY: { duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 60) * 0.012 }, default: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }} />
             </g>
           );
         })}

@@ -120,16 +120,23 @@ export function filterLogs(logs: LogEntry[], f: LogFilter, nowMs = Date.now()): 
 
 export interface Activity { buckets: { start: number; heartbeat: number; other: number }[]; spanMs: number; bucketMs: number; max: number }
 
+// Lebar batang yang mungkin: 15 dtk … 1 jam (24 batang → 6 mnt … 24 jam).
+const ACTIVITY_STEPS = [15_000, 30_000, 60_000, 120_000, 300_000, 600_000, 900_000, 1_800_000, 3_600_000];
+
 export function buildActivity(logs: LogEntry[], nowMs = Date.now(), n = 24): Activity {
   const times = logs.map((l) => new Date(l.receivedAt).getTime()).filter((t) => Number.isFinite(t) && t <= nowMs + 60_000);
   if (!times.length) return { buckets: [], spanMs: 0, bucketMs: 0, max: 0 };
-  const spanMs = Math.min(Math.max(nowMs - Math.min(...times), 5 * 60_000), 86_400_000);
-  const bucketMs = Math.ceil(spanMs / n);
-  const start = nowMs - bucketMs * n;
+  const wantMs = Math.min(Math.max(nowMs - Math.min(...times), 5 * 60_000), 86_400_000);
+  // Lebar batang dibulatkan ke langkah "rapi" dan ujung jendela disejajarkan ke kelipatannya. Dulu `start`
+  // ikut bergeser tiap detik (jam dashboard berdetak), sehingga setiap batang berganti kunci dan tumbuh ulang = berkedip.
+  const bucketMs = ACTIVITY_STEPS.find((s) => s * n >= wantMs) ?? ACTIVITY_STEPS[ACTIVITY_STEPS.length - 1];
+  const spanMs = bucketMs * n;
+  const end = Math.ceil((nowMs + 1) / bucketMs) * bucketMs;
+  const start = end - spanMs;
   const out = Array.from({ length: n }, (_, i) => ({ start: start + i * bucketMs, heartbeat: 0, other: 0 }));
   for (const log of logs) {
     const t = new Date(log.receivedAt).getTime();
-    if (!Number.isFinite(t) || t < start || t > nowMs + bucketMs) continue;
+    if (!Number.isFinite(t) || t < start || t >= end) continue;
     const i = Math.min(n - 1, Math.max(0, Math.floor((t - start) / bucketMs)));
     if (isHeartbeat(log)) out[i].heartbeat += 1; else out[i].other += 1;
   }
