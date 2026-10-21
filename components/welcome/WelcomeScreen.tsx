@@ -32,12 +32,15 @@ export function WelcomeScreen({ username }: { username: string }) {
     <motion.main animate={{ opacity: leaving ? 0 : 1, scale: leaving ? 1.06 : 1 }} transition={{ duration: leaving ? 0.45 : 0.35, delay: leaving ? 0.15 : 0 }} className="relative grid min-h-dvh place-items-center overflow-hidden px-5 py-10">
       {/* Latar: adegan 3D three.js + blob bergerak + grid memudar */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <SceneBackdrop warp={leaving} />
+        <SceneBackdrop warp={leaving} lift={0.2} />
         {BLOBS.map((b, i) => (
           <motion.div key={i} className={`absolute rounded-full blur-3xl ${b.c} ${b.s}`} animate={{ x: b.x, y: b.y, scale: [1, 1.15, 0.95, 1] }} transition={{ duration: b.d, repeat: Infinity, ease: 'easeInOut' }} />
         ))}
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.06)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
       </div>
+
+      {/* Scrim: area teks digelapkan lembut agar terbaca di atas adegan 3D */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_62%_40%_at_50%_54%,rgb(5_8_16/0.78),rgb(5_8_16/0.35)_55%,transparent_80%)]" />
 
       <div className="absolute right-4 top-4 z-10"><LanguageSwitcher compact align="right" /></div>
 

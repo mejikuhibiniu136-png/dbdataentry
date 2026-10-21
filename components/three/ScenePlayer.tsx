@@ -39,10 +39,13 @@ function disposeTree(root: THREE.Object3D) {
 interface Edge { a: number; b: number }
 interface Packet { e: number; t: number; v: number; rev: boolean }
 
-export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
+// `lift`: geser adegan ke atas (pecahan tinggi layar) supaya inti 3D tidak persis di belakang teks.
+export default function ScenePlayer({ warp = false, lift = 0 }: { warp?: boolean; lift?: number }) {
   const host = useRef<HTMLDivElement>(null);
   const warpRef = useRef(warp);
   useEffect(() => { warpRef.current = warp; }, [warp]);
+  const liftRef = useRef(lift);
+  useEffect(() => { liftRef.current = lift; }, [lift]);
 
   useEffect(() => {
     const el = host.current;
@@ -53,7 +56,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: !small, alpha: true, powerPreference: 'low-power' });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' }) // AA selalu aktif: cincin & garis tipis tanpa AA tampak merayap/berkedip saat berputar;
     } catch {
       return undefined; // WebGL tidak tersedia: latar CSS (aurora) tetap menjadi cadangan.
     }
@@ -64,6 +67,8 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     el.appendChild(canvas);
 
     const scene = new THREE.Scene();
+    // Kabut gelap: sisi belakang bola memudar sehingga tidak bertumpuk dengan sisi depan (penyebab kesan "menabrak").
+    scene.fog = new THREE.Fog(0x050810, 4, 12);
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
     camera.position.set(0, 0, 6.4);
     const world = new THREE.Group();
@@ -95,7 +100,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     const shellGeo = new THREE.BufferGeometry();
     shellGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     shellGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    world.add(new THREE.Points(shellGeo, new THREE.PointsMaterial({ size: small ? 0.06 : 0.05, map: sprite ?? undefined, vertexColors: true, opacity: 0.9, sizeAttenuation: true, ...additive })));
+    world.add(new THREE.Points(shellGeo, new THREE.PointsMaterial({ size: small ? 0.06 : 0.05, map: sprite ?? undefined, vertexColors: true, opacity: 0.75, sizeAttenuation: true, ...additive })));
 
     // Jaringan: subset node, garis antar node yang berdekatan.
     const step = Math.max(1, Math.floor(total / (small ? 70 : 120)));
@@ -111,7 +116,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       edges.forEach((e, i) => { nodes[e.a].toArray(lp, i * 6); nodes[e.b].toArray(lp, i * 6 + 3); });
       const lg = new THREE.BufferGeometry();
       lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
-      world.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: CYAN, opacity: 0.2, ...additive })));
+      world.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: CYAN, opacity: 0.13, ...additive })));
     }
 
     // Paket data yang meluncur di sepanjang garis jaringan.
@@ -135,17 +140,17 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     writePackets();
 
     // Inti wireframe, cahaya lembut, dan dua cincin orbit.
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), new THREE.MeshBasicMaterial({ color: CYAN, wireframe: true, opacity: 0.4, ...additive }));
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), new THREE.MeshBasicMaterial({ color: CYAN, wireframe: true, opacity: 0.2, ...additive }));
     world.add(core);
     let glow: THREE.Sprite | null = null;
     if (sprite) {
-      glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sprite, color: VIOLET, opacity: 0.55, ...additive }));
+      glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sprite, color: VIOLET, opacity: 0.4, fog: false, ...additive }));
       glow.scale.setScalar(3.4);
       world.add(glow);
     }
-    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.006, 8, 180), new THREE.MeshBasicMaterial({ color: CYAN, opacity: 0.55, ...additive }));
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.006, 8, 180), new THREE.MeshBasicMaterial({ color: CYAN, opacity: 0.34, ...additive }));
     ring1.rotation.x = Math.PI / 2.4;
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.006, 8, 180), new THREE.MeshBasicMaterial({ color: VIOLET, opacity: 0.5, ...additive }));
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.006, 8, 180), new THREE.MeshBasicMaterial({ color: VIOLET, opacity: 0.3, ...additive }));
     ring2.rotation.set(Math.PI / 3.1, 0.6, 0);
     world.add(ring1, ring2);
 
@@ -158,14 +163,23 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     }
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
-    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.04, map: sprite ?? undefined, color: '#a5f3fc', opacity: 0.45, ...additive }));
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.04, map: sprite ?? undefined, color: '#a5f3fc', opacity: 0.4, fog: false, ...additive }));
     scene.add(dust);
 
+    // Pas ke layar: di potret (HP/tablet) bola dulu lebih lebar dari layar dan menutupi seluruh teks. Jarak kamera kini
+    // dihitung dari rasio layar sehingga bola selalu muat, lalu digeser ke atas (lift) agar inti tidak persis di belakang judul.
+    const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    let baseZ = 6.4, sized = false, speed = 1, camZ = 6.4;
     const resize = () => {
       const w = Math.max(1, el.clientWidth), h = Math.max(1, el.clientHeight);
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      baseZ = Math.max(6.4, (R * 1.15) / (tanV * Math.min(1, camera.aspect)) + R * 0.4);
+      if (!sized || reduce) { camZ = baseZ; camera.position.z = baseZ; sized = true; }
+      // landscape: angkat lebih kecil, bola sudah setinggi ±80% layar dan puncaknya akan terpotong bila diangkat penuh
+      world.position.y = liftRef.current * (camera.aspect < 1 ? 1 : 0.35) * 2 * tanV * baseZ;
+      if (scene.fog instanceof THREE.Fog) { scene.fog.near = baseZ - R * 0.9; scene.fog.far = baseZ + R * 1.7; }
       if (reduce) renderer.render(scene, camera);
     };
     const ro = new ResizeObserver(resize);
@@ -176,7 +190,6 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
     const onMove = (e: PointerEvent) => { target.x = e.clientX / window.innerWidth - 0.5; target.y = e.clientY / window.innerHeight - 0.5; };
     const timer = new THREE.Timer();
     timer.connect(document); // delta dibekukan saat tab tersembunyi
-    let speed = 1, camZ = 6.4;
 
     const frame = () => {
       timer.update();
@@ -185,7 +198,7 @@ export default function ScenePlayer({ warp = false }: { warp?: boolean }) {
       const w = warpRef.current;
       const k = (rate: number) => Math.min(1, dt * rate);
       speed += ((w ? 7 : 1) - speed) * k(3);
-      camZ += ((w ? 2.2 : 6.4) - camZ) * k(2.2);
+      camZ += ((w ? baseZ * 0.34 : baseZ) - camZ) * k(2.2);
       cur.x += (target.x - cur.x) * k(3);
       cur.y += (target.y - cur.y) * k(3);
 
