@@ -59,7 +59,7 @@ for i = 1, tonumber(ARGV[1]) do
   local v = redis.call('RPOP', KEYS[1])
   if not v then break end
   redis.call('ZADD', KEYS[2], expiry, v)
-  out[#out + 1] = v
+  out[#out + 1] = '~' .. v
 end
 return out
 `;
@@ -136,8 +136,14 @@ export async function enqueue(redis: RedisLike, item: QueueItem, maxDepth = queu
 
 // ---------- Konsumen ----------
 
-export const claim = async (redis: RedisLike, n: number, nowMs = Date.now(), leaseMs = queueLimits().leaseMs): Promise<string[]> =>
-  ((await redis.eval(CLAIM, [KEYS.queuePending, KEYS.queueInflight], [String(n), String(nowMs), String(leaseMs)])) as string[] | null) ?? [];
+// CLAIM mengawali tiap item dengan CLAIM_PREFIX. Klien Upstash (automaticDeserialization bawaan) mengurai
+// string JSON di hasil eval menjadi object, sehingga raw tidak lagi cocok dengan anggota ZSET dan JSON.parse
+// gagal. String berawalan '~' bukan JSON sah, jadi tidak diurai. Prefix dibuang di sini.
+const CLAIM_PREFIX = '~';
+export const claim = async (redis: RedisLike, n: number, nowMs = Date.now(), leaseMs = queueLimits().leaseMs): Promise<string[]> => {
+  const res = ((await redis.eval(CLAIM, [KEYS.queuePending, KEYS.queueInflight], [String(n), String(nowMs), String(leaseMs)])) as unknown[] | null) ?? [];
+  return res.map((r) => String(r)).filter((r) => r.startsWith(CLAIM_PREFIX)).map((r) => r.slice(CLAIM_PREFIX.length));
+};
 
 export const ack = async (redis: RedisLike, raws: string[]): Promise<number> =>
   raws.length ? Number(await redis.eval(ACK, [KEYS.queueInflight, KEYS.queueStats], raws)) : 0;
