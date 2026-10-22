@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { Check, Copy, Terminal, Webhook } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/components/i18n/I18nProvider';
+import { GsapReveal } from '@/components/motion/GsapReveal';
+import { WebhookFlow } from '@/components/motion/WebhookFlow';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { copyText, useOrigin } from '@/lib/client';
@@ -16,7 +18,7 @@ function CopyCard({ icon, title, hint, value, loading, onResult }: { icon: React
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <motion.section whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: 'easeOut' }} className="glass glass-hover flex flex-col gap-3 p-5">
+    <motion.section data-reveal whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: 'easeOut' }} className="glass glass-hover flex flex-col gap-3 p-5">
       <div className="flex items-center gap-2.5">
         <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">{icon}</span>
         <div><h3 className="text-sm font-semibold text-white">{title}</h3><p className="text-xs text-slate-400">{hint}</p></div>
@@ -39,9 +41,11 @@ export function EndpointCards({ onResult }: { onResult: (ok: boolean, label: str
   const origin = useOrigin();
   const loading = origin === '';
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <GsapReveal className="grid gap-4 lg:grid-cols-2">
       <CopyCard icon={<Webhook className="size-4" />} title="Universal Webhook Endpoint" hint={tr('Terima JSON, form, atau teks dari sumber mana pun (POST)')} value={`${origin}/api/receiver/universal`} loading={loading} onResult={onResult} />
       <CopyCard icon={<Terminal className="size-4" />} title="Loadstring Executor" hint={tr('Tempel di executor untuk memantau status akun')} value={`loadstring(game:HttpGet("${origin}/scripts/account_status.lua"))()`} loading={loading} onResult={onResult} />
-    </div>
+      {/* Paket meluncur tiap log baru tiba (event dbd:pulse): dekoratif, disembunyikan dari pembaca layar. */}
+      <div data-reveal aria-hidden className="glass px-4 py-3 lg:col-span-2"><WebhookFlow listen className="mx-auto max-w-3xl" /></div>
+    </GsapReveal>
   );
 }
