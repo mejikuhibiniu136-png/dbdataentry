@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { Boxes, ChartColumn, Ellipsis, LayoutDashboard, LogOut, MapPinned, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
+import { Boxes, ChartColumn, Ellipsis, FlaskConical, LayoutDashboard, LogOut, MapPinned, MonitorSmartphone, Radar, ScrollText, ShieldCheck, Users } from 'lucide-react';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { useEscape } from '@/components/ui/Modal';
@@ -68,6 +68,7 @@ export function Sidebar({
         </nav>
         <div className="mt-2 shrink-0 space-y-2 border-t border-white/10 pt-3">
           <div className="flex items-center justify-between gap-2 px-1"><span className="truncate text-sm font-medium text-white">{username}</span><Pill tone={ROLE_TONE[role]}>{t(ROLE_LABEL_KEY[role])}</Pill></div>
+          {isStaff && <a href="/test-lab" className="flex w-full items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-2 text-sm text-cyan-100 transition-colors hover:bg-cyan-300/15"><FlaskConical className="size-4" aria-hidden />Test Lab</a>}
           <LanguageSwitcher dropUp />
           <button onClick={onLogout} className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-white"><LogOut className="size-4" aria-hidden />{t('nav.logout')}</button>
         </div>
@@ -88,6 +89,7 @@ export function Sidebar({
             })}
             <div className="mt-2 space-y-2 border-t border-white/10 px-1 pt-3">
               <div className="flex items-center justify-between gap-2 px-2"><span className="truncate text-sm font-medium text-white">{username}</span><Pill tone={ROLE_TONE[role]}>{t(ROLE_LABEL_KEY[role])}</Pill></div>
+              {isStaff && <a href="/test-lab" className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 text-sm text-cyan-100"><FlaskConical className="size-4" aria-hidden />Test Lab</a>}
               <LanguageSwitcher dropUp />
               <button onClick={onLogout} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm text-slate-300 hover:bg-white/[0.05]"><LogOut className="size-4" aria-hidden />{t('nav.logout')}</button>
             </div>

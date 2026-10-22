@@ -36,7 +36,13 @@ export const WebhookFlow = forwardRef<FlowHandle, { listen?: boolean; className?
     if (!packet || nodes.some((n) => !n)) return Promise.resolve();
     const last = STOP_AT[outcome];
     const tone = COLOR[outcome];
-    const reset = () => { gsap.set(nodes, { attr: { stroke: COLOR.idle, fill: '#0c1220' }, scale: 1 }); gsap.set(packet, { autoAlpha: 0 }); };
+    const dot = q<SVGCircleElement>('[data-dot]');
+    if (!dot) return Promise.resolve();
+    const reset = () => {
+      gsap.set(nodes, { attr: { stroke: COLOR.idle, fill: '#0c1220' }, scale: 1, transformOrigin: '50% 50%' });
+      gsap.set(dot, { attr: { fill: COLOR.packet }, scale: 1, transformOrigin: '50% 50%' });
+      gsap.set(packet, { x: NODES[0].x, y: Y, autoAlpha: 0 });
+    };
 
     // "Kurangi gerakan": tampilkan hasil akhir saja, tanpa gerak.
     if (prefersReducedMotion()) {
@@ -50,18 +56,19 @@ export const WebhookFlow = forwardRef<FlowHandle, { listen?: boolean; className?
       reset();
       const t = gsap.timeline({ onComplete: () => { busy.current = false; resolve(); } });
       tl.current = t;
-      t.set(packet, { attr: { cx: NODES[0].x, cy: Y, fill: COLOR.packet }, autoAlpha: 1 });
+      t.set(packet, { autoAlpha: 1 });
       for (let i = 0; i <= last; i += 1) {
         const node = nodes[i]!;
-        if (i > 0) t.to(packet, { attr: { cx: NODES[i].x }, duration: 0.45, ease: 'power2.inOut' });
         const arriveTone = i === last ? tone : COLOR.ok;
-        t.to(node, { attr: { stroke: arriveTone, fill: arriveTone + '33' }, transformOrigin: '50% 50%', scale: 1.18, duration: 0.14, ease: 'power2.out' }, '<0.3')
-          .to(node, { scale: 1, duration: 0.3, ease: 'elastic.out(1, 0.5)' });
+        // Simpul menyala SETELAH paket tiba (bukan sebelumnya), jadi gerak dan nyala sinkron.
+        if (i > 0) t.to(packet, { x: NODES[i].x, duration: 0.4, ease: 'power2.inOut' });
+        t.to(node, { attr: { stroke: arriveTone, fill: arriveTone + '33' }, scale: 1.18, duration: 0.12, ease: 'power2.out' })
+          .to(node, { scale: 1, duration: 0.25, ease: 'back.out(2)' });
       }
-      if (outcome === 'ok') t.to(packet, { autoAlpha: 0, scale: 2.2, transformOrigin: '50% 50%', duration: 0.3 });
+      if (outcome === 'ok') t.to(dot, { scale: 2.4, duration: 0.25, ease: 'power2.out' }, '<').to(packet, { autoAlpha: 0, duration: 0.25 }, '<0.05');
       else {
-        t.to(packet, { attr: { fill: tone }, duration: 0.1 })
-          .to(packet, { x: '+=5', yoyo: true, repeat: 5, duration: 0.05 })
+        t.to(dot, { attr: { fill: tone }, duration: 0.1 })
+          .to(packet, { x: `+=${5}`, yoyo: true, repeat: 5, duration: 0.05 })
           .to(packet, { autoAlpha: 0, duration: 0.25 });
       }
     });
@@ -74,7 +81,7 @@ export const WebhookFlow = forwardRef<FlowHandle, { listen?: boolean; className?
     const root = svg.current;
     if (!root) return undefined;
     const ctx = gsap.context(() => {
-      gsap.set('[data-packet]', { autoAlpha: 0 });
+      gsap.set('[data-packet]', { x: NODES[0].x, y: Y, autoAlpha: 0 });
       if (prefersReducedMotion()) return;
       gsap.to('[data-line]', { strokeDashoffset: -24, duration: 1.6, ease: 'none', repeat: -1 });
       gsap.from('[data-node]', { scale: 0.4, autoAlpha: 0, transformOrigin: '50% 50%', duration: 0.5, ease: 'back.out(2)', stagger: 0.08 });
@@ -103,7 +110,8 @@ export const WebhookFlow = forwardRef<FlowHandle, { listen?: boolean; className?
           <text data-label x={n.x} y={Y + 34} textAnchor="middle" fontSize={11} fill="#94a3b8" fontFamily="var(--font-mono, monospace)">{n.label}</text>
         </g>
       ))}
-      <circle data-packet cx={NODES[0].x} cy={Y} r={5} fill={COLOR.packet} />
+      {/* Paket: grup digeser lewat transform (x/y), lingkaran di (0,0) sehingga skala selalu berpusat di titik yang sama. */}
+      <g data-packet><circle data-dot cx={0} cy={0} r={5} fill={COLOR.packet} /></g>
     </svg>
   );
 });

@@ -1,8 +1,9 @@
 'use client';
-import { AlertTriangle, CheckCircle2, Download, FlaskConical, Loader2, Play, ShieldCheck, Trash2, Webhook, XCircle, FileCode2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, FlaskConical, Loader2, MonitorPlay, Play, ShieldCheck, Trash2, Webhook, XCircle, FileCode2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { GsapReveal } from '@/components/motion/GsapReveal';
 import { WebhookFlow, type FlowHandle, type FlowOutcome } from '@/components/motion/WebhookFlow';
+import { LuaLive } from '@/components/testlab/LuaLive';
 import { Button } from '@/components/ui/Button';
 import { Pill, type Tone } from '@/components/ui/Pill';
 import { downloadText } from '@/lib/client';
@@ -256,10 +257,10 @@ function LuaTab({ flow }: { flow: React.RefObject<FlowHandle | null> }) {
 }
 
 export function TestLab({ username }: { username: string }) {
-  const [tab, setTab] = useState<'webhook' | 'lua'>('webhook');
+  const [tab, setTab] = useState<'webhook' | 'lua' | 'live'>('webhook');
   const flow = useRef<FlowHandle>(null);
   return (
-    <main id="main-content" className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+    <main id="main-content" className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
       <GsapReveal className="space-y-4">
         <header data-reveal className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -270,12 +271,12 @@ export function TestLab({ username }: { username: string }) {
         </header>
         <div data-reveal className="glass px-4 py-3"><WebhookFlow ref={flow} className="mx-auto max-w-3xl" /></div>
         <div data-reveal role="tablist" aria-label="Test type" className="flex gap-2">
-          {([['webhook', 'Webhook', Webhook], ['lua', 'Lua script', FileCode2]] as const).map(([id, label, Icon]) => (
+          {([['webhook', 'Webhook', Webhook], ['lua', 'Lua script', FileCode2], ['live', 'Lua live UI', MonitorPlay]] as const).map(([id, label, Icon]) => (
             <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 text-sm transition-colors ${tab === id ? 'border-cyan-300/40 bg-cyan-300/10 text-white' : 'border-white/10 text-slate-400 hover:bg-white/[0.05]'}`}><Icon className="size-4" aria-hidden />{label}</button>
           ))}
         </div>
       </GsapReveal>
-      <div role="tabpanel" key={tab}>{tab === 'webhook' ? <WebhookTab flow={flow} /> : <LuaTab flow={flow} />}</div>
+      <div role="tabpanel" key={tab}>{tab === 'webhook' ? <WebhookTab flow={flow} /> : tab === 'lua' ? <LuaTab flow={flow} /> : <LuaLive flow={flow} />}</div>
     </main>
   );
 }

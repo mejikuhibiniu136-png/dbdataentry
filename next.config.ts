@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 // CSP hanya di produksi (dev React butuh eval). 'unsafe-inline' diperlukan Next untuk skrip inline bootstrap; ganti ke nonce
@@ -19,6 +20,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Argon2 adalah modul native (Rust): jangan di-bundle oleh webpack/turbopack.
   serverExternalPackages: ['@node-rs/argon2'],
+  // Fengari (VM Lua untuk Test Lab): di browser memakai bundel khusus (scripts/build-fengari.mjs) tempat cabang Node
+  // (io.*, os.execute, fs, child_process) sudah terbuang, jadi sandbox Lua tidak punya akses berkas/proses. Server dan
+  // vitest tetap memakai paket `fengari` asli.
+  turbopack: { resolveAlias: { fengari: { browser: './lib/lualab/vendor/fengari.browser.js' } } },
+  webpack: (config, { isServer }) => {
+    if (!isServer) config.resolve.alias = { ...config.resolve.alias, fengari$: path.resolve(process.cwd(), 'lib/lualab/vendor/fengari.browser.js') };
+    return config;
+  },
   // Modul Lua mentah (lua/*.lua) dibaca lewat fs saat runtime; tanpa ini Vercel tidak menyertakannya di fungsi.
   outputFileTracingIncludes: { '/api/scripts/download': ['./lua/**/*'] },
   async headers() {
