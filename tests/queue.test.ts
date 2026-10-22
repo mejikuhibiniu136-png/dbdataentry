@@ -35,6 +35,22 @@ d('antrean ingest (Redis sungguhan)', () => {
     expect(await raw.zcard(KEYS.queueInflight)).toBe(0);
   });
 
+  it('regresi: klien yang auto-deserialize hasil eval (Upstash) tetap bisa claim -> proses -> ack', async () => {
+    const deser = (v: unknown): unknown => {
+      if (Array.isArray(v)) return v.map(deser);
+      if (typeof v === 'string') { try { return JSON.parse(v); } catch { return v; } }
+      return v;
+    };
+    const upstashLike: RedisLike = { ...redis, eval: async (sc, k, a) => deser(await redis.eval(sc, k, a)) };
+    for (let i = 0; i < 3; i += 1) await enqueue(upstashLike, item(i));
+    const handler = vi.fn(async () => undefined);
+    const r = await drainQueue(upstashLike, { handler });
+    expect(r).toMatchObject({ locked: true, processed: 3, failed: 0, dead: 0 });
+    expect(handler).toHaveBeenCalledTimes(3);
+    expect(await raw.zcard(KEYS.queueInflight)).toBe(0);
+    expect(await raw.llen(KEYS.queuePending)).toBe(0);
+  });
+
   it('backpressure: melewati batas kedalaman ditolak dan dihitung', async () => {
     for (let i = 0; i < 3; i += 1) expect((await enqueue(redis, item(i), 3)).ok).toBe(true);
     expect(await enqueue(redis, item(9), 3)).toEqual({ ok: false, reason: 'full' });
