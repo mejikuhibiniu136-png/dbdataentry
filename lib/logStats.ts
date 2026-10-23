@@ -28,6 +28,11 @@ export function parseRarityChance(text: string): number {
   return Number.isFinite(score) ? score : 0;
 }
 
+// Batas waras waktu proses satu event (fungsi serverless maksimal 60 dtk). Log lama dari mode antrean pernah
+// menyimpan waktu tunggu antrean (berjam-jam) di processingTimeMs; nilai di atas batas dibuang dari statistik.
+export const MAX_PROCESSING_MS = 120_000;
+export const validProcessingMs = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= MAX_PROCESSING_MS;
+
 export interface Ranked { name: string; count: number }
 const top = (map: Record<string, number>, n?: number): Ranked[] => {
   const rows = Object.entries(map).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, count]) => ({ name, count }));
@@ -47,7 +52,7 @@ export function computeLogStats(logs: LogEntry[]) {
       const title = str(p.embeds?.[0]?.title);
       const user = userOfLog(log);
       const pm = Number(log.processingTimeMs);
-      if (Number.isFinite(pm) && pm >= 0) { sum += pm; cnt += 1; if (pm > maxMs) maxMs = pm; }
+      if (validProcessingMs(pm)) { sum += pm; cnt += 1; if (pm > maxMs) maxMs = pm; }
       const label = eventLabel(log);
       events[label] = (events[label] || 0) + 1;
       if (user && !isHeartbeat(log)) users[user] = (users[user] || 0) + 1;
@@ -148,7 +153,7 @@ export function latencySeries(logs: LogEntry[], username: string, max = 24): num
   for (const log of logs) {
     if (log.payload?.username !== username) continue;
     const x = Number(log.processingTimeMs);
-    if (Number.isFinite(x) && x >= 0) v.push(x);
+    if (validProcessingMs(x)) v.push(x);
     if (v.length >= max) break;
   }
   return v.reverse();

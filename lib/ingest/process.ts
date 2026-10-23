@@ -18,7 +18,10 @@ export interface ProcessInput {
   contentType: string | null;
   headers: Headers;
   query: URLSearchParams;
+  /** Awal pemrosesan (bukan waktu masuk antrean): dasar processingTimeMs. */
   startedAt: number;
+  /** Waktu item masuk antrean (mode antrean); selisihnya dicatat sebagai queueWaitMs. */
+  enqueuedAt?: number;
   defaultGame?: string;
   forceAccount?: boolean;
 }
@@ -44,6 +47,7 @@ export async function processIngest(redis: RedisLike, input: ProcessInput): Prom
   const makeLog = (nowMs: number): LogEntry => ({
     id: randomUUID(), game: game.slug, gameName: game.name, eventType, payload: parsed.data, format: parsed.format,
     bytes: verified.length, processingTimeMs: Math.max(0, nowMs - startedAt), receivedAt: new Date(nowMs).toISOString(),
+    ...(input.enqueuedAt != null ? { queueWaitMs: Math.max(0, startedAt - input.enqueuedAt) } : {}),
   });
   const base = { game: game.slug, gameName: game.name, newTable: game.isNew, format: parsed.format, bytes: verified.length };
 

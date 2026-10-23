@@ -36,6 +36,8 @@ export interface LogEntry {
   format: IngestFormat;
   bytes: number;
   processingTimeMs: number;
+  /** Mode antrean: lama item menunggu di antrean sebelum diproses (terpisah dari processingTimeMs). */
+  queueWaitMs?: number;
   receivedAt: string;
 }
 

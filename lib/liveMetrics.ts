@@ -1,5 +1,6 @@
 // Metrik waktu nyata dari log yang sudah dialirkan lewat /api/stream (tanpa koneksi tambahan): jendela 5 menit terakhir.
 import { isAccountStatusLog } from '@/lib/logInsights';
+import { validProcessingMs } from '@/lib/logStats';
 import type { LogEntry } from '@/types';
 
 export const LIVE_WINDOW_MS = 5 * 60_000;
@@ -8,7 +9,7 @@ export interface LiveMetrics { events: number; gameEvents: number; p95Ms: number
 
 export function computeLiveMetrics(logs: LogEntry[], nowMs: number): LiveMetrics {
   const recent = logs.filter((l) => { const t = Date.parse(l.receivedAt); return Number.isFinite(t) && nowMs - t <= LIVE_WINDOW_MS && t <= nowMs + 60_000; });
-  const ms = recent.map((l) => l.processingTimeMs).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  const ms = recent.map((l) => l.processingTimeMs).filter(validProcessingMs).sort((a, b) => a - b);
   const times = logs.map((l) => Date.parse(l.receivedAt)).filter(Number.isFinite);
   return {
     events: recent.length,

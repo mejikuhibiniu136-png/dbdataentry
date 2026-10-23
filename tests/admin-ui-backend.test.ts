@@ -175,4 +175,8 @@ describe('liveMetrics', () => {
     expect(m).toMatchObject({ events: 3, gameEvents: 2, p95Ms: 100, lastAgeSec: 10 });
     expect(computeLiveMetrics([], now)).toEqual({ events: 0, gameEvents: 0, p95Ms: 0, lastAgeSec: null });
   });
+  it('waktu proses mustahil (log lama berisi waktu tunggu antrean, 67 jam) dibuang dari p95', () => {
+    const m = computeLiveMetrics([log(10, 241_337_422), log(30, 10), log(60, 100)], now);
+    expect(m).toMatchObject({ events: 3, p95Ms: 100 });
+  });
 });

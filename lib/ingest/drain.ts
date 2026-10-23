@@ -31,7 +31,7 @@ export async function processItem(redis: RedisLike, item: QueueItem): Promise<un
   return processIngest(redis, {
     verified: new Uint8Array(Buffer.from(item.bodyB64, 'base64')),
     contentType: item.contentType, headers, query: new URLSearchParams(item.query),
-    startedAt: item.enqueuedAt, defaultGame: item.defaultGame, forceAccount: item.forceAccount,
+    startedAt: Date.now(), enqueuedAt: item.enqueuedAt, defaultGame: item.defaultGame, forceAccount: item.forceAccount,
   });
 }
 

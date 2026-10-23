@@ -151,6 +151,16 @@ d('antrean ingest (Redis sungguhan)', () => {
       expect(await raw.hget(KEYS.gamesCounts, 'queue-game')).toBe('1');
     });
 
+    it('item lama di antrean: processingTimeMs hanya waktu proses, waktu tunggu masuk queueWaitMs', async () => {
+      const threeDaysMs = 3 * 86_400_000;
+      const item = buildItem({ bytes: new TextEncoder().encode(JSON.stringify({ game_name: 'Queue Game', event: 'Win' })), contentType: 'application/json', headers: new Headers(), url: new URL('http://t/api/receiver/universal') }, Date.now() - threeDaysMs);
+      expect((await enqueue(redis, item)).ok).toBe(true);
+      expect((await drainQueue(redis)).processed).toBe(1);
+      const log = JSON.parse((await raw.lrange(KEYS.streamLogs, 0, 0))[0]);
+      expect(log.processingTimeMs).toBeLessThan(10_000);
+      expect(log.queueWaitMs).toBeGreaterThanOrEqual(threeDaysMs);
+    });
+
     it('payload melebihi batas item antrean tetap diproses langsung (200)', async () => {
       await writeSetting(redis, 'INGEST_QUEUE_ENABLED', true);
       const res = await handleIngest(post({ game_name: 'Queue Game', blob: 'x'.repeat(40_000) }), {}, { redis, scheduleDrain: () => undefined });
