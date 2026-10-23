@@ -99,14 +99,20 @@ async function authenticate(
   // Token per salinan skrip (x-wm): publik atau berlisensi (key + HWID). Identitas ini dipakai sebagai kunci rate limit
   // (per salinan, bukan per IP) dan bisa dicabut lewat deny-list jti. Salinan berlisensi yang dicabut / HWID salah ditolak;
   // token publik yang kedaluwarsa jatuh ke jalur anonim kecuali INGEST_REQUIRE_TOKEN=on.
-  const requireToken = (env.INGEST_REQUIRE_TOKEN ?? '').trim().toLowerCase() === 'on';
+  // Nilai tak dikenal tidak boleh mematikan kontrol keamanan diam-diam: terima on/true/1/yes (setara sakelar env lain).
+  const requireToken = ['on', 'true', '1', 'yes'].includes((env.INGEST_REQUIRE_TOKEN ?? '').trim().toLowerCase());
+  // Token PUBLIK terbit anonim (siapa pun bisa mengunduh /scripts/account_status.lua), jadi hanya menjadi identitas rate limit:
+  // ia tidak boleh menggantikan WEBHOOK_INGEST_TOKEN / "Wajibkan API Key". Hanya token berlisensi (key + HWID) yang lolos langsung.
+  let publicRateId: string | null = null;
   if (request.headers.get('x-wm')) {
     const ctl = await authenticateControl(request, redis);
     if (ctl.ok) {
       if (Number(await redis.exists(KEYS.jtiDenied(ctl.scriptId))) === 1) return { denied: json({ success: false, message: 'Salinan skrip diblokir' }, 403), keyId: null };
-      return { denied: null, keyId: ctl.rateId };
+      if (ctl.mode === 'key') return { denied: null, keyId: ctl.rateId };
+      publicRateId = ctl.rateId;
+    } else if (requireToken || ctl.reason === 'revoked' || ctl.reason === 'hwid') {
+      return { denied: scriptDenied(ctl), keyId: null };
     }
-    if (requireToken || ctl.reason === 'revoked' || ctl.reason === 'hwid') return { denied: scriptDenied(ctl), keyId: null };
   }
 
   const expected = (env.WEBHOOK_INGEST_TOKEN ?? '').trim();
@@ -114,12 +120,13 @@ async function authenticate(
   const bearer = /^bearer\s+/i.test(auth) ? auth.replace(/^bearer\s+/i, '').trim() : '';
   const provided = request.headers.get('x-api-key') || bearer; // ?key= tidak lagi diterima: key ikut tercatat di log URL
 
-  if (provided && expected && timingSafeEqual(sha(provided), sha(expected))) return { denied: null, keyId: null };
+  if (provided && expected && timingSafeEqual(sha(provided), sha(expected))) return { denied: null, keyId: publicRateId };
   if (provided) {
     const key = await authenticateApiKey(redis, provided);
     if (key) return { denied: null, keyId: key.id };
   }
-  if (!expected && !apiKeyRequired && !requireToken) return { denied: null, keyId: null };
+  // Jalur terbuka (tanpa kredensial wajib). INGEST_REQUIRE_TOKEN=on mensyaratkan token publik yang sah.
+  if (!expected && !apiKeyRequired && (publicRateId !== null || !requireToken)) return { denied: null, keyId: publicRateId };
   await recordSecurityEvent(redis, 'auth_fail');
   return { denied: json({ success: false, message: 'Unauthorized' }, 401), keyId: null };
 }

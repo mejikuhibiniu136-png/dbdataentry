@@ -15,7 +15,8 @@ const P1 = 'c'.repeat(64);
 const P2 = 'd'.repeat(64);
 
 d('perbaikan audit (Redis sungguhan)', () => {
-  const { redis, raw } = conn!;
+  // describe.skip tetap menjalankan callback ini saat koleksi: jangan melempar bila Redis tidak ada.
+  const { redis, raw } = conn ?? ({} as NonNullable<typeof conn>);
   beforeEach(async () => {
     await raw.flushdb();
     process.env.MAX_TRACKED_ACCOUNTS = '50';
