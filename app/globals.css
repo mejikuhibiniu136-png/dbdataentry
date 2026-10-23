@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-grotesk), 'Space Grotesk', var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jbmono), 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --color-ink: #070a12;
+  --color-cyan-glow: #22d3ee;
+  --color-violet-glow: #8b5cf6;
+  /* Kontras teks sekunder >= 4.5:1 di atas panel gelap (bawaan slate-500 ~4.0:1) */
+  --color-slate-500: #7d8ca3;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-pulse-dot: pulse-dot 1.8s ease-in-out infinite;
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @keyframes pulse-dot { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { box-shadow: 0 0 0 5px transparent; opacity: 0.6; } }
+}
+
+:root { color-scheme: dark; }
+
+html, body { min-height: 100%; }
+body {
+  @apply bg-ink font-sans text-slate-200 antialiased;
+  background-image:
+    radial-gradient(60rem 40rem at 8% -10%, rgb(34 211 238 / 0.14), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 0%, rgb(139 92 246 / 0.16), transparent 55%),
+    radial-gradient(40rem 30rem at 50% 110%, rgb(16 185 129 / 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+h1, h2, .font-display { font-family: var(--font-display); letter-spacing: -0.015em; }
+body { font-feature-settings: 'cv11', 'ss01'; } /* Inter: 'a' satu lantai + angka 1 lebih jelas */
+
+::selection { background: rgb(34 211 238 / 0.3); }
+:focus-visible { outline: 2px solid var(--color-cyan-glow); outline-offset: 2px; }
+
+/* Panel kaca */
+.glass {
+  @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.6);
+}
+.glass-hover { @apply transition-colors duration-150 hover:border-cyan-300/30 hover:bg-white/[0.06]; }
+
+/* Menu melayang (dropdown, panel): latar solid supaya teks di belakangnya tidak tembus */
+.glass-solid { background-color: #0c1220; backdrop-filter: none; }
+
+/* Spotlight mengikuti kursor (perangkat dengan mouse/trackpad saja) */
+@media (hover: hover) and (pointer: fine) {
+  .glass-hover:hover { background-image: radial-gradient(22rem circle at var(--mx, 50%) var(--my, 50%), rgb(34 211 238 / 0.10), transparent 65%); }
+}
+
+/* Aurora: tiga cahaya besar melayang pelan di belakang konten (hanya transform, ringan di GPU) */
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.aurora i { position: absolute; border-radius: 9999px; will-change: transform; }
+.aurora i:nth-child(1) { width: 46rem; height: 46rem; left: -10rem; top: -14rem; background: radial-gradient(closest-side, rgb(34 211 238 / 0.2), transparent); animation: aurora-a 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(2) { width: 42rem; height: 42rem; right: -12rem; top: 2rem; background: radial-gradient(closest-side, rgb(139 92 246 / 0.22), transparent); animation: aurora-b 32s ease-in-out infinite alternate; }
+.aurora i:nth-child(3) { width: 38rem; height: 38rem; left: 30%; bottom: -18rem; background: radial-gradient(closest-side, rgb(16 185 129 / 0.14), transparent); animation: aurora-c 38s ease-in-out infinite alternate; }
+@keyframes aurora-a { to { transform: translate3d(14rem, 9rem, 0) scale(1.15); } }
+@keyframes aurora-b { to { transform: translate3d(-12rem, 11rem, 0) scale(1.1); } }
+@keyframes aurora-c { to { transform: translate3d(-10rem, -8rem, 0) scale(1.2); } }
+
+/* Kilau sekali jalan saat kartu muncul */
+.shine { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.shine::after { content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 40%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.16), transparent); transform: translateX(-150%) skewX(-18deg); animation: shine-sweep 0.9s ease-out var(--shine-delay, 0.5s) forwards; }
+@keyframes shine-sweep { to { transform: translateX(350%) skewX(-18deg); } }
+
+/* Judul dengan kilau gradien yang bergeser pelan */
+.text-shimmer { background-image: linear-gradient(100deg, #fff 0%, #a5f3fc 30%, #c4b5fd 55%, #fff 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: text-sheen 7s ease-in-out infinite alternate; }
+@keyframes text-sheen { to { background-position: -100% 0; } }
+
+.field {
+  @apply min-h-10 pointer-coarse:min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 transition;
+  @apply focus:border-cyan-300/50 focus:bg-black/40 focus:outline-none focus:ring-2 focus:ring-cyan-300/20;
+}
+
+.skeleton {
+  @apply animate-shimmer rounded-xl;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.04) 25%, rgb(255 255 255 / 0.1) 50%, rgb(255 255 255 / 0.04) 75%);
+  background-size: 200% 100%;
+}
+
+/* Lompat ke konten utama (keyboard / pembaca layar) */
+.skip-link {
+  @apply fixed left-3 top-3 z-[70] -translate-y-20 rounded-xl bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 transition-transform duration-150;
+}
+.skip-link:focus { @apply translate-y-0; }
+
+/* Lonceng bergoyang sebentar saat ada notifikasi belum dibaca */
+.bell-ring { transform-origin: 50% 10%; animation: bell-ring 2.8s ease-in-out 0.4s infinite; }
+@keyframes bell-ring { 0%, 12%, 100% { transform: rotate(0); } 3% { transform: rotate(14deg); } 6% { transform: rotate(-12deg); } 9% { transform: rotate(7deg); } }
+
+/* Kartu statistik: garis cahaya tipis di tepi atas yang bernafas */
+.stat-edge::before { content: ''; position: absolute; left: 12%; right: 12%; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgb(34 211 238 / 0.7), transparent); opacity: 0.35; animation: edge-breathe 4.5s ease-in-out infinite; }
+@keyframes edge-breathe { 50% { opacity: 0.95; } }
+
+.glow-text { text-shadow: 0 0 24px rgb(34 211 238 / 0.45); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.json-key { color: #67e8f9; } .json-str { color: #86efac; } .json-num { color: #fcd34d; }
+.json-bool { color: #c4b5fd; } .json-null { color: #94a3b8; }
+
+/* Latar 3D muncul pelan */
+.scene-in { animation: scene-in 1.4s ease-out both; }
+@keyframes scene-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+
+/* Kilau menyapu tombol utama saat hover */
+.btn-sheen { position: relative; overflow: hidden; isolation: isolate; }
+.btn-sheen::after { content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 45%; pointer-events: none; background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.5), transparent); transform: translateX(-160%) skewX(-18deg); }
+@media (hover: hover) { .btn-sheen:hover:not(:disabled)::after { animation: btn-sweep 0.7s ease-out; } }
+@keyframes btn-sweep { to { transform: translateX(380%) skewX(-18deg); } }
+
+/* Angka berdenyut dan menyala sebentar saat nilainya berubah */
+.num-bump { display: inline-block; animation: num-bump 0.75s ease-out; }
+@keyframes num-bump { 0% { transform: scale(1.12); color: #67e8f9; text-shadow: 0 0 18px rgb(34 211 238 / 0.9); } 100% { transform: none; text-shadow: 0 0 0 transparent; } }
+
+/* Cincin gradien berputar mengelilingi logo (conic + mask; cadangan statis bila @property tak didukung) */
+@property --ring-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.ring-spin { position: relative; }
+.ring-spin::before { content: ''; position: absolute; inset: -2px; border-radius: inherit; padding: 2px; pointer-events: none; background: conic-gradient(from var(--ring-a), transparent 0 50%, #22d3ee, #8b5cf6, transparent); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ring-turn 3.2s linear infinite; }
+@keyframes ring-turn { to { --ring-a: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-spin::before, .btn-sheen::after { animation: none; }
+  .aurora i, .text-shimmer { animation: none; }
+  .shine { display: none; }
+  .bell-ring, .stat-edge::before { animation: none; }
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
